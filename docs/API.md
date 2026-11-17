@@ -54,6 +54,46 @@ routes also accept `HEAD` and return headers only.
 
 Returns `200 OK` with `{"status":"ok","service":"api"}`.
 
+## `POST /briefings`
+
+Send `{"goal":"Seed the demo with test data"}` to start the interview. Returns
+`201 Created` with the current interview. The Interviewer asks one question at
+a time, up to ten questions, and may write the Briefing sooner.
+
+```json
+{
+  "id": "ef497d44-0aff-4230-9aa3-573b24efb979",
+  "goal": "Seed the demo with test data",
+  "status": "interview",
+  "question": "Who will use the seed data?",
+  "question_number": 1,
+  "version": null,
+  "markdown": null
+}
+```
+
+When complete, `status` is `complete`, `version` is `1`, and `markdown`
+contains the full Briefing. `question` and `question_number` become `null`.
+The runnable API stores interviews in `.bulletin-scratch/api/briefings.jsonl`.
+
+## `POST /briefings/:id/answers`
+
+Send `{"question_number":1,"answer":"Developers running the demo locally."}`.
+Send `"answer":null` to skip the question. Returns `200 OK` with the updated
+interview. A stale question number, an answer already being processed, or a
+completed interview returns `409 Conflict` with
+`{"error":"Briefing is not awaiting this answer"}`.
+
+## `GET /briefings/:id`
+
+Returns `200 OK` with the same interview shape, including the full Markdown
+when complete. Unknown IDs return `404 Not Found` with
+`{"error":"Briefing not found"}`. Starting or answering an interview returns
+`503 Service Unavailable` with `{"error":"Interviewer not configured"}` when
+the model is unavailable in server configuration. If a model call fails or
+invalid output persists after a retry, the response is `502 Bad Gateway` with
+`{"error":"Interviewer failed"}` and the previous interview state is retained.
+
 ## `GET /missions`
 
 Returns `200 OK` with missions ordered by their creation event, oldest first.
@@ -82,6 +122,9 @@ on `mission.finished`. A `mission.finished` event with `payload.status` set to
 ## `POST /missions`
 
 Send `{"goal":"Seed the demo with test data","repo":"D:/repos/todo-app"}`.
+Include `briefing_id` to plan against a completed interview. A missing
+Briefing returns `404` with `{"error":"Briefing not found"}`. A Briefing in
+progress returns `409` with `{"error":"Briefing is incomplete"}`.
 The API reads the current commit of the local Git repository and runs the
 General with the goal and repository map. It returns `201 Created` when the
 General produces a valid `@bulletin/core` `Plan`.
@@ -110,6 +153,8 @@ General produces a valid `@bulletin/core` `Plan`.
 
 Success emits `mission.created` with `goal`, `repo` (the local repository root),
 and `base`, then `plan.proposed` with the validated `plan` and the `units` count.
+When `briefing_id` is supplied, the API also emits `briefing.versioned` with
+`briefing_id`, `version`, and `markdown` before proposing the plan.
 The new mission is visible in `GET /missions` with status `planning`.
 
 - `400 Bad Request` for invalid JSON fields, with `{"error":"Invalid request"}`.
