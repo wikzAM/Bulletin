@@ -16,5 +16,9 @@ putting your branch next to it. Merge happens only from the Claude Code session,
 
 ## Status
 - general: not started
-- warroom-api: not started
 - web-shell: not started
+- warroom-api: complete on `codex/warroom-api`.
+  - API contract published first in `docs/API.md`.
+  - Mission list and detail project units and ledger totals from core events.
+  - SSE replays history, resumes from a cursor, and follows live events.
+  - `pnpm run verify` passed with 176 tests.

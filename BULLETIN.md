@@ -47,3 +47,9 @@
 - question: Docker Desktop crashes on start ("remove ...dockerInference: The file cannot be accessed by the system"). Windows refuses to delete the three stale socket files in `%LOCALAPPDATA%\Dockerun` (dockerInference, dockerEthernetVfkit, userAnalyticsOtlpHttp.sock) even from Node: access denied. Reboot, or delete them from an administrator terminal, then start Docker and run `docker compose up` and `curl localhost:4000/health`?
 - note: the api and pass-worker `/health` endpoints were verified by running them directly with tsx.
 - status: open
+
+## [2026-11-17] War table engine integration
+
+- Which unit should connect engine runs to the API process? `buildServer(log)` can read the same `MemoryEventLog` as an in-process runner, while `bulletin run` currently creates its own log in a separate process.
+- Which unit should expose the full plan to the war table? The current `plan.proposed` payload carries counts. Unit IDs, lanes, and wave numbers become visible as the engine emits them. Rendering the complete planned graph before execution also requires titles and dependency edges.
+- status: open
