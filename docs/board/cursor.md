@@ -24,3 +24,4 @@
 - [x] 23. Interrupted and stopped states on the project list and page (mission.finished payload stopped/interrupted), with fixtures and tests.
 - [ ] 24. (tick 5) A mission paused by its budget shows as "Paused: spending limit reached" with spent vs limit, and offers raising the limit as an explanation only (no API for that yet). Fixture + tests; the existing paused fixture may already cover part of this.
 - [ ] 25. Final review pass over the whole web app: unused code, copy, keyboard order, contrast in both themes; list anything you could not resolve on BULLETIN.md.
+- [ ] 26. (tick 6) Report view on a finished project (GET /missions/:id/report once Codex documents it in docs/API.md after the next merge): what shipped, what is held or failed, cost per finished task, how often a person had to step in. Mock first, adapter tested.

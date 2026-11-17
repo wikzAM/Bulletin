@@ -80,3 +80,4 @@
 2026-11-17 08:59 EST | Codex | 23. Runtime mission budget and paused status | codex/warroom-api@16af813 | verify green (479 tests)
 2026-11-17 09:02 EST | Codex | 24. JSONL rotation and managed startup warnings | codex/warroom-api@7bafcc3 | verify green (484 tests)
 08:54 | cursor | 20/21 follow-up: decisions and rules on the documented routes (live tests; no integration branch yet and resolution-in-progress have their own messages) | cursor/web-shell@24e771e | verify green (479 tests), web build green
+09:58 | coordinator | tick 6: merged codex (budget passthrough, log rotation, managed warnings) and cursor (squashed: live decisions/rules routes); main 485 tests green; codex queue was empty -> refilled 25-28; cursor 26 added
