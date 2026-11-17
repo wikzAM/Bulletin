@@ -347,9 +347,31 @@ button:disabled {
   padding: 0.5rem 0.75rem;
 }
 
+.approve {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-width: 40rem;
+  margin-bottom: 1.5rem;
+  padding: 0.75rem 1rem;
+  background: var(--card);
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+}
+
+.approve h2,
+.approve p {
+  margin: 0;
+}
+
 .notice.info {
   background: var(--card);
   border-color: var(--accent);
+}
+
+.notice.warning {
+  background: var(--card);
+  border-color: var(--held);
 }
 
 .steps {
@@ -415,7 +437,8 @@ main {
   color: var(--muted);
 }
 
-table.missions {
+table.missions,
+table.settings {
   width: 100%;
   border-collapse: collapse;
   background: var(--card);
@@ -423,7 +446,9 @@ table.missions {
 }
 
 table.missions th,
-table.missions td {
+table.missions td,
+table.settings th,
+table.settings td {
   text-align: left;
   padding: 0.6rem 0.8rem;
   border-bottom: 1px solid var(--border);
@@ -641,4 +666,17 @@ table.missions td {
   border: 1px solid var(--border);
   font-size: 0.8rem;
   color: var(--muted);
+}
+
+.settings-section {
+  margin-top: 1.5rem;
+}
+
+table.settings code {
+  font-size: 0.95rem;
+}
+
+.spend-meter {
+  min-width: 6rem;
+  margin-top: 0.3rem;
 }

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { copy } from "../lib/copy";
 import { DEMO_SCENARIOS, demoScenario, demoState } from "../lib/fixtures";
 import { summarizeTreasury } from "../lib/treasury";
-import { describeEvent, groupWaves, unitTitles, type UnitCard } from "../lib/war-table";
+import { describeEvent, groupWaves, reduceEvents, unitTitles, type UnitCard } from "../lib/war-table";
 
 const byId = (id: string) => {
   const s = demoScenario(id);
@@ -91,5 +91,9 @@ describe("groupWaves", () => {
     expect(waves.map(([w]) => w)).toEqual([...waves.map(([w]) => w)].sort((a, b) => a - b));
     expect(waves.flatMap(([, list]) => list.map((u) => u.id))).toHaveLength(state.order.length);
     for (const [wave, list] of waves) for (const u of list) expect(u.wave).toBe(wave);
+  });
+
+  it("is empty before there is a plan, so the board shows its empty message", () => {
+    expect(groupWaves(reduceEvents([], []))).toEqual([]);
   });
 });

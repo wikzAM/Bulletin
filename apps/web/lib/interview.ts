@@ -115,6 +115,19 @@ export function answersPayload(state: FlowState): { question_id: string; answer:
   return state.questions.map((q) => ({ question_id: q.id, answer: state.answers[q.id] ?? null }));
 }
 
+/** The answer the API needs for this action: the question on screen and its text, null when skipped or blank. */
+export function pendingAnswer(state: FlowState, action: FlowAction): { question: InterviewQuestion; answer: string | null } | null {
+  const question = currentQuestion(state);
+  if (!question || (action.type !== "answer" && action.type !== "skip")) return null;
+  return { question, answer: action.type === "answer" ? action.text.trim() || null : null };
+}
+
+/** Plan from the stored Briefing unless the user changed the text; edited text goes as the goal. */
+export function planRequest(state: FlowState): { goal: string; repo: string; briefingId: string | null } {
+  if (state.briefingId && !state.edited && state.notice === null) return { goal: state.goal, repo: state.repo, briefingId: state.briefingId };
+  return { goal: state.briefing.trim(), repo: state.repo, briefingId: null };
+}
+
 /** The spec's Briefing template (section 8) with only the goal filled in. */
 export function briefingFromGoal(goal: string): string {
   const text = goal.trim();

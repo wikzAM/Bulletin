@@ -1,10 +1,13 @@
 import type { BulletinEvent, EventType } from "@bulletin/core";
+import models from "../../../config/models.json";
+import prices from "../../../config/prices.json";
 import type { BriefingReply } from "./api-adapters";
 import { briefingFromGoal, briefingGoal } from "./interview";
-import type { CreateMissionResponse, MissionDetail, MissionSummary, Question, TreasuryInfo } from "./types";
+import type { ApproveResult, CreateMissionResponse, MissionDetail, MissionSummary, Question, TreasuryInfo } from "./types";
 
 const TODO_ID = "m-todo";
 const NOTES_ID = "m-notes";
+const SEARCH_ID = "m-search";
 
 export const mockMissions: MissionDetail[] = [
   {
@@ -32,7 +35,38 @@ export const mockMissions: MissionDetail[] = [
     units_done: 1,
     units: [{ id: "u1", title: "Preview pane", lane: "open", wave: 1, needs: [] }],
   },
+  {
+    id: SEARCH_ID,
+    goal: "Search across all notes",
+    status: "planning",
+    created_at: "2026-11-17T08:10:00.000Z",
+    repo: "examples/notes",
+    units_total: 3,
+    units_done: 0,
+    units: [
+      { id: "u1", title: "Search index", lane: "gated", wave: 1, needs: [] },
+      { id: "u2", title: "Search box", lane: "open", wave: 2, needs: ["u1"] },
+      { id: "u3", title: "Highlight matches", lane: "open", wave: 2, needs: ["u1"] },
+    ],
+  },
 ];
+
+/** Rough per-task estimate for the mock cost guard. */
+const MOCK_TASK_ESTIMATE_CENTS = 15;
+
+/** Mirrors POST /missions/:id/approve: refuses when the estimate is over budget, otherwise starts. */
+export function mockApproveMission(id: string): ApproveResult {
+  const mission = mockMissions.find((m) => m.id === id);
+  if (!mission) return { ok: false, reason: "not_found" };
+  if (mission.status !== "planning") return { ok: false, reason: "already" };
+  const budget = mockTreasury[id]?.budget_cents ?? null;
+  const estimate = mission.units.length * MOCK_TASK_ESTIMATE_CENTS;
+  if (budget !== null && estimate > budget) {
+    return { ok: false, reason: "over_budget", budget_cents: budget, estimated_cents: estimate, spent_cents: 0, shortfall_cents: estimate - budget };
+  }
+  mission.status = "running";
+  return { ok: true };
+}
 
 export function mockSummaries(): MissionSummary[] {
   return mockMissions.map(({ id, goal, status, created_at, units_total, units_done }) => ({
@@ -100,36 +134,45 @@ export const mockQuestions: Question[] = [
   },
 ];
 
+/** Asked one at a time, like the API; the section each answer fills in the Briefing template. */
 const MOCK_INTERVIEW = [
-  { id: "users", text: "Who will use this, and what do they need from it?" },
-  { id: "features", text: "Which features matter most, and how would you check that each one works?" },
-  { id: "constraints", text: "Any limits to respect: stack, hosting, deadline or budget?" },
-  { id: "out", text: "Is there anything it should not do?" },
+  { text: "Who will use this, and what do they need from it?", section: "## Users" },
+  { text: "Which features matter most, and how would you check that each one works?", section: "## Features" },
+  { text: "Any limits to respect: stack, hosting, deadline or budget?", section: "## Constraints" },
+  { text: "Is there anything it should not do?", section: "## Out of scope" },
 ];
 
-const mockGoals = new Map<string, string>();
+const mockInterviews = new Map<string, { goal: string; answers: (string | null)[] }>();
 
-export function mockStartBriefing(goal: string): BriefingReply {
-  const briefingId = `b-${mockGoals.size + 1}`;
-  mockGoals.set(briefingId, goal);
-  return { kind: "questions", briefingId, questions: MOCK_INTERVIEW };
+function mockQuestion(briefingId: string, n: number): BriefingReply {
+  const q = MOCK_INTERVIEW[n - 1];
+  return q ? { kind: "questions", briefingId, questions: [{ id: String(n), text: q.text }] } : { kind: "questions", briefingId, questions: [] };
 }
 
-/** The spec's Briefing template filled from the goal and the answers; skipped questions leave a section empty. */
-export function mockBriefingMarkdown(goal: string, answers: { question_id: string; answer: string | null }[]): string {
-  const byId = new Map(answers.map((a) => [a.question_id, a.answer]));
+export function mockStartBriefing(goal: string): BriefingReply {
+  const briefingId = `b-${mockInterviews.size + 1}`;
+  mockInterviews.set(briefingId, { goal, answers: [] });
+  return mockQuestion(briefingId, 1);
+}
+
+/** The spec's Briefing template filled from the goal and the answers in order; skipped questions leave a section empty. */
+export function mockBriefingMarkdown(goal: string, answers: (string | null)[]): string {
+  const bySection = new Map(MOCK_INTERVIEW.map((q, i) => [q.section, answers[i] ?? null]));
   const lines = briefingFromGoal(goal).trimEnd().split("\n");
-  const fill: Record<string, string> = { "## Users": "users", "## Features": "features", "## Constraints": "constraints", "## Out of scope": "out" };
   return `${lines.flatMap((line) => {
-    const answer = fill[line] ? byId.get(fill[line]) : null;
+    const answer = bySection.get(line);
     return answer ? [line, answer] : [line];
   }).join("\n")}\n`;
 }
 
-export function mockAnswerBriefing(briefingId: string, answers: { question_id: string; answer: string | null }[]): BriefingReply {
-  return { kind: "briefing", briefingId, markdown: mockBriefingMarkdown(mockGoals.get(briefingId) ?? "", answers) };
+export function mockAnswerBriefing(briefingId: string, questionId: string, answer: string | null): BriefingReply {
+  const interview = mockInterviews.get(briefingId) ?? { goal: "", answers: [] };
+  if (Number(questionId) === interview.answers.length + 1) interview.answers.push(answer);
+  mockInterviews.set(briefingId, interview);
+  const next = interview.answers.length + 1;
+  if (next <= MOCK_INTERVIEW.length) return mockQuestion(briefingId, next);
+  return { kind: "briefing", briefingId, markdown: mockBriefingMarkdown(interview.goal, interview.answers) };
 }
-
 /** A canned General reply. A goal containing "broken" returns validator errors instead of a plan. */
 export function mockCreateMission(goal: string, repo: string): CreateMissionResponse {
   if (/broken/i.test(goal)) {
@@ -162,6 +205,8 @@ export function mockCreateMission(goal: string, repo: string): CreateMissionResp
 export const mockTreasury: Record<string, TreasuryInfo> = {
   [TODO_ID]: { budget_cents: 16 },
   [NOTES_ID]: { budget_cents: 500 },
+  /** Below the mock estimate, so approving shows the cost guard. */
+  [SEARCH_ID]: { budget_cents: 30 },
 };
 
 type Step = [type: EventType, unitId: string | null, payload?: Record<string, unknown>];
@@ -218,6 +263,10 @@ export const mockEvents: Record<string, BulletinEvent[]> = {
     ["unit.held", "u1", { lane: "gated", attempt: 2, branch: "bulletin/m-todo/u1-a2" }],
     ["decision.opened", "u1", { kind: "gated_retry", branch: "bulletin/m-todo/u1-a2" }],
   ]),
+  [SEARCH_ID]: build(SEARCH_ID, [
+    ["mission.created", null, { repo: "examples/notes", base: "main", budget_cents: 30 }],
+    ["plan.proposed", null, { units: 3, waves: 2 }],
+  ]),
   [NOTES_ID]: build(NOTES_ID, [
     ["mission.created", null, { repo: "examples/notes", base: "main" }],
     ["plan.approved", null],
@@ -228,3 +277,21 @@ export const mockEvents: Record<string, BulletinEvent[]> = {
     ["mission.finished", null, { shipped: 1, held: 0, failed: 0 }],
   ]),
 };
+
+/** A guess at the GET /config body. Model names and prices come from config/, never from code. */
+export function mockSettings(): unknown {
+  return {
+    models,
+    prices,
+    limits: { maxUnits: 12, maxAttempts: 3, parallel: 4, maxQuestionsPerAttempt: 10, maxDiffLines: 400 },
+    default_budget_cents: 500,
+  };
+}
+/** Spend for one mock project: its ledger.charged costs and its mock budget. */
+export function mockSpend(id: string): { spent_cents: number; budget_cents: number | null } | null {
+  if (!mockMissions.some((m) => m.id === id)) return null;
+  const spent = (mockEvents[id] ?? [])
+    .filter((e) => e.type === "ledger.charged")
+    .reduce((sum, e) => sum + (typeof e.payload.cost_cents === "number" ? e.payload.cost_cents : 0), 0);
+  return { spent_cents: spent, budget_cents: mockTreasury[id]?.budget_cents ?? null };
+}

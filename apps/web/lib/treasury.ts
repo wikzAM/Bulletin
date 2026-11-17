@@ -6,6 +6,11 @@ export const WARNING_RATIO = 0.8;
 
 export type BudgetLevel = "ok" | "warning" | "over" | "unknown";
 
+export function budgetLevel(spent: number, budget: number | null): BudgetLevel {
+  if (budget === null || budget <= 0) return "unknown";
+  return spent > budget ? "over" : spent / budget > WARNING_RATIO ? "warning" : "ok";
+}
+
 export interface TreasurySummary {
   spent_cents: number;
   budget_cents: number | null;
@@ -32,7 +37,7 @@ export function summarizeTreasury(state: WarTableState, info: TreasuryInfo | nul
   }
 
   const ratio = spent / budget;
-  const level: BudgetLevel = spent > budget ? "over" : ratio > WARNING_RATIO ? "warning" : "ok";
+  const level = budgetLevel(spent, budget);
   return {
     spent_cents: spent,
     budget_cents: budget,

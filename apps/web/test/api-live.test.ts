@@ -91,6 +91,12 @@ const seed: Omit<NewEvent, "mission_id">[] = [
   { type: "unit.merged", unit_id: "store", payload: { attempt: 2 } },
 ];
 
+const BRIEFING = [
+  "# Briefing: Due dates", "## Goal", "Add due dates to todo items.", "## Users", "People with long lists.",
+  "## Features", "1. Due dates - Acceptance: a todo shows its due date.",
+  "## Constraints", "Local only.", "## Out of scope", "Reminders.", "## Decisions log",
+].join("\n");
+
 let app: ReturnType<typeof buildServer>;
 let log: MemoryEventLog;
 let api: typeof ApiModule;
@@ -102,6 +108,10 @@ beforeAll(async () => {
   app = buildServer(log, {
     modelCall: async (_system, user) =>
       JSON.stringify(user.includes("broken") ? { briefing_version: 1, units: [{ ...plan.units[1], needs: [{ unit: "store", reads: "" }] }] } : plan),
+    interviewerCall: async (_system, user) => {
+      const answers = (JSON.parse(user) as { answers: unknown[] }).answers;
+      return JSON.stringify(answers.length < 2 ? { question: `Question ${answers.length + 1}?` } : { markdown: BRIEFING });
+    },
   });
   const address = await app.listen({ port: 0, host: "127.0.0.1" });
   vi.stubEnv("NEXT_PUBLIC_API_URL", address);
@@ -142,6 +152,12 @@ describe("lib/api.ts against the real API", () => {
     expect(await api.getTreasury("other")).toBeNull();
   });
 
+  it("totals spend per project from the missions and treasury routes", async () => {
+    const spend = await api.listProjectSpend();
+    expect(spend.find((p) => p.id === M)).toMatchObject({ status: "running", spent_cents: 17.5, budget_cents: 20 });
+    expect(spend.find((p) => p.id === "other")).toMatchObject({ spent_cents: 0, budget_cents: null });
+  });
+
   it("lists and answers a question", async () => {
     const created = await app.inject({ method: "POST", url: "/questions", payload: { mission_id: M, unit_id: "store", body: "Include a time?" } });
     expect(created.statusCode).toBe(201);
@@ -166,6 +182,73 @@ describe("lib/api.ts against the real API", () => {
 
     await expect(api.createMission("Add due dates", "Z:/no/such/repo")).rejects.toThrow("Repository unavailable");
   }, 30_000);
+
+  it("runs the interview one question at a time, then plans from the stored Briefing", async () => {
+    const start = await api.startBriefing("Add due dates");
+    expect(start).toMatchObject({ kind: "questions", questions: [{ id: "1", text: "Question 1?" }] });
+    if (start.kind !== "questions") return;
+
+    const second = await api.answerBriefing(start.briefingId, "1", "People with long lists");
+    expect(second).toMatchObject({ kind: "questions", questions: [{ id: "2", text: "Question 2?" }] });
+    await expect(api.answerBriefing(start.briefingId, "1", "again")).rejects.toThrow("409");
+
+    const done = await api.answerBriefing(start.briefingId, "2", null);
+    expect(done).toEqual({ kind: "briefing", briefingId: start.briefingId, markdown: BRIEFING });
+
+    const planned = await api.createMission("Add due dates", process.cwd(), start.briefingId);
+    expect(planned.ok).toBe(true);
+    const versioned = log.events.find((e) => e.type === "briefing.versioned" && e.payload.briefing_id === start.briefingId);
+    expect(versioned?.payload.markdown).toBe(BRIEFING);
+  }, 30_000);
+
+  it("reports no interviewer when the API has no model for it", async () => {
+    const bare = buildServer(new MemoryEventLog());
+    const address = await bare.listen({ port: 0, host: "127.0.0.1" });
+    try {
+      vi.stubEnv("NEXT_PUBLIC_API_URL", address);
+      vi.resetModules();
+      const bareApi = await import("../lib/api");
+      expect(await bareApi.startBriefing("Add due dates")).toEqual({ kind: "unavailable" });
+    } finally {
+      await bare.close();
+    }
+  });
+
+  it("approves a plan, and reports the cost guard and repeat approvals", async () => {
+    const approvals = new MemoryEventLog();
+    const unit = { id: "seed", title: "Seed", task: "t", files: ["src/seed.ts"], tier: "station", estimate: { input_tokens: 1_000_000, output_tokens: 0 } };
+    for (const [id, budget] of [["ready", 5000], ["tight", 500]] as const) {
+      await approvals.emit({ mission_id: id, type: "mission.created", payload: { repo: "/repos/demo", base: "main", budget_cents: budget } });
+      await approvals.emit({ mission_id: id, type: "plan.proposed", payload: { plan: { briefing_version: 1, units: [unit] } } });
+    }
+    const started: string[] = [];
+    const server = buildServer(approvals, {
+      pricing: {
+        prices: { currency: "USD", unit: "per_million_tokens", as_of: "test", models: { priced: { input: 10, output: 20, cache_write: 0, cache_read: 0 } } },
+        tiers: { station: "priced" },
+      },
+      startMission: async ({ missionId }) => {
+        started.push(missionId);
+      },
+    });
+    const address = await server.listen({ port: 0, host: "127.0.0.1" });
+    try {
+      vi.stubEnv("NEXT_PUBLIC_API_URL", address);
+      vi.resetModules();
+      const approveApi = await import("../lib/api");
+
+      expect(await approveApi.approveMission("ready")).toEqual({ ok: true });
+      expect(started).toEqual(["ready"]);
+      expect(await approveApi.approveMission("ready")).toEqual({ ok: false, reason: "already" });
+
+      const tight = await approveApi.approveMission("tight");
+      expect(tight).toMatchObject({ ok: false, reason: "over_budget", budget_cents: 500 });
+      if (!tight.ok && tight.reason === "over_budget") expect(tight.shortfall_cents).toBe(tight.estimated_cents - 500);
+      expect(await approveApi.approveMission("nope")).toEqual({ ok: false, reason: "not_found" });
+    } finally {
+      await server.close();
+    }
+  });
 
   it("streams the mission's events, then live ones, into the reducer", async () => {
     const replay = log.events.filter((e) => e.mission_id === M);

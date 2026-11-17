@@ -102,6 +102,8 @@ describe("questions", () => {
     expect(toQuestion({ ...raw, auto_result: "SILENT" })?.auto_result).toBe("silent");
     expect(toQuestion({ ...raw, answerer_result: "contradiction" })?.auto_result).toBe("contradiction");
     expect(toQuestion({ ...raw, auto_result: "maybe" })?.auto_result).toBeNull();
+    expect(toQuestion({ ...raw, auto_answer_tried: true })?.auto_result).toBe("silent");
+    expect(toQuestion({ ...raw, auto_answer_tried: false })?.auto_result).toBeNull();
   });
 
   it("treats an answered question with no source as answered by a person", () => {
@@ -117,6 +119,20 @@ describe("questions", () => {
 });
 
 describe("toBriefingReply", () => {
+  it("reads the documented one-question-at-a-time interview", () => {
+    const base = { id: "b1", goal: "Seed demo data", version: null, markdown: null };
+    expect(toBriefingReply({ ...base, status: "interview", question: "Who uses it?", question_number: 2 })).toEqual({
+      kind: "questions",
+      briefingId: "b1",
+      questions: [{ id: "2", text: "Who uses it?" }],
+    });
+    expect(toBriefingReply({ ...base, status: "complete", question: null, question_number: null, version: 1, markdown: "# Briefing: x\n## Goal\ny" })).toEqual({
+      kind: "briefing",
+      briefingId: "b1",
+      markdown: "# Briefing: x\n## Goal\ny",
+    });
+  });
+
   it("reads interviewer questions in several shapes", () => {
     expect(toBriefingReply({ id: "b1", questions: [{ id: "a", text: "Who?" }, { id: "b", question: "What?" }, "Why?"] })).toEqual({
       kind: "questions",

@@ -49,6 +49,8 @@ export interface WarTableState {
   units: Record<string, UnitCard>;
   feed: FeedItem[];
   finished: boolean;
+  /** Set by plan.approved. */
+  approved: boolean;
   /** Set by budget.paused; cleared when any attempt starts again. */
   paused: boolean;
 }
@@ -128,6 +130,7 @@ export function initialState(units: PlannedUnit[]): WarTableState {
     units: Object.fromEntries(units.map((u) => [u.id, card(u)])),
     feed: [],
     finished: false,
+    approved: false,
     paused: false,
   };
 }
@@ -209,6 +212,7 @@ export function applyEvent(state: WarTableState, event: BulletinEvent): WarTable
     units,
     feed,
     finished: state.finished || event.type === "mission.finished",
+    approved: state.approved || event.type === "plan.approved",
     paused: event.type === "budget.paused" ? true : event.type === "attempt.started" ? false : state.paused,
   };
 }

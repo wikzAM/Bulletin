@@ -26,7 +26,7 @@ export default async function MissionPage({ params }: { params: Promise<{ id: st
       <p className="muted">
         {mission.repo} · <span className="badge">{copy.missionStatus[mission.status]}</span>
       </p>
-      <WarTable missionId={mission.id} units={mission.units} treasury={treasury} />
+      <WarTable missionId={mission.id} status={mission.status} units={mission.units} treasury={treasury} />
     </main>
   );
 }

@@ -52,7 +52,24 @@ export type CreateMissionResponse =
   | { ok: true; mission_id: string; plan: Plan; attempts: number }
   | { ok: false; mission_id: string | null; errors: string[]; attempts: number };
 
+export type ApproveRefusal = "already" | "no_plan" | "unpriced" | "not_configured" | "not_found";
+
+export type ApproveResult =
+  | { ok: true }
+  | { ok: false; reason: "over_budget"; budget_cents: number; estimated_cents: number; spent_cents: number; shortfall_cents: number }
+  | { ok: false; reason: ApproveRefusal };
+
 export interface MissionDetail extends MissionSummary {
   repo: string;
   units: PlannedUnit[];
+}
+
+/** What GET /config reports for the settings page: models per job, prices and limits. No secrets. */
+export interface SettingsInfo {
+  roles: { role: string; model: string; fallback: string | null; escalate: string | null }[];
+  tiers: { tier: string; model: string }[];
+  prices: { model: string; input: number; output: number }[];
+  pricesAsOf: string | null;
+  limits: Record<string, number>;
+  defaultBudgetCents: number | null;
 }

@@ -100,15 +100,31 @@
 - recommendation: (a) once another client needs draft events or the prompt.
 - working default: API-local template and JSONL draft snapshots. Attaching a complete Briefing to a mission emits `briefing.versioned`.
 - status: open
+
 ## [2026-11-17] web: Briefing route shapes assumed by the guided /new page
 - question: `/new` is now goal, then questions, then the requirements (Briefing) for review, then the plan. `docs/API.md` has no Briefing routes yet (Codex task 11), so `apps/web/lib/api.ts` assumes: `POST /briefings {goal, repo}` and `POST /briefings/:id/answers {answers: [{question_id, answer|null}]}`, each replying either `{briefing_id, questions: [{id, text}]}` (more questions) or `{briefing_id, briefing: "<markdown>"}` (done). The adapter also accepts `id`, `markdown`/`text`, and questions as strings or `{id, question}`. The plan is then requested with the existing `POST /missions {goal: <Briefing markdown>, repo}`.
 - options: (a) Codex builds the routes to these shapes; (b) Codex documents different shapes and Cursor adapts `lib/api-adapters.ts` (one function)
 - recommendation: (a), or (b) if the engine already differs; either is a small change on the web side.
 - working default: when `POST /briefings` returns 404/405 the page skips the questions and opens the review step with the Briefing template filled from the goal, so `/new` works against today's API.
-- status: open
+- status: resolved (2026-11-17). Codex documented the routes in `docs/API.md`; the web now sends `{goal}`, one `{question_number, answer}` per question, and plans with `briefing_id` unless the user edited the text (then the edited text goes as `goal`). 404/405/503 still fall back to goal-only review. `apps/web/test/api-live.test.ts` covers it against the real routes.
+
 ## [2026-11-17] web: questions need `source`, `briefing_ref` and the answerer's verdict
 - question: Spec section 9 says a question reaches a person only after the automatic answerer replied SILENT or found a contradiction, and auto-answers cite a Briefing section. `GET /questions` returns none of that yet. Can the question objects carry `source` (`cache|briefing|human`), `briefing_ref`, and `auto_result` (`"silent"|"contradiction"|null`, the answerer's verdict before the handover)?
 - options: (a) add the three fields to the question objects; (b) keep them only in events and let the web rebuild them from the stream
 - recommendation: (a). The board is a plain list, not a stream view.
 - working default: the web reads them when present (also `answerer_result` for the verdict, case-insensitive); without them an open question shows "Needs an answer" and an answered one "Answered by a person". Mock data shows both states.
-- status: open
+- status: resolved (2026-11-17). `docs/API.md` now returns `source`, `briefing_ref` and `auto_answer_tried: true`; the web reads `auto_answer_tried` as the SILENT handover. A contradiction outcome would need its own value if the Answerer ever reports one.
+
+## web: GET /config shape (cursor, 2026-11-17)
+
+- question: what body will GET /config (codex task 18) return? /settings guesses
+  `{models:{roles,tiers}, prices:{as_of,models}, limits:{maxUnits,...}, default_budget_cents}`.
+  If the real shape differs, only toSettings in apps/web/lib/api-adapters.ts needs to change.
+- status: open.
+## web: dead code kept because tests cover it (cursor, 2026-11-17)
+
+- question: may cursor delete `answersPayload` and the `back` action in apps/web/lib/interview.ts, together
+  with their tests in apps/web/test/interview.test.ts? The /new flow now sends one answer at a time
+  (pendingAnswer) and has no Back button, so nothing in the app uses them. The rules forbid deleting
+  tests without a decision, so they stay until someone says yes.
+- status: open.

@@ -1,5 +1,6 @@
 import type { BulletinEvent } from "@bulletin/core";
 import {
+  toApproveResult,
   toBriefingReply,
   toCreateMissionResponse,
   type BriefingReply,
@@ -7,11 +8,14 @@ import {
   toMissionSummaries,
   toQuestion,
   toQuestions,
+  toSettings,
+  toSpendInfo,
   toTreasuryInfo,
 } from "./api-adapters";
 import { EVENT_TYPE_LIST, parseEventData } from "./guards";
-import { mockAnswerBriefing, mockCreateMission, mockEvents, mockStartBriefing, mockMissions, mockQuestions, mockSummaries, mockTreasury } from "./mock";
-import type { CreateMissionResponse, MissionDetail, MissionSummary, Question, TreasuryInfo } from "./types";
+import { mockAnswerBriefing, mockApproveMission, mockCreateMission, mockEvents, mockStartBriefing, mockMissions, mockQuestions, mockSettings, mockSpend, mockSummaries, mockTreasury } from "./mock";
+import type { ProjectSpend } from "./spend";
+import type { ApproveResult, CreateMissionResponse, MissionDetail, MissionSummary, Question, SettingsInfo, TreasuryInfo } from "./types";
 
 /**
  * The only module that talks to the API (routes in docs/API.md). With NEXT_PUBLIC_API_URL unset,
@@ -55,6 +59,21 @@ export async function getTreasury(id: string): Promise<TreasuryInfo | null> {
   return toTreasuryInfo(await getJson(`/missions/${encodeURIComponent(id)}/treasury`));
 }
 
+/** Every project with its total spend and budget, from GET /missions and each treasury route. */
+export async function listProjectSpend(): Promise<ProjectSpend[]> {
+  const missions = await listMissions();
+  const spend = await Promise.all(
+    missions.map(async (m) => (usingMock ? mockSpend(m.id) : toSpendInfo(await getJson(`/missions/${encodeURIComponent(m.id)}/treasury`)))),
+  );
+  return missions.map((m, i) => ({ id: m.id, goal: m.goal, status: m.status, spent_cents: spend[i]?.spent_cents ?? 0, budget_cents: spend[i]?.budget_cents ?? null }));
+}
+
+/** Null when the server has no GET /config yet. */
+export async function getSettings(): Promise<SettingsInfo | null> {
+  if (usingMock) return toSettings(mockSettings());
+  return toSettings(await getJson("/config"));
+}
+
 export async function listQuestions(): Promise<Question[]> {
   if (usingMock) return mockQuestions.map((q) => ({ ...q }));
   return toQuestions(await getJson("/questions"));
@@ -77,28 +96,37 @@ export async function answerQuestion(id: string, answer: string): Promise<Questi
 /** "unavailable" when the API has no Briefing routes yet; the page then starts from the goal alone. */
 export type BriefingStep = BriefingReply | { kind: "unavailable" };
 
-export async function startBriefing(goal: string, repo: string): Promise<BriefingStep> {
+/** 404/405 (no such route) and 503 (no Interviewer model configured) both mean "start from the goal". */
+export async function startBriefing(goal: string): Promise<BriefingStep> {
   if (usingMock) return mockStartBriefing(goal);
-  const res = await postJson("/briefings", { goal, repo });
-  if (res.status === 404 || res.status === 405) return { kind: "unavailable" };
+  const res = await postJson("/briefings", { goal });
+  if (res.status === 404 || res.status === 405 || res.status === 503) return { kind: "unavailable" };
   const reply = res.status < 300 ? toBriefingReply(res.body) : null;
   if (!reply) throw new Error(`POST /briefings failed: ${res.status}`);
   return reply;
 }
 
-export async function answerBriefing(briefingId: string, answers: { question_id: string; answer: string | null }[]): Promise<BriefingReply> {
-  if (usingMock) return mockAnswerBriefing(briefingId, answers);
-  const res = await postJson(`/briefings/${encodeURIComponent(briefingId)}/answers`, { answers });
+/** One answer per call, in order; `answer: null` skips the question. */
+export async function answerBriefing(briefingId: string, questionId: string, answer: string | null): Promise<BriefingReply> {
+  if (usingMock) return mockAnswerBriefing(briefingId, questionId, answer);
+  const res = await postJson(`/briefings/${encodeURIComponent(briefingId)}/answers`, { question_number: Number(questionId), answer });
   const reply = res.status < 300 ? toBriefingReply(res.body) : null;
   if (!reply) throw new Error(`POST /briefings/${briefingId}/answers failed: ${res.status}`);
   return reply;
 }
 
 /** Ask the General for a plan. Planning failures come back as { ok: false, errors }, not as a throw. */
-export async function createMission(goal: string, repo: string): Promise<CreateMissionResponse> {
+export async function createMission(goal: string, repo: string, briefingId: string | null = null): Promise<CreateMissionResponse> {
   if (usingMock) return mockCreateMission(goal, repo);
-  const res = await postJson("/missions", { goal, repo });
+  const res = await postJson("/missions", briefingId ? { goal, repo, briefing_id: briefingId } : { goal, repo });
   return toCreateMissionResponse(res.status, res.body);
+}
+
+/** Approve the proposed plan and start the work. Refusals (budget, already approved) come back as a reason, not a throw. */
+export async function approveMission(missionId: string): Promise<ApproveResult> {
+  if (usingMock) return mockApproveMission(missionId);
+  const res = await postJson(`/missions/${encodeURIComponent(missionId)}/approve`, {});
+  return toApproveResult(res.status, res.body);
 }
 
 export type ConnectionState = "connecting" | "live" | "reconnecting";

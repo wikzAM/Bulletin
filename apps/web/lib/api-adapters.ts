@@ -1,6 +1,6 @@
 import { isLane, isRecord, parsePlan } from "./guards";
 import type { InterviewQuestion } from "./interview";
-import type { CreateMissionResponse, MissionDetail, MissionStatus, MissionSummary, PlannedUnit, Question, TreasuryInfo } from "./types";
+import type { ApproveRefusal, ApproveResult, CreateMissionResponse, MissionDetail, MissionStatus, MissionSummary, PlannedUnit, Question, SettingsInfo, TreasuryInfo } from "./types";
 
 /*
  * Turn API bodies (docs/API.md on codex/warroom-api) into the shapes the pages use. Everything here
@@ -101,7 +101,7 @@ export function toQuestion(q: unknown): Question | null {
     answer: str(q.answer),
     source,
     briefing_ref: str(q.briefing_ref),
-    auto_result: autoResult(q.auto_result ?? q.answerer_result),
+    auto_result: autoResult(q.auto_result ?? q.answerer_result) ?? (q.auto_answer_tried === true && status === "open" ? "silent" : null),
     created_at: str(q.created_at) ?? "",
     answered_at: str(q.answered_at),
   };
@@ -132,7 +132,9 @@ export function toBriefingReply(body: unknown): BriefingReply | null {
   const briefingId = str(body.briefing_id) ?? str(body.id);
   if (!briefingId) return null;
   const markdown = str(body.briefing) ?? str(body.markdown) ?? str(body.text);
-  const raw = Array.isArray(body.questions) ? body.questions : [];
+  const single = str(body.question);
+  const number = num(body.question_number);
+  const raw = Array.isArray(body.questions) ? body.questions : single ? [{ id: number === null ? null : String(number), text: single }] : [];
   const questions = raw.flatMap((q, i): InterviewQuestion[] => {
     if (typeof q === "string") return q ? [{ id: `q${i + 1}`, text: q }] : [];
     if (!isRecord(q)) return [];
@@ -142,6 +144,34 @@ export function toBriefingReply(body: unknown): BriefingReply | null {
   if (questions.length > 0 && body.status !== "complete") return { kind: "questions", briefingId, questions };
   if (markdown) return { kind: "briefing", briefingId, markdown };
   return null;
+}
+
+const APPROVE_REFUSALS: Record<string, ApproveRefusal> = {
+  "Mission already approved": "already",
+  "Mission has no plan to approve": "no_plan",
+  "Plan cannot be priced": "unpriced",
+  "Mission runner not configured": "not_configured",
+  "Mission pricing not configured": "not_configured",
+  "Mission not found": "not_found",
+};
+
+/** 202 is ok; the documented refusals become a reason; anything else throws. */
+export function toApproveResult(status: number, body: unknown): ApproveResult {
+  if (status >= 200 && status < 300) return { ok: true };
+  const error = isRecord(body) ? str(body.error) : null;
+  if (isRecord(body) && error === "Plan exceeds mission budget") {
+    return {
+      ok: false,
+      reason: "over_budget",
+      budget_cents: num(body.budget_cents) ?? 0,
+      estimated_cents: num(body.estimated_cents) ?? 0,
+      spent_cents: num(body.spent_cents) ?? 0,
+      shortfall_cents: num(body.shortfall_cents) ?? 0,
+    };
+  }
+  const reason = error ? APPROVE_REFUSALS[error] : undefined;
+  if (reason) return { ok: false, reason };
+  throw new Error(error ?? `POST approve failed: ${status}`);
 }
 
 /** 201 carries a plan; 422/503 with an errors list are planning failures; anything else throws. */
@@ -157,4 +187,40 @@ export function toCreateMissionResponse(status: number, body: unknown): CreateMi
     if (str(body.error)) throw new Error(String(body.error));
   }
   throw new Error(`POST /missions failed: ${status}`);
+}
+
+function records(value: unknown): [string, Record<string, unknown>][] {
+  return isRecord(value) ? Object.entries(value).flatMap(([k, v]) => (isRecord(v) ? [[k, v] as [string, Record<string, unknown>]] : [])) : [];
+}
+
+/** GET /config is not documented yet (Codex task 18); reads config/models.json and prices.json shapes. */
+export function toSettings(body: unknown): SettingsInfo | null {
+  if (!isRecord(body)) return null;
+  const models = isRecord(body.models) && (isRecord(body.models.roles) || isRecord(body.models.tiers)) ? body.models : body;
+  const roles = records(models.roles).flatMap(([role, r]) => {
+    const model = str(r.model);
+    return model ? [{ role, model, fallback: str(r.fallback), escalate: str(r.escalate) }] : [];
+  });
+  const tiers = isRecord(models.tiers)
+    ? Object.entries(models.tiers).flatMap(([tier, m]) => (str(m) ? [{ tier, model: m as string }] : []))
+    : [];
+  const priceTable = isRecord(body.prices) ? body.prices : {};
+  const prices = records(priceTable.models).flatMap(([model, p]) => {
+    const input = num(p.input);
+    const output = num(p.output);
+    return input !== null && output !== null ? [{ model, input, output }] : [];
+  });
+  const limits: Record<string, number> = {};
+  if (isRecord(body.limits)) for (const [k, v] of Object.entries(body.limits)) if (num(v) !== null) limits[k] = v as number;
+  const defaultBudgetCents = num(body.default_budget_cents);
+  if (roles.length === 0 && tiers.length === 0 && prices.length === 0 && Object.keys(limits).length === 0 && defaultBudgetCents === null) return null;
+  return { roles, tiers, prices, pricesAsOf: str(priceTable.as_of), limits, defaultBudgetCents };
+}
+/** GET /missions/:id/treasury: total spend (cost_cents) and the budget, which may be null. */
+export function toSpendInfo(body: unknown): { spent_cents: number; budget_cents: number | null } | null {
+  if (!isRecord(body)) return null;
+  const spent = num(body.cost_cents) ?? num(body.spent_cents);
+  const budget = num(body.budget_cents);
+  if (spent === null && budget === null) return null;
+  return { spent_cents: spent ?? 0, budget_cents: budget };
 }

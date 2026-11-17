@@ -14,7 +14,7 @@
 - [x] 13. Question board: show who answered (a person, or the Briefing via auto-answer) and a "tried automatically, needs you" state for SILENT results.
 - [x] 14. Seed mock fixtures that cover every state (running, held, send-back, over budget, paused) and use them in tests of the pure view logic. Add a /demo route that shows them with no API.
 - [x] 15. Copy pass: plain-language labels everywhere, no jargon; add a test that scans app copy for forbidden terms (list in docs/DECISIONS.md or create it).
-- [ ] 16. (tick 3) Mission page actions: Approve plan (POST /missions/:id/approve, show the 409 cost-guard message in plain words) and Stop mission (POST /missions/:id/stop once Codex documents it; hide until docs/API.md lists it). Pure logic + adapters tested.
-- [ ] 17. Settings page "/settings" from GET /config (after Codex task 18 is documented): show which models do which jobs and the spend limits. Mock first.
-- [ ] 18. Cross-project spend view "/spend": totals per project from GET /missions + treasury, with the 80% warning. Tests for the aggregation.
-- [ ] 19. Review pass on your own code: remove dead code, make sure every page has loading/empty/error states and that `pnpm --filter web build` has no warnings. Record anything unresolved on BULLETIN.md.
+- [x] 16. (tick 3) Mission page actions: Approve plan (POST /missions/:id/approve, show the 409 cost-guard message in plain words) and Stop mission (POST /missions/:id/stop once Codex documents it; hide until docs/API.md lists it). Pure logic + adapters tested.
+- [x] 17. Settings page "/settings" from GET /config (after Codex task 18 is documented): show which models do which jobs and the spend limits. Mock first.
+- [x] 18. Cross-project spend view "/spend": totals per project from GET /missions + treasury, with the 80% warning. Tests for the aggregation.
+- [x] 19. Review pass on your own code: remove dead code, make sure every page has loading/empty/error states and that `pnpm --filter web build` has no warnings. Record anything unresolved on BULLETIN.md.

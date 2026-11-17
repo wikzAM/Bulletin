@@ -2,11 +2,12 @@
 
 import { useEffect, useMemo, useReducer, useState } from "react";
 import type { BulletinEvent } from "@bulletin/core";
-import { subscribeEvents, type ConnectionState } from "../../../lib/api";
+import { approveMission, subscribeEvents, type ConnectionState } from "../../../lib/api";
+import { approveMessage, canApprove, type ApproveMessage } from "../../../lib/approve";
 import { copy, LANE_LABELS, STATUS_LABELS } from "../../../lib/copy";
 import { formatCents, formatPercent } from "../../../lib/format";
 import { summarizeTreasury, type TreasurySummary } from "../../../lib/treasury";
-import type { PlannedUnit, TreasuryInfo } from "../../../lib/types";
+import type { MissionStatus, PlannedUnit, TreasuryInfo } from "../../../lib/types";
 import {
   applyEvent,
   describeEvent,
@@ -128,10 +129,12 @@ function TaskCard({ unit }: { unit: UnitCard }) {
 
 export function WarTable({
   missionId,
+  status,
   units,
   treasury,
 }: {
   missionId: string;
+  status: MissionStatus;
   units: PlannedUnit[];
   treasury: TreasuryInfo | null;
 }) {
@@ -143,7 +146,55 @@ export function WarTable({
     [missionId],
   );
 
-  return <WarTableView state={state} treasury={treasury} badge={state.finished ? t.finished : t.connection[connection]} />;
+  return (
+    <>
+      {canApprove(status, state) && <ApprovePanel missionId={missionId} />}
+      <WarTableView state={state} treasury={treasury} badge={state.finished ? t.finished : t.connection[connection]} />
+    </>
+  );
+}
+
+function ApprovePanel({ missionId }: { missionId: string }) {
+  const ta = copy.approve;
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<ApproveMessage | null>(null);
+  const [done, setDone] = useState(false);
+
+  const approve = async () => {
+    setBusy(true);
+    setMessage(null);
+    try {
+      const result = await approveMission(missionId);
+      setMessage(approveMessage(result));
+      setDone(result.ok || result.reason === "already");
+    } catch {
+      setMessage({ tone: "error", text: ta.failed });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <section className="approve" aria-labelledby="approve-title" aria-busy={busy}>
+      <h2 id="approve-title">{ta.title}</h2>
+      <p className="muted">{ta.intro}</p>
+      {!done && (
+        <button type="button" onClick={() => void approve()} disabled={busy}>
+          {busy ? ta.approving : ta.button}
+        </button>
+      )}
+      {message &&
+        (message.tone === "ok" ? (
+          <p className="notice" role="status">
+            {message.text}
+          </p>
+        ) : (
+          <p className="form-error" role="alert">
+            {message.text}
+          </p>
+        ))}
+    </section>
+  );
 }
 
 /** The task board, spending and activity for one project state; no data fetching. */
@@ -157,6 +208,7 @@ export function WarTableView({ state, treasury, badge }: { state: WarTableState;
         <h2>
           {t.tasks} <span className="badge">{badge}</span>
         </h2>
+        {waves.length === 0 && <p className="muted">{t.tasksEmpty}</p>}
         <div className="waves">
           {waves.map(([wave, cards]) => (
             <div className="wave" key={wave}>

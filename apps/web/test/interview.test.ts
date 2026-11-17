@@ -3,6 +3,8 @@ import {
   BRIEFING_MAX_LENGTH,
   MAX_QUESTIONS,
   answersPayload,
+  pendingAnswer,
+  planRequest,
   briefingFromGoal,
   briefingGoal,
   currentQuestion,
@@ -149,17 +151,67 @@ describe("mock interviewer", () => {
     const start = mockStartBriefing("Add due dates");
     expect(start.kind).toBe("questions");
     if (start.kind !== "questions") return;
-    expect(start.questions.length).toBeGreaterThan(0);
-    expect(start.questions.length).toBeLessThanOrEqual(MAX_QUESTIONS);
+    expect(start.questions).toHaveLength(1);
+    expect(start.questions[0]?.id).toBe("1");
 
-    const done = mockAnswerBriefing(start.briefingId, [
-      { question_id: "users", answer: "People with long todo lists" },
-      { question_id: "features", answer: null },
-    ]);
+    const answers = ["People with long todo lists", null, null, null];
+    let reply: ReturnType<typeof mockAnswerBriefing> = start;
+    let asked = 1;
+    for (const [i, answer] of answers.entries()) {
+      if (reply.kind !== "questions") break;
+      expect(reply.questions[0]?.id).toBe(String(i + 1));
+      reply = mockAnswerBriefing(start.briefingId, String(i + 1), answer);
+      if (reply.kind === "questions") asked += 1;
+    }
+    expect(asked).toBeLessThanOrEqual(MAX_QUESTIONS);
+    const done = reply;
     expect(done.kind).toBe("briefing");
     if (done.kind !== "briefing") return;
     expect(done.markdown).toContain("## Goal\nAdd due dates\n## Users\nPeople with long todo lists\n## Features\n## Constraints");
     expect(validateBriefing(done.markdown).ok).toBe(true);
+  });
+});
+
+describe("pendingAnswer", () => {
+  const asking = flowReducer(flowReducer(initialFlow, { type: "start", goal: "Add due dates", repo: "D:/r" }), {
+    type: "questions",
+    briefingId: "b1",
+    questions: [{ id: "1", text: "Who?" }],
+  });
+
+  it("is the question on screen with the trimmed answer, or null for a skip or a blank answer", () => {
+    expect(pendingAnswer(asking, { type: "answer", text: "  Me " })).toEqual({ question: { id: "1", text: "Who?" }, answer: "Me" });
+    expect(pendingAnswer(asking, { type: "answer", text: "  " })).toEqual({ question: { id: "1", text: "Who?" }, answer: null });
+    expect(pendingAnswer(asking, { type: "skip" })).toEqual({ question: { id: "1", text: "Who?" }, answer: null });
+  });
+
+  it("is null for other actions or when no question is on screen", () => {
+    expect(pendingAnswer(asking, { type: "back" })).toBeNull();
+    expect(pendingAnswer(flowReducer(asking, { type: "skip" }), { type: "skip" })).toBeNull();
+  });
+});
+
+describe("planRequest", () => {
+  const reviewed = flowReducer(
+    flowReducer(
+      flowReducer(initialFlow, { type: "start", goal: "Add due dates", repo: "D:/r" }),
+      { type: "questions", briefingId: "b1", questions: [{ id: "1", text: "Who?" }] },
+    ),
+    { type: "briefing", markdown: "# Briefing: Add due dates\n## Goal\nAdd due dates\n" },
+  );
+
+  it("plans from the stored Briefing when the text was not edited", () => {
+    expect(planRequest(reviewed)).toEqual({ goal: "Add due dates", repo: "D:/r", briefingId: "b1" });
+  });
+
+  it("sends the edited text as the goal, without the Briefing id", () => {
+    const edited = flowReducer(reviewed, { type: "edit", markdown: " # Briefing: x\n## Goal\nDue dates and reminders\n " });
+    expect(planRequest(edited)).toEqual({ goal: "# Briefing: x\n## Goal\nDue dates and reminders", repo: "D:/r", briefingId: null });
+  });
+
+  it("sends the text when there was no interview", () => {
+    const fallback = flowReducer(flowReducer(initialFlow, { type: "start", goal: "Add due dates", repo: "D:/r" }), { type: "noInterviewer" });
+    expect(planRequest(fallback)).toMatchObject({ briefingId: null, goal: expect.stringContaining("## Goal\nAdd due dates") });
   });
 });
 

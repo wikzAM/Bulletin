@@ -59,3 +59,8 @@
 2026-11-17 06:58 EST | Codex | 16. Stop a running mission | codex/warroom-api@30d1e8f | verify green (380 tests)
 2026-11-17 07:01 EST | Codex | 17. Local and managed runner selection | codex/warroom-api@e97786d | verify green (384 tests)
 2026-11-17 07:03 EST | Codex | 18. Read-only API settings | codex/warroom-api@65a4af4 | verify green (386 tests)
+07:11 | cursor | 12 follow-up: /new on the real Briefing routes (POST /briefings {goal}, per-answer, briefing_id plan; 503 falls back) | cursor/web-shell@961fc12 | verify green (385 tests), web build green
+07:16 | cursor | 16 approve plan on the project page (409 cost guard in plain words; Stop hidden, no route in docs/API.md yet) | cursor/web-shell@6df1416 | verify green (395 tests), web build green
+07:20 | cursor | 17 /settings: jobs, models, limits and prices (mock reads config/; GET /config shape guessed, asked on BULLETIN) | cursor/web-shell@2d5a701 | verify green (402 tests), web build green
+07:24 | cursor | 18 /spend: per-project spend vs budget, 80% warning, totals (live test against the treasury route) | cursor/web-shell@dafb20c | verify green (412 tests), web build green
+07:27 | cursor | 19 review: build has no warnings; root loading/error/not-found cover every route; empty states checked, added one to the task board; unused answersPayload + back action flagged on BULLETIN (tests protect them) | cursor/web-shell@f3e8ac5 | verify green (413 tests), web build green

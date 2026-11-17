@@ -7,10 +7,12 @@ import { answerBriefing, createMission, startBriefing, usingMock } from "../../l
 import type { BriefingReply } from "../../lib/api-adapters";
 import { copy, LANE_LABELS } from "../../lib/copy";
 import {
-  answersPayload,
   currentQuestion,
   flowReducer,
   initialFlow,
+  MAX_QUESTIONS,
+  pendingAnswer,
+  planRequest,
   progress,
   validateBriefing,
   type FlowAction,
@@ -215,7 +217,7 @@ function InterviewStep({
   const question = currentQuestion(state);
   const [draft, setDraft] = useState(question ? (state.answers[question.id] ?? "") : "");
   const heading = useHeadingFocus();
-  const { n, total } = progress(state);
+  const { n } = progress(state);
 
   if (!question) {
     return (
@@ -233,8 +235,8 @@ function InterviewStep({
               <button type="button" onClick={onRetry}>
                 {copy.states.error.retry}
               </button>
-              <button type="button" className="secondary" onClick={() => onAction({ type: "back" })}>
-                {t.back}
+              <button type="button" className="secondary" onClick={() => onAction({ type: "restart" })}>
+                {t.startOver}
               </button>
             </div>
           </>
@@ -250,7 +252,7 @@ function InterviewStep({
 
   return (
     <form key={question.id} className="mission-form interview" onSubmit={submit} noValidate>
-      <p className="hint">{t.questionOf(n, total)}</p>
+      <p className="hint">{t.questionOf(n, MAX_QUESTIONS)}</p>
       <h2 ref={heading} tabIndex={-1} id="question-text">
         {question.text}
       </h2>
@@ -261,11 +263,6 @@ function InterviewStep({
         <button type="button" className="secondary" onClick={() => onAction({ type: "skip" })}>
           {t.skip}
         </button>
-        {state.index > 0 && (
-          <button type="button" className="secondary" onClick={() => onAction({ type: "back" })}>
-            {t.back}
-          </button>
-        )}
       </div>
     </form>
   );
@@ -342,7 +339,7 @@ export function NewMissionForm() {
   const start = async ({ goal, repo }: NewMissionInput) => {
     dispatch({ type: "start", goal, repo });
     try {
-      const reply = await startBriefing(goal, repo);
+      const reply = await startBriefing(goal);
       if (reply.kind === "unavailable") dispatch({ type: "noInterviewer" });
       else applyReply(reply);
     } catch {
@@ -350,43 +347,48 @@ export function NewMissionForm() {
     }
   };
 
-  const sendAnswers = async (from: FlowState) => {
-    if (!from.briefingId) return;
+  const lastAnswer = useRef<{ questionId: string; answer: string | null } | null>(null);
+
+  const sendAnswer = async (briefingId: string | null, sent: { questionId: string; answer: string | null } | null) => {
+    if (!briefingId || !sent) return;
+    lastAnswer.current = sent;
     dispatch({ type: "submit" });
     try {
-      applyReply(await answerBriefing(from.briefingId, answersPayload(from)));
+      applyReply(await answerBriefing(briefingId, sent.questionId, sent.answer));
     } catch {
       dispatch({ type: "fail", message: t.errors.interviewFailed });
     }
   };
 
   const interviewAction = (action: FlowAction) => {
-    const next = flowReducer(state, action);
+    const pending = pendingAnswer(state, action);
     dispatch(action);
-    if (next.index >= next.questions.length && state.index < state.questions.length) void sendAnswers(next);
+    if (pending) void sendAnswer(state.briefingId, { questionId: pending.question.id, answer: pending.answer });
   };
 
   const plan = async () => {
-    const check = validateBriefing(state.briefing);
-    if (!check.ok) {
-      dispatch({ type: "fail", message: check.error });
-      document.getElementById("briefing")?.focus();
-      return;
+    const request = planRequest(state);
+    if (request.briefingId === null) {
+      const check = validateBriefing(state.briefing);
+      if (!check.ok) {
+        dispatch({ type: "fail", message: check.error });
+        document.getElementById("briefing")?.focus();
+        return;
+      }
     }
     dispatch({ type: "submit" });
     try {
-      dispatch({ type: "plan", result: await createMission(check.value, state.repo) });
+      dispatch({ type: "plan", result: await createMission(request.goal, request.repo, request.briefingId) });
     } catch {
       dispatch({ type: "fail", message: t.errors.failed });
     }
   };
-
   return (
     <>
       <StepList step={state.step} />
       {state.step === "goal" && <GoalStep state={state} onStart={(input) => void start(input)} />}
       {state.step === "interview" && (
-        <InterviewStep key={state.index} state={state} onAction={interviewAction} onRetry={() => void sendAnswers(state)} />
+        <InterviewStep key={state.index} state={state} onAction={interviewAction} onRetry={() => void sendAnswer(state.briefingId, lastAnswer.current)} />
       )}
       {state.step === "review" && <ReviewStep state={state} onAction={dispatch} onPlan={() => void plan()} />}
       {state.step === "plan" && state.plan && (

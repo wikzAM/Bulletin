@@ -91,4 +91,19 @@ Needed for the Managed Agents runner adapter (apps/api/src/managed-client.ts). I
 - **The web UI never shows the glossary or pipeline words below; it says project, task, batch, spending, requirements, tries, approval and "added to the project" instead.**
   The spec's themed and internal names suit code and logs, not a first-time reader. `apps/web/test/plain-language.test.ts` reads the next line and fails if any shown string (all of `apps/web/lib/copy.ts`, every activity-feed sentence, and literal text in `apps/web/app/**/*.tsx`) contains a term, matched case-insensitively at the start of a word:
   `forbidden-ui-terms: war table, mission, station, general, commander, dispatch, wave, treasury, courier, fog, unit, lane, attempt, ledger, merge, silent, payload, verdict, escalat, endpoint, sse, briefing`
-  Exception: the Briefing document itself keeps the spec's `# Briefing:` heading (section 8), because it is the file the planner reads and the user edits as text.
+  Exception: the Briefing document itself keeps the spec's `# Briefing:` heading (section 8), because it is the file the planner reads and the user edits as text.- **`/new` follows the API's one-question-at-a-time interview and drops Back.**
+  Each answer is posted as it is given and the server writes the next question from it, so an earlier answer cannot be changed locally. The plan request sends `briefing_id` when the reviewed text is unchanged and the edited text as `goal` otherwise, because a `briefing_id` plan reads the stored Briefing and would ignore edits.- **Approve lives on the project page while it is in planning; Stop is not built yet.**
+  `docs/API.md` documents `POST /missions/:id/approve` but no stop route, and the board says to hide Stop until it is listed. The approve refusals map to reasons in `toApproveResult`, and the over-budget numbers become one sentence ("estimated to cost at least…, that is … more than the … budget").
+## web: /settings before GET /config is documented (2026-11-17)
+
+- The page reads a guessed body: `{models:{roles,tiers}, prices:{as_of,models}, limits, default_budget_cents}`,
+  the shapes of config/models.json and config/prices.json. The adapter also accepts roles and tiers at the top
+  level and skips anything it cannot read. A 404 shows "settings not shared yet".
+- The mock imports config/*.json instead of copying model names, so model ids stay out of code.
+- Limits the copy has no label for are left out rather than shown under a raw key.
+## web: /spend (2026-11-17)
+
+- Totals come from GET /missions plus one GET /missions/:id/treasury per project (cost_cents and budget_cents).
+  No new route is needed; one request per project is fine at the scale the spec describes.
+- The warning and over-budget rule lives in one place (budgetLevel in lib/treasury.ts), so the project page
+  and /spend cannot disagree. Projects without a budget are counted separately, not added to the total budget.
