@@ -142,3 +142,10 @@
   empty file; `rules_md` and `lessons_md` are also accepted). A 404 with "Mission not found" shows the not-found
   page; any other 404 or 405 shows "not shared yet". If the body differs, only toRulesInfo needs to change.
 - status: resolved (2026-11-17). The documented body matches; the 404 for a missing integration branch now reads 'notes start once work has begun'. Live test added (24e771e).
+
+## [2026-11-17] Browser access to the token-protected API
+
+- question: Should protected web traffic use a server-side proxy, or should the client switch its SSE subscription to authenticated fetch with a user-supplied token?
+- recommendation: Use a server-side proxy so the bearer token stays in the server environment.
+- working default: Direct local web setup uses the API with token authentication disabled. Authenticated API clients can send a bearer header on JSON and SSE requests.
+- status: open

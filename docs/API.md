@@ -60,10 +60,16 @@ The `readGit` option supplies the Git reader for mission rules and lessons.
 Send write bodies as `application/json`. Question and answer text is trimmed
 and must contain a non-whitespace character.
 
-The API allows browser requests from `http://localhost:3000`. Preflight
-requests from that origin return `204 No Content` with `GET`, `HEAD`, `POST`,
-and `OPTIONS` allowed and `Content-Type` and `Last-Event-ID` accepted. JSON read
-routes also accept `HEAD` and return headers only.
+`BULLETIN_WEB_ORIGINS` accepts a comma-separated list of allowed browser
+origins and defaults to `http://localhost:3000`. Matching browser preflights
+return `204 No Content` without credentials. They allow `GET`, `HEAD`, `POST`,
+and `OPTIONS` and accept `Authorization`, `Content-Type`, and `Last-Event-ID`.
+JSON read routes also accept `HEAD` and return headers only.
+
+When `BULLETIN_API_TOKEN` is set to a nonempty value, send
+`Authorization: Bearer <token>` with every API request except `GET /health`.
+A missing or invalid token returns `401` and `WWW-Authenticate: Bearer`.
+Token-protected SSE requires a client or proxy that can send the header.
 
 ## Errors
 
@@ -71,6 +77,7 @@ Error responses include an `error` string. Planning and budget errors can
 include the additional fields shown on those endpoints.
 
 - `400 Bad Request`. `Invalid request` for malformed JSON, parameters, or fields. `Invalid event cursor` for malformed SSE cursors.
+- `401 Unauthorized`. `Unauthorized` when the API requires a bearer token and the request credentials are invalid or absent.
 - `404 Not Found`. `Route not found`, `Mission not found`, `Briefing not found`, `Question not found`, `Open decision not found`, or `Mission integration branch not found`.
 - `409 Conflict`. `Briefing is incomplete`, `Briefing is not awaiting this answer`, `Mission already approved`, `Mission has no plan to approve`, `Plan exceeds mission budget`, `Mission is not running`, `Decision resolution in progress`, `Question already answered`, `Auto-answer already in progress`, or `Mission has no completed Briefing`.
 - `413 Payload Too Large`. `Payload Too Large` when the body exceeds the server's request limit.
