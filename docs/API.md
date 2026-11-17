@@ -29,6 +29,45 @@ Status starts at `interview`, advances to `planning` on `briefing.versioned` or
 `plan.proposed`, advances to `running` on `plan.approved`, and becomes `finished`
 on `mission.finished`.
 
+## `POST /missions`
+
+Send `{"goal":"Seed the demo with test data","repo":"D:/repos/todo-app"}`.
+The API reads the current commit of the local Git repository and runs the
+General with the goal and repository map. It returns `201 Created` when the
+General produces a valid `@bulletin/core` `Plan`.
+
+```json
+{
+  "mission_id": "4f92d548-5474-468c-9270-2b1c0448fcb7",
+  "attempts": 1,
+  "plan": {
+    "briefing_version": 1,
+    "units": [
+      {
+        "id": "seed-data",
+        "title": "Seed the demo",
+        "task": "Add seed data for demo tests.",
+        "files": ["src/seed.ts"],
+        "needs": [],
+        "lane": "open",
+        "tier": "station",
+        "acceptance": ["pnpm test"]
+      }
+    ]
+  }
+}
+```
+
+Success emits `mission.created` with `goal`, `repo` (the local repository root),
+and `base`, then `plan.proposed` with the validated `plan` and the `units` count.
+The new mission is visible in `GET /missions` with status `planning`.
+
+- `400 Bad Request` for invalid JSON fields, with `{"error":"Invalid request"}`.
+- `422 Unprocessable Entity` for an unreadable Git repository, with `{"error":"Repository unavailable"}`.
+- `422 Unprocessable Entity` for planning errors, or `503 Service Unavailable`
+  when the API lacks a configured model. Both return `{"error":"Mission planning failed","errors":[...],"attempts":2}`
+  with the number of attempts made. A failed request leaves the event log unchanged.
+
 ## `GET /missions/:id`
 
 Returns `200 OK` with the mission fields from the list, plus units and ledger
@@ -49,10 +88,9 @@ totals.
 ```
 
 Units appear in the order their IDs first occur in `wave.started` or in an
-event's `unit_id`. The engine currently emits counts in `plan.proposed`, so a
-unit becomes visible when its ID first appears in the log. `lane` and `wave`
-are `null` until reported. Unit statuses use the `@bulletin/core` values. A
-unit starts as `pending`, then follows unit, attempt, and pass events.
+event's `unit_id`. `lane` and `wave` are `null` until reported. Unit statuses
+use the `@bulletin/core` values. A unit starts as `pending`, then follows unit,
+attempt, and pass events.
 
 `ledger.charges` counts events with a numeric `payload.cost_cents` in
 `ledger.charged`. `ledger.cost_cents` sums those costs, rounded to four decimal
