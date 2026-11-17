@@ -1,6 +1,7 @@
 import { LaneSchema, type BulletinEvent, type EventType, type Lane, type MemoryEventLog, type UnitStatus } from "@bulletin/core";
 import type { FastifyInstance } from "fastify";
 import { registerMissionEventStream } from "./mission-events";
+import { validateIdParams } from "./request-validation";
 
 type MissionStatus = "interview" | "planning" | "running" | "finished" | "failed";
 
@@ -118,7 +119,7 @@ function missionProgress(events: readonly BulletinEvent[]) {
 export function registerMissionRoutes(app: FastifyInstance, log: MemoryEventLog): void {
   app.get("/missions", async () => ({ missions: listMissions(log.events) }));
 
-  app.get<{ Params: { id: string } }>("/missions/:id", async (request, reply) => {
+  app.get<{ Params: { id: string } }>("/missions/:id", { preValidation: validateIdParams }, async (request, reply) => {
     const events = log.events.filter((event) => event.mission_id === request.params.id);
     const [mission] = listMissions(events);
     if (!mission) return reply.code(404).send({ error: "Mission not found" });
@@ -126,7 +127,7 @@ export function registerMissionRoutes(app: FastifyInstance, log: MemoryEventLog)
     return { ...mission, units, ledger: { ...ledger, cost_cents: roundCents(ledger.cost_cents) } };
   });
 
-  app.get<{ Params: { id: string } }>("/missions/:id/treasury", async (request, reply) => {
+  app.get<{ Params: { id: string } }>("/missions/:id/treasury", { preValidation: validateIdParams }, async (request, reply) => {
     const { id } = request.params;
     const events = log.events.filter((event) => event.mission_id === id);
     const created = events.find((event) => event.type === "mission.created");

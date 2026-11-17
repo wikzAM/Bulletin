@@ -2,11 +2,12 @@ import type { MemoryEventLog } from "@bulletin/core";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { MemoryQuestionStore, type QuestionStore } from "./questions-store";
+import { identifier, validateIdParams } from "./request-validation";
 
-const questionQuery = z.object({ mission_id: z.string().min(1).optional() });
+const questionQuery = z.object({ mission_id: identifier.optional() });
 const questionBody = z.strictObject({
-  mission_id: z.string().min(1),
-  unit_id: z.string().min(1).nullable().default(null),
+  mission_id: identifier,
+  unit_id: identifier.nullable().default(null),
   body: z.string().trim().min(1),
 });
 const answerBody = z.strictObject({ answer: z.string().trim().min(1) });
@@ -37,7 +38,7 @@ export function registerQuestionRoutes(
     return reply.code(201).send(question);
   });
 
-  app.post<{ Params: { id: string } }>("/questions/:id/answer", async (request, reply) => {
+  app.post<{ Params: { id: string } }>("/questions/:id/answer", { preValidation: validateIdParams }, async (request, reply) => {
     const parsed = answerBody.safeParse(request.body);
     if (!parsed.success) return reply.code(400).send({ error: "Invalid request" });
     const result = await store.answer(request.params.id, parsed.data.answer);

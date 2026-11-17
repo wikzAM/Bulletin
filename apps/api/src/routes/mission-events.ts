@@ -1,6 +1,7 @@
 import { PassThrough } from "node:stream";
 import type { MemoryEventLog } from "@bulletin/core";
 import type { FastifyInstance } from "fastify";
+import { validateIdParams } from "./request-validation";
 
 function parseCursor(value: unknown): number | undefined {
   if (value === undefined) return 0;
@@ -52,7 +53,7 @@ export function registerMissionEventStream(app: FastifyInstance, log: MemoryEven
 
   app.get<{ Params: { id: string }; Querystring: { after?: unknown } }>(
     "/missions/:id/events",
-    { exposeHeadRoute: false },
+    { exposeHeadRoute: false, preValidation: validateIdParams },
     async (request, reply) => {
       const { id } = request.params;
       if (!log.events.some((event) => event.mission_id === id && event.type === "mission.created")) {
