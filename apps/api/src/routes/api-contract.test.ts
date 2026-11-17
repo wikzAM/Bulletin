@@ -44,7 +44,7 @@ it("documents every registered API operation and lists only registered operation
   const docs = await checkOperations(buildServer());
   const errors = docs.split(/^## /m).find((section) => /^Errors\r?\n/.test(section));
   const codes = [...(errors ?? "").matchAll(/^- `(\d{3}) [^`]+`/gm)].map(([, status]) => Number(status));
-  expect(codes).toEqual([400, 404, 409, 413, 415, 422, 500, 502, 503]);
+  expect(codes).toEqual([400, 401, 404, 409, 413, 415, 422, 500, 502, 503]);
 });
 
 it("covers the same operations with the JSONL log and documents the runnable API", async () => {

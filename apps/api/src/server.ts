@@ -1,3 +1,4 @@
+import { createHash, timingSafeEqual } from "node:crypto";
 import { STATUS_CODES } from "node:http";
 import { MemoryEventLog } from "@bulletin/core";
 import Fastify, { type FastifyError, type FastifyInstance, type FastifyReply, type FastifyRequest } from "fastify";
@@ -26,11 +27,15 @@ export interface ServerOptions {
   startMission?: MissionStarter;
 }
 
-const webOrigin = "http://localhost:3000";
+const defaultWebOrigin = "http://localhost:3000";
 
-function setOriginHeader(request: FastifyRequest, reply: FastifyReply): void {
-  reply.header("Vary", "Origin");
-  if (request.headers.origin === webOrigin) reply.header("Access-Control-Allow-Origin", webOrigin);
+function tokenDigest(value: string): Buffer {
+  return createHash("sha256").update(value).digest();
+}
+
+function validBearer(authorization: string | undefined, expected: Buffer): boolean {
+  const token = /^Bearer[ \t]+([^\s,]+)$/i.exec(authorization ?? "")?.[1];
+  return token !== undefined && timingSafeEqual(tokenDigest(token), expected);
 }
 
 function sendRequestError(error: FastifyError, request: FastifyRequest, reply: FastifyReply): FastifyReply {
@@ -43,6 +48,18 @@ function sendRequestError(error: FastifyError, request: FastifyRequest, reply: F
 
 /** Pass the same event log to the server and engine when they run together. */
 export function buildServer(events: EventLog = new MemoryEventLog(), options: ServerOptions = {}): FastifyInstance {
+  const configuredToken = process.env.BULLETIN_API_TOKEN;
+  const expectedToken = configuredToken ? tokenDigest(configuredToken) : undefined;
+  const origins = new Set((process.env.BULLETIN_WEB_ORIGINS ?? defaultWebOrigin).split(",").map((origin) => origin.trim()).filter(Boolean));
+
+  function setOriginHeader(request: FastifyRequest, reply: FastifyReply): boolean {
+    reply.header("Vary", "Origin");
+    const { origin } = request.headers;
+    if (!origin || !origins.has(origin)) return false;
+    reply.header("Access-Control-Allow-Origin", origin);
+    return true;
+  }
+
   const app = Fastify({
     logger: false,
     frameworkErrors(error, request, reply) {
@@ -54,13 +71,18 @@ export function buildServer(events: EventLog = new MemoryEventLog(), options: Se
   app.setErrorHandler(sendRequestError);
   app.setNotFoundHandler(async (_request, reply) => reply.code(404).send({ error: "Route not found" }));
   app.addHook("onRequest", async (request, reply) => {
-    setOriginHeader(request, reply);
-    if (request.headers.origin === webOrigin && request.method === "OPTIONS" && request.headers["access-control-request-method"]) {
+    const allowedOrigin = setOriginHeader(request, reply);
+    if (allowedOrigin && request.method === "OPTIONS" && request.headers["access-control-request-method"]) {
       return reply
         .header("Access-Control-Allow-Methods", "GET, HEAD, POST, OPTIONS")
-        .header("Access-Control-Allow-Headers", "Content-Type, Last-Event-ID")
+        .header("Access-Control-Allow-Headers", "Authorization, Content-Type, Last-Event-ID")
         .code(204)
         .send();
+    }
+
+    const healthCheck = request.method === "GET" && request.routeOptions.url === "/health";
+    if (expectedToken && !healthCheck && !validBearer(request.headers.authorization, expectedToken)) {
+      return reply.header("WWW-Authenticate", "Bearer").code(401).send({ error: "Unauthorized" });
     }
   });
 
