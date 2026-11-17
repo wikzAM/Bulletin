@@ -73,6 +73,26 @@ include the additional fields shown on those endpoints.
 
 Returns `200 OK` with `{"status":"ok","service":"api"}`.
 
+## `GET /config`
+
+Returns `200 OK` with the configured model names for each role and tier,
+default lane patterns, sorted names of models in the price table, and default
+spending limits in cents. The response includes only these settings.
+
+```json
+{
+  "roles": { "general": { "model": "example-general", "fallback": "example-fallback" } },
+  "tiers": { "station": "example-station" },
+  "lanes": { "closed": ["infra/**"], "gated": ["**/package.json"] },
+  "priced_models": ["example-general", "example-station"],
+  "limits": { "default_budget_cents": 500, "unit_allowance_cents": 200 }
+}
+```
+
+Role model records may include `fallback` and `escalate` alongside `model`.
+Repository-specific lane rules are read from each repository when planning
+and running a mission.
+
 ## `POST /briefings`
 
 Send `{"goal":"Seed the demo with test data"}` to start the interview. Returns
