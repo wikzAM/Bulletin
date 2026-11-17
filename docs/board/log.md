@@ -58,3 +58,4 @@
 2026-11-17 06:55 EST | Codex | 15. End-to-end HTTP mission | codex/warroom-api@ae30d3b | verify green (378 tests)
 2026-11-17 06:58 EST | Codex | 16. Stop a running mission | codex/warroom-api@30d1e8f | verify green (380 tests)
 2026-11-17 07:01 EST | Codex | 17. Local and managed runner selection | codex/warroom-api@e97786d | verify green (384 tests)
+2026-11-17 07:03 EST | Codex | 18. Read-only API settings | codex/warroom-api@65a4af4 | verify green (386 tests)
