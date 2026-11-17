@@ -1,0 +1,43 @@
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: bulletin
+      POSTGRES_PASSWORD: bulletin
+      POSTGRES_DB: bulletin
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bulletin"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  api:
+    build: .
+    command: ["pnpm", "--filter", "@bulletin/api", "start"]
+    environment:
+      DATABASE_URL: postgres://bulletin:bulletin@postgres:5432/bulletin
+      API_PORT: "4000"
+    ports:
+      - "4000:4000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  pass-worker:
+    build: .
+    command: ["pnpm", "--filter", "@bulletin/pass-worker", "start"]
+    environment:
+      DATABASE_URL: postgres://bulletin:bulletin@postgres:5432/bulletin
+      PASS_WORKER_PORT: "4100"
+    ports:
+      - "4100:4100"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  pgdata:

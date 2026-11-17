@@ -1,0 +1,4 @@
+{
+  "closed": ["**/migrations/**", "**/*.env*"],
+  "gated": ["package.json", "src/todos.ts"]
+}

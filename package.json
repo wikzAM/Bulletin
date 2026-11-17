@@ -1,0 +1,29 @@
+{
+  "name": "bulletin",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.34.9",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run",
+    "verify": "pnpm install --frozen-lockfile --prefer-offline && pnpm lint && pnpm typecheck && pnpm test",
+    "build": "turbo run build",
+    "dev:api": "pnpm --filter @bulletin/api dev",
+    "dev:web": "pnpm --filter @bulletin/web dev",
+    "db:generate": "pnpm --filter @bulletin/db generate"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^26.6.6",
+    "eslint": "^10.15.0",
+    "tsx": "^4.23.15",
+    "turbo": "^2.11.11",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.73.0",
+    "vitest": "^5.1.0"
+  }
+}

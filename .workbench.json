@@ -1,0 +1,7 @@
+{
+  "check": "pnpm run verify",
+  "max_rounds": 3,
+  "timeout": 600,
+  "locked": ["docs/SPEC.md", "pnpm-lock.yaml", "config/*", "eslint.config.js", "tsconfig.json", "vitest.config.ts"],
+  "graph": { "parallel": 3, "model": "sonnet", "max_attempts": 2 }
+}

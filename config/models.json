@@ -1,0 +1,13 @@
+{
+  "roles": {
+    "interviewer": { "model": "claude-sonnet-5-5" },
+    "general": { "model": "claude-fable-5-2", "fallback": "claude-opus-5-5" },
+    "station": { "model": "claude-sonnet-5-5" },
+    "answerer": { "model": "claude-haiku-5-5", "escalate": "claude-sonnet-5-5" },
+    "triage": { "model": "claude-haiku-5-5" }
+  },
+  "tiers": {
+    "station": "claude-sonnet-5-5",
+    "escalated": "claude-fable-5-2"
+  }
+}
