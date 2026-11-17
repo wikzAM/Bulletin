@@ -7,6 +7,7 @@ import { runGeneral, type ModelCall } from "../general";
 import type { EventLog } from "../store/event-log";
 
 const missionBody = z.strictObject({ goal: z.string().trim().min(1), repo: z.string().trim().min(1) });
+export const allowedLocalCommands = ["pnpm *", "npm *", "node *"] as const;
 
 const unconfiguredModel: ModelCall = async () => {
   throw new Error("not configured");
@@ -34,7 +35,7 @@ async function readPlanningContext(path: string) {
     validation: {
       repoFiles,
       lanes: lanes.code === 0 ? LanesConfigSchema.parse(JSON.parse(lanes.stdout)) : DEFAULT_LANES,
-      allowedCommands: ["pnpm *", "npm *", "node *"],
+      allowedCommands: allowedLocalCommands,
     },
   };
 }
