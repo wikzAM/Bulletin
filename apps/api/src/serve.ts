@@ -1,7 +1,8 @@
 import { join, resolve } from "node:path";
 import { loadModelsConfig, loadPricesConfig } from "@bulletin/core";
-import { claudeModelCall, withFallback } from "./general";
+import { claudeModelCall } from "./general";
 import { runMission } from "./orchestrator/run-mission";
+import { createGeneralCall } from "./routes/general-model";
 import { DEFAULT_UNIT_ALLOWANCE_CENTS } from "./routes/mission-ledger";
 import { allowedLocalCommands } from "./routes/mission-planning";
 import { MemoryQuestionStore } from "./routes/questions-store";
@@ -24,8 +25,7 @@ async function main(): Promise<void> {
   const prices = loadPricesConfig(join(root, "config/prices.json"));
   const general = models.roles.general;
   if (!general) throw new Error("The General model is missing from config/models.json");
-  const primary = claudeModelCall(general.model);
-  const modelCall = general.fallback ? withFallback(primary, claudeModelCall(general.fallback)) : primary;
+  const modelCall = createGeneralCall(general);
   const interviewer = models.roles.interviewer;
   const answerer = models.roles.answerer;
 

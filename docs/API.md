@@ -17,6 +17,8 @@ The API binds to `127.0.0.1` and reads `PORT`, with `4000` as the default.
 Planning, interviews, and automatic answers use Claude Code. Put `claude` on
 `PATH` and configure Claude Code credentials. The server loads model and price
 settings from `config/models.json` and `config/prices.json`.
+If the General's primary model call fails, the server tries the configured
+fallback with the same request.
 
 Mission execution uses `BULLETIN_RUNNER=claude` by default. Set
 `BULLETIN_RUNNER=managed` and `BULLETIN_SANDBOX_REPO` to run stations in Managed
