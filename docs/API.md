@@ -156,6 +156,12 @@ invalid output persists after a retry, the response is `502 Bad Gateway` with
 Returns `200 OK` with missions ordered by their creation event, oldest first.
 An empty log returns `{"missions":[]}`.
 
+Use `status` to filter to one of `interview`, `planning`, `running`, `finished`,
+`failed`, `interrupted`, or `paused`. Use `limit` to keep the first N matching
+missions, such as `/missions?status=planning&limit=10`. With `limit=0`, the
+result is empty. Invalid values or duplicate filters return `400 Bad Request`.
+The limit must be a non-negative safe integer written in decimal digits.
+
 ```json
 {
   "missions": [

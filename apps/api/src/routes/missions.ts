@@ -1,11 +1,18 @@
 import { LaneSchema, type BulletinEvent, type EventType, type Lane, type UnitStatus } from "@bulletin/core";
 import type { FastifyInstance } from "fastify";
+import { z } from "zod";
 import type { EventLog } from "../store/event-log";
 import { registerMissionEventStream } from "./mission-events";
 import { readLedgerCharge, readMissionBudget, roundCents } from "./mission-ledger";
 import { validateIdParams } from "./request-validation";
 
-type MissionStatus = "interview" | "planning" | "running" | "finished" | "failed" | "interrupted" | "paused";
+const missionStatus = z.enum(["interview", "planning", "running", "finished", "failed", "interrupted", "paused"]);
+type MissionStatus = z.infer<typeof missionStatus>;
+
+const missionListQuery = z.object({
+  status: missionStatus.optional(),
+  limit: z.string().regex(/^\d+$/).transform(Number).pipe(z.number().int().nonnegative()).optional(),
+});
 
 interface MissionSummary {
   id: string;
@@ -160,7 +167,13 @@ function finishedReport(events: readonly BulletinEvent[], created: BulletinEvent
 }
 
 export function registerMissionRoutes(app: FastifyInstance, log: EventLog): void {
-  app.get("/missions", async () => ({ missions: listMissions(log.events) }));
+  app.get("/missions", async (request, reply) => {
+    const filters = missionListQuery.safeParse(request.query);
+    if (!filters.success) return reply.code(400).send({ error: "Invalid request" });
+    const { status, limit } = filters.data;
+    const missions = listMissions(log.events).filter((mission) => status === undefined || mission.status === status);
+    return { missions: missions.slice(0, limit) };
+  });
 
   app.get<{ Params: { id: string } }>("/missions/:id", { preValidation: validateIdParams }, async (request, reply) => {
     const events = log.events.filter((event) => event.mission_id === request.params.id);
