@@ -105,6 +105,24 @@ const good = (file: string) => ({ files: { [file]: `export const x = 1; // ${fil
 const lessons = (branch: string) => sh(repo, "show", `${branch}:.bulletin/lessons.md`);
 
 describe("graph engine: M1 acceptance", () => {
+  it("pauses the mission when spend reaches the budget and starts nothing more", async () => {
+    const units = [unit("u1", "src/a.ts"), unit("u2", "src/b.ts", { needs: [{ unit: "u1", reads: "a from src/a.ts" }] })];
+    const started: string[] = [];
+    const { report, events } = await run(
+      units,
+      (input) => {
+        started.push(input.unit.id);
+        // model-a costs $1 per million input tokens: one million tokens is 100 cents.
+        return { ...good("src/a.ts"), usage: { input_tokens: 1_000_000, output_tokens: 0 } };
+      },
+      { budgetCents: 50 },
+    );
+    expect(started).toEqual(["u1"]);
+    expect(report.statuses.u2).toBe("blocked");
+    const paused = events.events.find((e) => e.type === "budget.paused");
+    expect(paused?.payload).toMatchObject({ budget_cents: 50 });
+    expect(events.events.find((e) => e.type === "mission.finished")?.payload).toMatchObject({ paused: true });
+  });
   it("stops starting work when the abort signal fires, and blocks what has not started", async () => {
     const abort = new AbortController();
     const units = [unit("u1", "src/a.ts"), unit("u2", "src/b.ts", { needs: [{ unit: "u1", reads: "a from src/a.ts" }] })];

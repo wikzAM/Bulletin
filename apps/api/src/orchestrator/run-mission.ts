@@ -57,6 +57,8 @@ export interface MissionOptions {
   unitAllowanceCents?: number;
   /** Aborting stops new work: running attempts are cancelled and unstarted units end up blocked. */
   signal?: AbortSignal;
+  /** Hard cap for the whole mission in cents. Reaching it pauses the mission (budget.paused). */
+  budgetCents?: number;
   events?: EventSink;
 }
 
@@ -149,11 +151,15 @@ export async function runMission(options: MissionOptions): Promise<MissionReport
   const integDir = join(options.scratchDir, "integration");
   await addWorktree(repo, integDir, integ, options.baseBranch);
   const exclusive = mutex();
-  const stopped = () => options.signal?.aborted === true;
+  const budgetStop = new AbortController();
+  let spent = 0;
+  const stopped = () => options.signal?.aborted === true || budgetStop.signal.aborted;
   const active = new Set<AttemptHandle>();
-  options.signal?.addEventListener("abort", () => {
+  const cancelActive = () => {
     for (const h of active) void runner.cancel(h).catch(() => undefined);
-  });
+  };
+  options.signal?.addEventListener("abort", cancelActive);
+  budgetStop.signal.addEventListener("abort", cancelActive);
 
   const statuses: Record<string, UnitStatus> = Object.fromEntries(plan.units.map((u) => [u.id, "pending"]));
   const attempts: AttemptRecord[] = [];
@@ -232,6 +238,11 @@ export async function runMission(options: MissionOptions): Promise<MissionReport
           };
           ledger.push(row);
           await emit("ledger.charged", unit.id, { attempt, model: row.model, cost_cents: row.costCents });
+          spent += row.costCents;
+          if (options.budgetCents !== undefined && spent >= options.budgetCents && !budgetStop.signal.aborted) {
+            await emit("budget.paused", unit.id, { spent_cents: spent, budget_cents: options.budgetCents });
+            budgetStop.abort();
+          }
         } else if (event.type === "done" && !event.ok) {
           stationError = event.error ?? "station failed";
         }
@@ -349,7 +360,8 @@ export async function runMission(options: MissionOptions): Promise<MissionReport
     elapsedMs: Date.now() - started,
   };
   await emit("mission.finished", undefined, {
-    stopped: stopped(),
+    stopped: options.signal?.aborted === true,
+    paused: budgetStop.signal.aborted,
     shipped: shipped.length,
     held: held.length,
     failed: report.failed.length,

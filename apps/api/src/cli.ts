@@ -72,6 +72,7 @@ async function main(): Promise<void> {
     tiers: models.tiers,
     testCommand: flag("test"),
     unitAllowanceCents: Number(flag("allowance", "200")),
+    budgetCents: flag("budget") ? Number(flag("budget")) : undefined,
     allowedCommands: ["pnpm *", "npm *", "node *"],
     events: events as never,
   });
