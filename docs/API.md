@@ -23,13 +23,18 @@ fallback with the same request.
 Mission execution uses `BULLETIN_RUNNER=claude` by default. Set
 `BULLETIN_RUNNER=managed` and `BULLETIN_SANDBOX_REPO` to run stations in Managed
 Agents. The mission's local repository must be a clone of that sandbox
-repository. See [Managed Agents setup](MANAGED-AGENTS.md).
+repository. Startup warns by variable name when required configuration is
+missing. See [Managed Agents setup](MANAGED-AGENTS.md).
 
 The server stores mission events in `.bulletin-scratch/api/events.jsonl` and
 restores them at startup. Set `BULLETIN_SCRATCH_DIR` to use a different data and
 worktree directory. Relative values are resolved from the repository root.
-Run one API process per log. Recovery discards an incomplete final line and
-reports a corrupt complete record with its line number. At startup, every
+Each JSONL log rotates into numbered sibling files (`.1`, `.2`, and so on)
+when an append would take a nonempty segment past 16 MiB. Startup replays all
+segments in order and preserves previously written records. Run one API
+process per log. Recovery discards an incomplete final line in the active
+segment. Corruption in an archived segment stops startup with its location.
+At startup, every
 stored mission without a `mission.finished` event receives one with
 `payload.interrupted: true`. The mission's earlier events remain available.
 
@@ -39,8 +44,9 @@ stored mission without a `mission.finished` event receives one with
 `answererCall` for model calls. Pass `{ models, prices }` as `config` for the
 settings response and plan approval. The `pricing` option overrides approval
 pricing with `{ prices, tiers }`. The `startMission` callback receives the validated plan, repository,
-base branch, Briefing Markdown or goal as `briefing`, an abort `signal`, and
-an event sink backed by `log`. For engine runs started in the same process, pass the same log to
+base branch, Briefing Markdown or goal as `briefing`, an abort `signal`,
+`budgetCents` when saved, and an event sink backed by `log`. For engine runs
+started in the same process, pass the same log to
 the engine's `events` option.
 
 `briefingStore` and `questionStore` override the state stores. `buildServer()`
@@ -162,7 +168,8 @@ Status starts at `interview`, advances to `planning` on `briefing.versioned` or
 `plan.proposed`, advances to `running` on `plan.approved`, and becomes `finished`
 on `mission.finished`. A `mission.finished` event with `payload.status` set to
 `failed` sets the mission status to `failed`. A `mission.finished` event with
-`payload.interrupted: true` sets it to `interrupted`.
+`payload.interrupted: true` sets it to `interrupted`. A finish event with
+`payload.paused: true` sets it to `paused`.
 
 ## `POST /missions`
 
@@ -303,6 +310,10 @@ background. Omit the body or send `{}`. Returns `202 Accepted` with
 `{"mission_id":"demo","status":"running"}`. Follow the mission stream for
 execution progress. The API publishes `plan.approved` once and the runner
 publishes execution events to the same log.
+
+The engine emits `budget.paused` when recorded execution spend reaches the
+saved budget. It stops starting work and publishes `mission.finished` with
+`payload.paused: true`. Mission list and detail then report `paused`.
 
 - `409 Conflict` with `{"error":"Mission has no plan to approve"}` if the mission has no full proposal or lacks repository metadata.
 - `409 Conflict` with `{"error":"Mission already approved"}` if execution has already been approved or has finished.
