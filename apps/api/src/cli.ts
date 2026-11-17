@@ -1,8 +1,9 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { loadModelsConfig, loadPricesConfig } from "@bulletin/core";
+import { DEFAULT_LANES, loadModelsConfig, loadPricesConfig } from "@bulletin/core";
 import { ClaudeCodeRunner } from "@bulletin/runners/claude-code-runner";
 import { git } from "@bulletin/runners/git";
+import { claudeModelCall, runGeneral, withFallback } from "./general";
 import { formatReport, runMission } from "./orchestrator/run-mission";
 
 /** bulletin run --repo <path> --plan <plan.json> [--base main] [--test "pnpm test"] */
@@ -12,8 +13,36 @@ async function main(): Promise<void> {
     const i = rest.indexOf(`--${name}`);
     return i >= 0 ? rest[i + 1] : fallback;
   };
+  if (cmd === "plan" && flag("repo") && flag("goal")) {
+    const repo = resolve(flag("repo")!);
+    const root = resolve(import.meta.dirname, "../../..");
+    const models = loadModelsConfig(resolve(root, "config/models.json"));
+    const model = models.roles.general?.model ?? "claude-opus-5-5";
+    const fallback = models.roles.general?.fallback ?? "claude-opus-5-5";
+    const repoFiles = (await git(repo, "ls-files")).split("\n").filter(Boolean);
+    const result = await runGeneral(
+      {
+        briefing: flag("goal")!,
+        repoMap: repoFiles.join("\n"),
+        rules: "",
+        lessons: "",
+        validation: { repoFiles, lanes: DEFAULT_LANES, allowedCommands: ["pnpm *", "npm *", "node *"] },
+      },
+      withFallback(claudeModelCall(model, "claude", repo), claudeModelCall(fallback, "claude", repo), (why) =>
+        console.error(`[general] ${model} unavailable (${why.slice(0, 120)}); using ${fallback}`),
+      ),
+    );
+    if (!result.ok) {
+      console.error(`The General could not produce a valid plan after ${result.attempts} tries:\n${result.errors.join("\n")}`);
+      process.exit(1);
+    }
+    const out = resolve(flag("out", "plan.json")!);
+    writeFileSync(out, JSON.stringify(result.plan, null, 2));
+    console.log(`plan written to ${out} (${result.plan.units.length} units, ${result.attempts} tries, model ${model})`);
+    return;
+  }
   if (cmd !== "run" || !flag("repo") || !flag("plan")) {
-    console.error('usage: bulletin run --repo <path> --plan <plan.json> [--base main] [--test "pnpm test"]');
+    console.error('usage: bulletin plan --repo <path> --goal "text" [--out plan.json]\n       bulletin run --repo <path> --plan <plan.json> [--base main] [--test "pnpm test"]');
     process.exit(2);
   }
   const repo = resolve(flag("repo")!);

@@ -6,7 +6,7 @@ putting your branch next to it. Merge happens only from the Claude Code session,
 | Unit | Owner | Branch | Files (only these) | Done means |
 |------|-------|--------|--------------------|------------|
 | general | Claude Code | `claude/general` | `apps/api/src/general.ts`, `apps/api/test/general.test.ts`, `apps/api/src/cli.ts` | goal text in, validated plan.json out; one retry with feedback; tests use an injected fake model |
-| warroom-api | Codex | `codex/warroom-api` | `apps/api/src/server/**`, `apps/api/test/server/**` | Fastify routes: list missions, get one mission, SSE event stream; reads engine events; tests use fastify inject |
+| warroom-api | Codex | `codex/warroom-api` | `apps/api/src/server.ts`, `apps/api/src/server.test.ts`, new files under `apps/api/src/routes/` | Fastify routes: list missions, get one mission, SSE event stream; reads engine events; tests use fastify inject |
 | web-shell | Cursor | `cursor/web-shell` | `apps/web/**` | Next.js shell: mission list page and a war table page that renders events from the SSE route; `pnpm --filter web build` and lint pass |
 
 ## Rules for overlap
@@ -15,7 +15,7 @@ putting your branch next to it. Merge happens only from the Claude Code session,
 - Next units after these land: Managed Agents runner, Docker pass-worker, Treasury view.
 
 ## Status
-- general: not started
+- general: done (bulletin plan --goal), on claude/general
 - web-shell: not started
 - warroom-api: complete on `codex/warroom-api`.
   - API contract published first in `docs/API.md`.
