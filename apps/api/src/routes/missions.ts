@@ -121,6 +121,44 @@ function missionProgress(events: readonly BulletinEvent[]) {
   return { units: [...units.values()], ledger, ledgerByUnit };
 }
 
+function finishedReport(events: readonly BulletinEvent[], created: BulletinEvent, finished: BulletinEvent) {
+  const history = events.filter(({ id }) => id <= finished.id);
+  const { units, ledger } = missionProgress(history);
+  const unitsWith = (status: UnitStatus) => units.filter((unit) => unit.status === status).map(({ id }) => id);
+  const shipped = unitsWith("merged");
+  const held = unitsWith("held");
+  const green = new Set<string>();
+  let attempts = 0;
+  for (const { unit_id, type } of history) {
+    if (type === "attempt.ended") attempts++;
+    if (unit_id === null) continue;
+    if (type === "pass.green") green.add(unit_id);
+    if (type === "pass.red" || type === "unit.sent_back") green.delete(unit_id);
+  }
+
+  const cost = roundCents(ledger.cost_cents);
+  const recordedTouches = finished.payload.touches;
+  const touches = typeof recordedTouches === "number" && Number.isSafeInteger(recordedTouches) && recordedTouches >= 0
+    ? recordedTouches : held.length;
+  const started = history.find(({ type }) => type === "plan.approved") ?? created;
+  const elapsed = Date.parse(finished.ts) - Date.parse(started.ts);
+
+  return {
+    mission_id: created.mission_id,
+    shipped,
+    held,
+    failed: unitsWith("failed"),
+    blocked: unitsWith("blocked"),
+    attempts,
+    model_calls: ledger.charges,
+    cost_cents: cost,
+    cost_per_green_unit_cents: green.size ? roundCents(cost / green.size) : null,
+    touches,
+    touch_rate: shipped.length ? touches / shipped.length : null,
+    elapsed_ms: Number.isFinite(elapsed) ? Math.max(0, elapsed) : null,
+  };
+}
+
 export function registerMissionRoutes(app: FastifyInstance, log: EventLog): void {
   app.get("/missions", async () => ({ missions: listMissions(log.events) }));
 
@@ -151,6 +189,15 @@ export function registerMissionRoutes(app: FastifyInstance, log: EventLog): void
         return { id: unitId, cost_cents: roundCents(total?.cost_cents ?? 0), charges: total?.charges ?? 0 };
       }),
     };
+  });
+
+  app.get<{ Params: { id: string } }>("/missions/:id/report", { preValidation: validateIdParams }, async (request, reply) => {
+    const events = log.events.filter((event) => event.mission_id === request.params.id);
+    const created = events.find(({ type }) => type === "mission.created");
+    if (!created) return reply.code(404).send({ error: "Mission not found" });
+    const finished = events.findLast(({ type }) => type === "mission.finished");
+    if (!finished) return reply.code(409).send({ error: "Mission has not finished" });
+    return finishedReport(events, created, finished);
   });
 
   registerMissionEventStream(app, log);
