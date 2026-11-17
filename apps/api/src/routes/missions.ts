@@ -19,6 +19,15 @@ interface MissionUnit {
   wave: number | null;
 }
 
+interface LedgerTotal {
+  cost_cents: number;
+  charges: number;
+}
+
+function roundCents(cents: number): number {
+  return Math.round(cents * 1e4) / 1e4;
+}
+
 const missionStatuses: Partial<Record<EventType, MissionStatus>> = {
   "briefing.versioned": "planning",
   "plan.proposed": "planning",
@@ -59,8 +68,8 @@ function listMissions(events: readonly BulletinEvent[]): MissionSummary[] {
 
 function missionProgress(events: readonly BulletinEvent[]) {
   const units = new Map<string, MissionUnit>();
-  let costCents = 0;
-  let charges = 0;
+  const ledgerByUnit = new Map<string, LedgerTotal>();
+  const ledger = { cost_cents: 0, charges: 0 };
 
   function getUnit(id: string): MissionUnit {
     const existing = units.get(id);
@@ -92,15 +101,18 @@ function missionProgress(events: readonly BulletinEvent[]) {
     }
 
     if (type === "ledger.charged" && typeof payload.cost_cents === "number" && Number.isFinite(payload.cost_cents)) {
-      costCents += payload.cost_cents;
-      charges++;
+      ledger.cost_cents += payload.cost_cents;
+      ledger.charges++;
+      if (unit_id !== null) {
+        const total = ledgerByUnit.get(unit_id) ?? { cost_cents: 0, charges: 0 };
+        total.cost_cents += payload.cost_cents;
+        total.charges++;
+        ledgerByUnit.set(unit_id, total);
+      }
     }
   }
 
-  return {
-    units: [...units.values()],
-    ledger: { cost_cents: Math.round(costCents * 1e4) / 1e4, charges },
-  };
+  return { units: [...units.values()], ledger, ledgerByUnit };
 }
 
 export function registerMissionRoutes(app: FastifyInstance, log: MemoryEventLog): void {
@@ -110,7 +122,30 @@ export function registerMissionRoutes(app: FastifyInstance, log: MemoryEventLog)
     const events = log.events.filter((event) => event.mission_id === request.params.id);
     const [mission] = listMissions(events);
     if (!mission) return reply.code(404).send({ error: "Mission not found" });
-    return { ...mission, ...missionProgress(events) };
+    const { units, ledger } = missionProgress(events);
+    return { ...mission, units, ledger: { ...ledger, cost_cents: roundCents(ledger.cost_cents) } };
+  });
+
+  app.get<{ Params: { id: string } }>("/missions/:id/treasury", async (request, reply) => {
+    const { id } = request.params;
+    const events = log.events.filter((event) => event.mission_id === id);
+    const created = events.find((event) => event.type === "mission.created");
+    if (!created) return reply.code(404).send({ error: "Mission not found" });
+
+    const budget = created.payload.budget_cents;
+    const budgetCents = typeof budget === "number" && Number.isSafeInteger(budget) && budget >= 0 ? budget : null;
+    const { units, ledger, ledgerByUnit } = missionProgress(events);
+    return {
+      mission_id: id,
+      budget_cents: budgetCents,
+      cost_cents: roundCents(ledger.cost_cents),
+      remaining_cents: budgetCents === null ? null : roundCents(budgetCents - ledger.cost_cents),
+      charges: ledger.charges,
+      units: units.map(({ id: unitId }) => {
+        const total = ledgerByUnit.get(unitId);
+        return { id: unitId, cost_cents: roundCents(total?.cost_cents ?? 0), charges: total?.charges ?? 0 };
+      }),
+    };
   });
 
   registerMissionEventStream(app, log);
