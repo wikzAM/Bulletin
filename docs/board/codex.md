@@ -11,5 +11,5 @@
 - [x] 10. Update docs/API.md and the route-listing test for everything new; add a short "Running the API" section.
 - [x] 11. (tick 2) Briefing interview API per docs/SPEC.md (read the Briefing and Interviewer sections first): POST /briefings {goal} returns interviewer questions via an INJECTED model call using the interviewer prompt in packages/prompts (read only; if there is no interviewer prompt, add the template in apps/api/src/routes/ and log a BULLETIN.md question); POST /briefings/:id/answers; GET /briefings/:id returning the Briefing text once complete. JSONL-backed. Update docs/API.md first.
 - [x] 12. Answerer: POST /questions/:id/auto-answer uses ANSWERER_PROMPT (packages/prompts) with the Briefing via an injected model call; a SILENT reply leaves the question open and records that it tried. Tests with a fake model.
-- [ ] 13. Cost guard: POST /missions/:id/approve rejects with a clear 409 when the plan's token estimates (Treasury functions in apps/api/src/treasury, read-only use) exceed the mission budget. Tests.
+- [x] 13. Cost guard: POST /missions/:id/approve rejects with a clear 409 when the plan's token estimates (Treasury functions in apps/api/src/treasury, read-only use) exceed the mission budget. Tests.
 - [ ] 14. Keep docs/API.md and the route-listing test in sync; add an "Errors" section listing every error code.

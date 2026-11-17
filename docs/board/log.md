@@ -35,3 +35,4 @@
 05:55 | coordinator | tick 2: merged codex (JSONL store, serve.ts) and cursor (squashed: real-API tests, attempt history, themes); main verify 324 tests green; queues refilled (codex 11-14, cursor 12-15)
 2026-11-17 06:02 EST | Codex | 11. JSONL-backed Briefing interview | codex/warroom-api@a92ce08 | verify green (327 tests)
 2026-11-17 06:06 EST | Codex | 12. Briefing-backed auto-answer | codex/warroom-api@4862cb0 | verify green (333 tests)
+2026-11-17 06:09 EST | Codex | 13. Mission approval cost guard | codex/warroom-api@7f49b30 | verify green (337 tests)
