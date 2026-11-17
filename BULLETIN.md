@@ -47,3 +47,10 @@
 - question: Docker Desktop crashes on start ("remove ...dockerInference: The file cannot be accessed by the system"). Windows refuses to delete the three stale socket files in `%LOCALAPPDATA%\Dockerun` (dockerInference, dockerEthernetVfkit, userAnalyticsOtlpHttp.sock) even from Node: access denied. Reboot, or delete them from an administrator terminal, then start Docker and run `docker compose up` and `curl localhost:4000/health`?
 - note: the api and pass-worker `/health` endpoints were verified by running them directly with tsx.
 - status: open
+
+## [2026-11-17] Managed Agents: adapter, repo access and secrets
+- question: The Managed Agents runner is built and tested against an injected client. To run it for real we need (1) the `@anthropic-ai/sdk` dependency and a thin adapter, (2) a GitHub remote the cloud sandbox can push to, and (3) an ANTHROPIC_API_KEY (Claude Code login does not cover Managed Agents).
+- options: (a) add the SDK + adapter now and test it with your API key when you wake up; (b) wait until the AWS/site setup is done
+- recommendation: (a). It is one dependency and one small file. A GitHub token with push rights to a scratch repo is needed; use a throwaway repo, not Bulletin.
+- working default: not started; the local Claude Code runner stays the default
+- status: open
