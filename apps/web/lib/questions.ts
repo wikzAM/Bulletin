@@ -4,13 +4,29 @@ import type { Question } from "./types";
 export const ANSWER_MAX_LENGTH = 4000;
 
 export type QuestionFilter = "open" | "answered" | "all";
-export type ChipTone = "open" | "human" | "briefing" | "cache" | "answered";
+export type ChipTone = "open" | "needs-you" | "human" | "briefing" | "cache" | "answered";
 
 export function questionChip(q: Question): { tone: ChipTone; label: string; icon: string } {
   const chips = copy.questions.chips;
-  if (q.status === "open") return { tone: "open", ...chips.open };
+  if (q.status === "open") return q.auto_result ? { tone: "needs-you", ...chips.needsYou } : { tone: "open", ...chips.open };
   if (q.source) return { tone: q.source, ...chips[q.source] };
   return { tone: "answered", ...chips.answered };
+}
+
+export type Answerer = "person" | "requirements" | "earlier" | "unknown";
+
+export function answeredBy(q: Question): { who: Answerer; text: string } | null {
+  if (q.status !== "answered") return null;
+  const t = copy.questions.answeredBy;
+  const who: Answerer = q.source === "human" ? "person" : q.source === "briefing" ? "requirements" : q.source === "cache" ? "earlier" : "unknown";
+  const text = q.briefing_ref && who !== "person" && who !== "unknown" ? t.section(t[who], q.briefing_ref) : t[who];
+  return { who, text };
+}
+
+/** Why the automatic answerer handed an open question to a person, if it was tried. */
+export function handoverReason(q: Question): string | null {
+  if (q.status !== "open" || !q.auto_result) return null;
+  return copy.questions.handover[q.auto_result];
 }
 
 /** Open questions first, newest first inside each group. */

@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   ANSWER_MAX_LENGTH,
+  answeredBy,
   countQuestions,
+  handoverReason,
   filterQuestions,
   parseFilter,
   questionChip,
@@ -21,6 +23,7 @@ function q(id: string, over: Partial<Question> = {}): Question {
     answer: null,
     source: null,
     briefing_ref: null,
+    auto_result: null,
     created_at: "2026-11-16T14:00:00.000Z",
     answered_at: null,
     ...over,
@@ -30,9 +33,44 @@ function q(id: string, over: Partial<Question> = {}): Question {
 const answered = (id: string, source: Question["source"], created_at = "2026-11-16T14:00:00.000Z") =>
   q(id, { status: "answered", answer: "yes", source, answered_at: created_at, created_at });
 
+describe("answeredBy", () => {
+  it("names a person or the requirements, with the cited section", () => {
+    expect(answeredBy(answered("a", "human"))).toEqual({ who: "person", text: "Answered by a person" });
+    expect(answeredBy({ ...answered("a", "briefing"), briefing_ref: "Features" })).toEqual({
+      who: "requirements",
+      text: "Answered automatically from the requirements, section “Features”",
+    });
+    expect(answeredBy(answered("a", "briefing"))?.text).toBe("Answered automatically from the requirements");
+    expect(answeredBy({ ...answered("a", "cache"), briefing_ref: "Users" })).toEqual({
+      who: "earlier",
+      text: "Answered automatically by reusing an earlier answer, section “Users”",
+    });
+    expect(answeredBy(answered("a", null))?.who).toBe("unknown");
+  });
+
+  it("is null for open questions", () => {
+    expect(answeredBy(q("a"))).toBeNull();
+  });
+});
+
+describe("handoverReason", () => {
+  it("explains why an automatic answer was not given", () => {
+    expect(handoverReason(q("a", { auto_result: "silent" }))).toBe("The requirements do not cover this, so it needs your answer.");
+    expect(handoverReason(q("a", { auto_result: "contradiction" }))).toBe("The requirements disagree with themselves here, so it needs your answer.");
+    expect(handoverReason(q("a"))).toBeNull();
+    expect(handoverReason(answered("a", "human"))).toBeNull();
+  });
+});
+
 describe("questionChip", () => {
   it("labels open questions as waiting for a person", () => {
     expect(questionChip(q("a"))).toMatchObject({ tone: "open", label: "Needs an answer" });
+  });
+
+  it("marks questions the automatic answerer tried and handed over", () => {
+    expect(questionChip(q("a", { auto_result: "silent" }))).toMatchObject({ tone: "needs-you", label: "Tried automatically, needs you" });
+    expect(questionChip(q("a", { auto_result: "contradiction" })).tone).toBe("needs-you");
+    expect(questionChip(answered("a", "human")).tone).toBe("human");
   });
 
   it("says where an answer came from", () => {

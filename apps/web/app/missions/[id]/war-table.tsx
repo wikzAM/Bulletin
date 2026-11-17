@@ -7,7 +7,16 @@ import { copy, LANE_LABELS, STATUS_LABELS } from "../../../lib/copy";
 import { formatCents, formatPercent } from "../../../lib/format";
 import { summarizeTreasury, type TreasurySummary } from "../../../lib/treasury";
 import type { PlannedUnit, TreasuryInfo } from "../../../lib/types";
-import { applyEvent, describeEvent, initialState, type AttemptRecord, type UnitCard } from "../../../lib/war-table";
+import {
+  applyEvent,
+  describeEvent,
+  groupWaves,
+  initialState,
+  unitTitles,
+  type AttemptRecord,
+  type UnitCard,
+  type WarTableState,
+} from "../../../lib/war-table";
 
 const t = copy.missionPage;
 const tt = copy.treasury;
@@ -134,26 +143,19 @@ export function WarTable({
     [missionId],
   );
 
-  const waves = useMemo(() => {
-    const byWave = new Map<number, UnitCard[]>();
-    for (const id of state.order) {
-      const unit = state.units[id];
-      if (!unit) continue;
-      byWave.set(unit.wave, [...(byWave.get(unit.wave) ?? []), unit]);
-    }
-    return [...byWave.entries()].sort(([a], [b]) => a - b);
-  }, [state.order, state.units]);
+  return <WarTableView state={state} treasury={treasury} badge={state.finished ? t.finished : t.connection[connection]} />;
+}
 
-  const titles = useMemo(
-    () => Object.fromEntries(Object.values(state.units).map((u) => [u.id, u.title])),
-    [state.units],
-  );
+/** The task board, spending and activity for one project state; no data fetching. */
+export function WarTableView({ state, treasury, badge }: { state: WarTableState; treasury: TreasuryInfo | null; badge: string }) {
+  const waves = useMemo(() => groupWaves(state), [state]);
+  const titles = useMemo(() => unitTitles(state), [state]);
 
   return (
     <div className="mission-layout">
       <section>
         <h2>
-          {t.tasks} <span className="badge">{state.finished ? t.finished : t.connection[connection]}</span>
+          {t.tasks} <span className="badge">{badge}</span>
         </h2>
         <div className="waves">
           {waves.map(([wave, cards]) => (
@@ -178,7 +180,7 @@ export function WarTable({
             <ol className="feed">
               {[...state.feed].reverse().map((item) => (
                 <li key={item.id}>
-                  <time dateTime={item.ts}>{new Date(item.ts).toLocaleTimeString("en-US")}</time>
+                  <time dateTime={item.ts} suppressHydrationWarning>{new Date(item.ts).toLocaleTimeString("en-US")}</time>
                   {describeEvent(item, titles)}
                 </li>
               ))}

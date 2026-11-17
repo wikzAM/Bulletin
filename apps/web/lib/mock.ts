@@ -1,4 +1,6 @@
 import type { BulletinEvent, EventType } from "@bulletin/core";
+import type { BriefingReply } from "./api-adapters";
+import { briefingFromGoal, briefingGoal } from "./interview";
 import type { CreateMissionResponse, MissionDetail, MissionSummary, Question, TreasuryInfo } from "./types";
 
 const TODO_ID = "m-todo";
@@ -53,6 +55,7 @@ export const mockQuestions: Question[] = [
     answer: null,
     source: null,
     briefing_ref: null,
+    auto_result: "silent",
     created_at: "2026-11-16T14:03:10.000Z",
     answered_at: null,
   },
@@ -65,6 +68,7 @@ export const mockQuestions: Question[] = [
     answer: null,
     source: null,
     briefing_ref: null,
+    auto_result: "contradiction",
     created_at: "2026-11-16T14:04:00.000Z",
     answered_at: null,
   },
@@ -77,6 +81,7 @@ export const mockQuestions: Question[] = [
     answer: "Dates only, no time of day.",
     source: "briefing",
     briefing_ref: "Features",
+    auto_result: null,
     created_at: "2026-11-16T14:01:00.000Z",
     answered_at: "2026-11-16T14:01:07.000Z",
   },
@@ -89,10 +94,41 @@ export const mockQuestions: Question[] = [
     answer: "GitHub-flavoured markdown.",
     source: "human",
     briefing_ref: null,
+    auto_result: null,
     created_at: "2026-11-15T09:40:00.000Z",
     answered_at: "2026-11-15T10:02:00.000Z",
   },
 ];
+
+const MOCK_INTERVIEW = [
+  { id: "users", text: "Who will use this, and what do they need from it?" },
+  { id: "features", text: "Which features matter most, and how would you check that each one works?" },
+  { id: "constraints", text: "Any limits to respect: stack, hosting, deadline or budget?" },
+  { id: "out", text: "Is there anything it should not do?" },
+];
+
+const mockGoals = new Map<string, string>();
+
+export function mockStartBriefing(goal: string): BriefingReply {
+  const briefingId = `b-${mockGoals.size + 1}`;
+  mockGoals.set(briefingId, goal);
+  return { kind: "questions", briefingId, questions: MOCK_INTERVIEW };
+}
+
+/** The spec's Briefing template filled from the goal and the answers; skipped questions leave a section empty. */
+export function mockBriefingMarkdown(goal: string, answers: { question_id: string; answer: string | null }[]): string {
+  const byId = new Map(answers.map((a) => [a.question_id, a.answer]));
+  const lines = briefingFromGoal(goal).trimEnd().split("\n");
+  const fill: Record<string, string> = { "## Users": "users", "## Features": "features", "## Constraints": "constraints", "## Out of scope": "out" };
+  return `${lines.flatMap((line) => {
+    const answer = fill[line] ? byId.get(fill[line]) : null;
+    return answer ? [line, answer] : [line];
+  }).join("\n")}\n`;
+}
+
+export function mockAnswerBriefing(briefingId: string, answers: { question_id: string; answer: string | null }[]): BriefingReply {
+  return { kind: "briefing", briefingId, markdown: mockBriefingMarkdown(mockGoals.get(briefingId) ?? "", answers) };
+}
 
 /** A canned General reply. A goal containing "broken" returns validator errors instead of a plan. */
 export function mockCreateMission(goal: string, repo: string): CreateMissionResponse {
@@ -114,7 +150,7 @@ export function mockCreateMission(goal: string, repo: string): CreateMissionResp
     plan: {
       briefing_version: 1,
       units: [
-        { id: "u1", title: "Data model", task: `Store what this needs: ${goal}`, files: ["src/store.ts", "test/store.test.ts"], needs: [], lane: "gated", tier: "station", acceptance: ["pnpm test"] },
+        { id: "u1", title: "Data model", task: `Store what this needs: ${briefingGoal(goal)}`, files: ["src/store.ts", "test/store.test.ts"], needs: [], lane: "gated", tier: "station", acceptance: ["pnpm test"] },
         { id: "u2", title: "Helpers", task: "Pure helpers and their tests", files: ["src/helpers.ts", "test/helpers.test.ts"], needs: [], lane: "open", tier: "station", acceptance: ["pnpm test"] },
         { id: "u3", title: "Screen", task: "Show it in the UI", files: ["src/view.ts", "test/view.test.ts"], needs: [{ unit: "u1", reads: "the store's exported types" }, { unit: "u2", reads: "formatting helpers" }], lane: "open", tier: "station", acceptance: ["pnpm test"] },
       ],

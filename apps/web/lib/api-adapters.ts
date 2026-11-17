@@ -1,4 +1,5 @@
 import { isLane, isRecord, parsePlan } from "./guards";
+import type { InterviewQuestion } from "./interview";
 import type { CreateMissionResponse, MissionDetail, MissionStatus, MissionSummary, PlannedUnit, Question, TreasuryInfo } from "./types";
 
 /*
@@ -100,9 +101,15 @@ export function toQuestion(q: unknown): Question | null {
     answer: str(q.answer),
     source,
     briefing_ref: str(q.briefing_ref),
+    auto_result: autoResult(q.auto_result ?? q.answerer_result),
     created_at: str(q.created_at) ?? "",
     answered_at: str(q.answered_at),
   };
+}
+
+function autoResult(value: unknown): Question["auto_result"] {
+  const v = typeof value === "string" ? value.toLowerCase() : null;
+  return v === "silent" || v === "contradiction" ? v : null;
 }
 
 export function toQuestions(body: unknown): Question[] {
@@ -110,6 +117,31 @@ export function toQuestions(body: unknown): Question[] {
     const parsed = toQuestion(q);
     return parsed ? [parsed] : [];
   });
+}
+
+export type BriefingReply =
+  | { kind: "questions"; briefingId: string; questions: InterviewQuestion[] }
+  | { kind: "briefing"; briefingId: string; markdown: string };
+
+/**
+ * POST /briefings and POST /briefings/:id/answers: either more interviewer questions or the finished
+ * Briefing. The shape is assumed until docs/API.md documents the routes, so it accepts several spellings.
+ */
+export function toBriefingReply(body: unknown): BriefingReply | null {
+  if (!isRecord(body)) return null;
+  const briefingId = str(body.briefing_id) ?? str(body.id);
+  if (!briefingId) return null;
+  const markdown = str(body.briefing) ?? str(body.markdown) ?? str(body.text);
+  const raw = Array.isArray(body.questions) ? body.questions : [];
+  const questions = raw.flatMap((q, i): InterviewQuestion[] => {
+    if (typeof q === "string") return q ? [{ id: `q${i + 1}`, text: q }] : [];
+    if (!isRecord(q)) return [];
+    const text = str(q.text) ?? str(q.question);
+    return text ? [{ id: str(q.id) ?? `q${i + 1}`, text }] : [];
+  });
+  if (questions.length > 0 && body.status !== "complete") return { kind: "questions", briefingId, questions };
+  if (markdown) return { kind: "briefing", briefingId, markdown };
+  return null;
 }
 
 /** 201 carries a plan; 422/503 with an errors list are planning failures; anything else throws. */

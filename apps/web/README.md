@@ -5,7 +5,10 @@ The Bulletin web app (Next.js App Router). Pages:
 - `/` lists projects (missions).
 - `/missions/[id]` shows tasks by batch with live status, tries and spend, a spending panel, and the activity feed.
 - `/questions` lists questions from the agents and takes answers.
-- `/new` asks for a plan from a goal and a repository, and shows the plan or its validation errors.
+- `/new` is a guided flow: goal and repository, a few questions (one at a time, each skippable), the
+  written requirements for review and editing, then the plan or its validation errors.
+- `/demo` shows fixed sample projects (running, waiting for approval, sent back, over budget, paused) from
+  `lib/fixtures.ts`. It never calls the API.
 
 All UI text lives in `lib/copy.ts`, in plain language. All network calls go through `lib/api.ts`.
 
@@ -31,7 +34,11 @@ Answers and new plans in mock mode live only in the browser tab.
    ```
 
    The standalone API starts with an empty in-memory event log and no model, so `/new` returns
-   "Mission planning failed" until a model is configured. See `docs/API.md` for the routes.
+   "Mission planning failed" until a model is configured. To keep events between restarts, run
+   `pnpm --filter @bulletin/api exec tsx src/serve.ts` instead (JSONL event store, `PORT`, default 4000).
+   See `docs/API.md` for the routes.
+
+   Until the API has Briefing routes, `/new` skips the questions and starts the requirements from the goal.
 
 2. Start the web app on port 3000 with the API address. The API only allows browser requests from
    `http://localhost:3000`, so keep that port.
@@ -63,7 +70,9 @@ pnpm --filter web build         # production build
 ```
 
 The pure logic is tested directly: the event reducer (`lib/war-table.ts`), spending (`lib/treasury.ts`),
-questions, new-project validation, plan batches, API adapters, and copy rules. `test/api-live.test.ts`
+questions, the `/new` interview (`lib/interview.ts`), new-project validation, plan batches, API adapters,
+the demo fixtures, and copy rules. `test/plain-language.test.ts` fails if shown text uses a term from the
+`forbidden-ui-terms` line in `docs/DECISIONS.md`. `test/api-live.test.ts`
 boots the real API routes from `apps/api` in-process and runs `lib/api.ts` against them, including the
 event stream.
 

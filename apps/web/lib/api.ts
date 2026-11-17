@@ -1,6 +1,8 @@
 import type { BulletinEvent } from "@bulletin/core";
 import {
+  toBriefingReply,
   toCreateMissionResponse,
+  type BriefingReply,
   toMissionDetail,
   toMissionSummaries,
   toQuestion,
@@ -8,7 +10,7 @@ import {
   toTreasuryInfo,
 } from "./api-adapters";
 import { EVENT_TYPE_LIST, parseEventData } from "./guards";
-import { mockCreateMission, mockEvents, mockMissions, mockQuestions, mockSummaries, mockTreasury } from "./mock";
+import { mockAnswerBriefing, mockCreateMission, mockEvents, mockStartBriefing, mockMissions, mockQuestions, mockSummaries, mockTreasury } from "./mock";
 import type { CreateMissionResponse, MissionDetail, MissionSummary, Question, TreasuryInfo } from "./types";
 
 /**
@@ -70,6 +72,26 @@ export async function answerQuestion(id: string, answer: string): Promise<Questi
   const question = res.status === 200 ? toQuestion(res.body) : null;
   if (!question) throw new Error(`POST /questions/${id}/answer failed: ${res.status}`);
   return question;
+}
+
+/** "unavailable" when the API has no Briefing routes yet; the page then starts from the goal alone. */
+export type BriefingStep = BriefingReply | { kind: "unavailable" };
+
+export async function startBriefing(goal: string, repo: string): Promise<BriefingStep> {
+  if (usingMock) return mockStartBriefing(goal);
+  const res = await postJson("/briefings", { goal, repo });
+  if (res.status === 404 || res.status === 405) return { kind: "unavailable" };
+  const reply = res.status < 300 ? toBriefingReply(res.body) : null;
+  if (!reply) throw new Error(`POST /briefings failed: ${res.status}`);
+  return reply;
+}
+
+export async function answerBriefing(briefingId: string, answers: { question_id: string; answer: string | null }[]): Promise<BriefingReply> {
+  if (usingMock) return mockAnswerBriefing(briefingId, answers);
+  const res = await postJson(`/briefings/${encodeURIComponent(briefingId)}/answers`, { answers });
+  const reply = res.status < 300 ? toBriefingReply(res.body) : null;
+  if (!reply) throw new Error(`POST /briefings/${briefingId}/answers failed: ${res.status}`);
+  return reply;
 }
 
 /** Ask the General for a plan. Planning failures come back as { ok: false, errors }, not as a throw. */

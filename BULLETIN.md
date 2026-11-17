@@ -100,3 +100,15 @@
 - recommendation: (a) once another client needs draft events or the prompt.
 - working default: API-local template and JSONL draft snapshots. Attaching a complete Briefing to a mission emits `briefing.versioned`.
 - status: open
+## [2026-11-17] web: Briefing route shapes assumed by the guided /new page
+- question: `/new` is now goal, then questions, then the requirements (Briefing) for review, then the plan. `docs/API.md` has no Briefing routes yet (Codex task 11), so `apps/web/lib/api.ts` assumes: `POST /briefings {goal, repo}` and `POST /briefings/:id/answers {answers: [{question_id, answer|null}]}`, each replying either `{briefing_id, questions: [{id, text}]}` (more questions) or `{briefing_id, briefing: "<markdown>"}` (done). The adapter also accepts `id`, `markdown`/`text`, and questions as strings or `{id, question}`. The plan is then requested with the existing `POST /missions {goal: <Briefing markdown>, repo}`.
+- options: (a) Codex builds the routes to these shapes; (b) Codex documents different shapes and Cursor adapts `lib/api-adapters.ts` (one function)
+- recommendation: (a), or (b) if the engine already differs; either is a small change on the web side.
+- working default: when `POST /briefings` returns 404/405 the page skips the questions and opens the review step with the Briefing template filled from the goal, so `/new` works against today's API.
+- status: open
+## [2026-11-17] web: questions need `source`, `briefing_ref` and the answerer's verdict
+- question: Spec section 9 says a question reaches a person only after the automatic answerer replied SILENT or found a contradiction, and auto-answers cite a Briefing section. `GET /questions` returns none of that yet. Can the question objects carry `source` (`cache|briefing|human`), `briefing_ref`, and `auto_result` (`"silent"|"contradiction"|null`, the answerer's verdict before the handover)?
+- options: (a) add the three fields to the question objects; (b) keep them only in events and let the web rebuild them from the stream
+- recommendation: (a). The board is a plain list, not a stream view.
+- working default: the web reads them when present (also `answerer_result` for the verdict, case-insensitive); without them an open question shows "Needs an answer" and an answered one "Answered by a person". Mock data shows both states.
+- status: open

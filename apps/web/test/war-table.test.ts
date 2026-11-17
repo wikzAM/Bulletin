@@ -216,7 +216,7 @@ describe("describeEvent", () => {
     expect(describeEvent(ev("unit.started", "u1"), titles)).toBe("Store: work started");
     expect(describeEvent(ev("attempt.started", "u1", { attempt: 2 }), titles)).toBe("Store: try 2 started");
     expect(describeEvent(ev("pass.red", "u1", { reason: "tests failed" }), titles)).toBe("Store: checks failed (tests failed)");
-    expect(describeEvent(ev("unit.merged", "u1"), titles)).toBe("Store: done and merged");
+    expect(describeEvent(ev("unit.merged", "u1"), titles)).toBe("Store: done and added to the project");
   });
 
   it("falls back to the unit id when the title is unknown", () => {

@@ -6,7 +6,9 @@ import { answerQuestion } from "../../lib/api";
 import { copy } from "../../lib/copy";
 import {
   ANSWER_MAX_LENGTH,
+  answeredBy,
   countQuestions,
+  handoverReason,
   filterQuestions,
   questionChip,
   replaceQuestion,
@@ -82,6 +84,8 @@ function QuestionItem({
   onAnswered: (q: Question) => void;
 }) {
   const chip = questionChip(question);
+  const by = answeredBy(question);
+  const handover = handoverReason(question);
   return (
     <li className="question">
       <div className="question-meta">
@@ -101,10 +105,13 @@ function QuestionItem({
       {question.status === "answered" ? (
         <div className="question-answer">
           <strong>{t.answer}:</strong> {question.answer}
-          {question.briefing_ref && <div className="muted">{t.reference(question.briefing_ref)}</div>}
+          {by && by.text !== chip.label && <div className={`muted answered-by answered-by-${by.who}`}>{by.text}</div>}
         </div>
       ) : (
-        <AnswerForm question={question} onAnswered={onAnswered} />
+        <>
+          {handover && <p className="handover">{handover}</p>}
+          <AnswerForm question={question} onAnswered={onAnswered} />
+        </>
       )}
     </li>
   );

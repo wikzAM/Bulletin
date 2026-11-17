@@ -237,6 +237,18 @@ table.missions tbody th {
 .chip-briefing { color: var(--accent); }
 .chip-cache { color: var(--blocked); }
 .chip-answered { color: var(--muted); }
+.chip-needs-you { color: var(--red); border-color: var(--red); }
+
+.handover {
+  margin: 0.25rem 0 0;
+  font-size: 0.875rem;
+  color: var(--muted);
+}
+
+.answered-by {
+  margin-top: 0.25rem;
+  font-size: 0.85rem;
+}
 
 .answer-form {
   display: flex;
@@ -333,6 +345,64 @@ button:disabled {
   border: 1px solid var(--green);
   border-radius: 6px;
   padding: 0.5rem 0.75rem;
+}
+
+.notice.info {
+  background: var(--card);
+  border-color: var(--accent);
+}
+
+.steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1.25rem;
+  list-style: none;
+  padding: 0;
+  margin: 0 0 1.25rem;
+  counter-reset: step;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.steps li {
+  counter-increment: step;
+}
+
+.steps li::before {
+  content: counter(step) ". ";
+}
+
+.steps li.done::before {
+  content: "✓ ";
+}
+
+.steps li.current {
+  color: var(--fg);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 0.3em;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+button.secondary {
+  background: transparent;
+  color: var(--accent);
+}
+
+.interview h2 {
+  font-size: 1.15rem;
+  margin: 0.25rem 0 0;
+}
+
+textarea.briefing {
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 0.875rem;
 }
 
 main {

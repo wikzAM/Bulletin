@@ -41,6 +41,8 @@ export interface Question {
   /** Who answered: the answer cache, the Briefing, or a person. Null while open. */
   source: "cache" | "briefing" | "human" | null;
   briefing_ref: string | null;
+  /** The automatic answerer's verdict when it was tried and handed the question to a person. */
+  auto_result: "silent" | "contradiction" | null;
   created_at: string;
   answered_at: string | null;
 }

@@ -213,6 +213,21 @@ export function applyEvent(state: WarTableState, event: BulletinEvent): WarTable
   };
 }
 
+/** Cards grouped by batch, batches ascending, plan order kept inside each batch. */
+export function groupWaves(state: WarTableState): [wave: number, cards: UnitCard[]][] {
+  const byWave = new Map<number, UnitCard[]>();
+  for (const id of state.order) {
+    const unit = state.units[id];
+    if (!unit) continue;
+    byWave.set(unit.wave, [...(byWave.get(unit.wave) ?? []), unit]);
+  }
+  return [...byWave.entries()].sort(([a], [b]) => a - b);
+}
+
+export function unitTitles(state: WarTableState): Record<string, string> {
+  return Object.fromEntries(Object.values(state.units).map((u) => [u.id, u.title]));
+}
+
 export function reduceEvents(units: PlannedUnit[], events: BulletinEvent[]): WarTableState {
   return events.reduce(applyEvent, initialState(units));
 }
@@ -242,7 +257,7 @@ const UNIT_TEXT: Record<string, Describer> = {
   "pass.green": () => "checks passed",
   "pass.red": (p) => (str(p.reason) ? `checks failed (${str(p.reason)})` : "checks failed"),
   "unit.sent_back": (p) => (str(p.reason) ? `sent back to fix: ${str(p.reason)}` : "sent back to fix"),
-  "unit.merged": () => "done and merged",
+  "unit.merged": () => "done and added to the project",
   "unit.held": () => "waiting for approval",
   "unit.failed": (p) => (str(p.reason) ? `failed (${str(p.reason)})` : "failed"),
   "unit.blocked": () => "blocked by an earlier task",

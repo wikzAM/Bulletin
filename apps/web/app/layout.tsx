@@ -24,6 +24,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             <Link href="/">{copy.nav.projects}</Link>
             <Link href="/questions">{copy.nav.questions}</Link>
             <Link href="/new">{copy.nav.newProject}</Link>
+            <Link href="/demo">{copy.nav.demo}</Link>
           </nav>
         </header>
         {children}

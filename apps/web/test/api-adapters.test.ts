@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  toBriefingReply,
   toCreateMissionResponse,
   toMissionDetail,
   toMissionSummaries,
@@ -94,7 +95,13 @@ describe("questions", () => {
   };
 
   it("fills source and briefing_ref the API does not send", () => {
-    expect(toQuestion(raw)).toEqual({ ...raw, source: null, briefing_ref: null });
+    expect(toQuestion(raw)).toEqual({ ...raw, source: null, briefing_ref: null, auto_result: null });
+  });
+
+  it("reads whether the automatic answerer was tried first", () => {
+    expect(toQuestion({ ...raw, auto_result: "SILENT" })?.auto_result).toBe("silent");
+    expect(toQuestion({ ...raw, answerer_result: "contradiction" })?.auto_result).toBe("contradiction");
+    expect(toQuestion({ ...raw, auto_result: "maybe" })?.auto_result).toBeNull();
   });
 
   it("treats an answered question with no source as answered by a person", () => {
@@ -106,6 +113,36 @@ describe("questions", () => {
     expect(toQuestions({ questions: [raw, { id: 4 }, null] }).map((q) => q.id)).toEqual(["q1"]);
     expect(toQuestions([raw])).toHaveLength(1);
     expect(toQuestions({})).toEqual([]);
+  });
+});
+
+describe("toBriefingReply", () => {
+  it("reads interviewer questions in several shapes", () => {
+    expect(toBriefingReply({ id: "b1", questions: [{ id: "a", text: "Who?" }, { id: "b", question: "What?" }, "Why?"] })).toEqual({
+      kind: "questions",
+      briefingId: "b1",
+      questions: [
+        { id: "a", text: "Who?" },
+        { id: "b", text: "What?" },
+        { id: "q3", text: "Why?" },
+      ],
+    });
+  });
+
+  it("reads a finished Briefing from briefing, markdown or text", () => {
+    for (const key of ["briefing", "markdown", "text"]) {
+      expect(toBriefingReply({ briefing_id: "b1", status: "complete", questions: [], [key]: "# Briefing: x" })).toEqual({
+        kind: "briefing",
+        briefingId: "b1",
+        markdown: "# Briefing: x",
+      });
+    }
+  });
+
+  it("returns null for a reply with neither questions nor a Briefing", () => {
+    expect(toBriefingReply({ id: "b1", questions: [] })).toBeNull();
+    expect(toBriefingReply({ questions: [{ id: "a", text: "x" }] })).toBeNull();
+    expect(toBriefingReply("nope")).toBeNull();
   });
 });
 

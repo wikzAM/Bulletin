@@ -10,7 +10,7 @@
 - [x] 9. Mission page: per-unit attempt history and send-back packets (what the pass rejected and why), using events already in the stream (pass.red payloads).
 - [x] 10. Light and dark themes through CSS variables, respecting prefers-color-scheme; no new dependencies.
 - [x] 11. apps/web/README.md: how to run against mock data and against the real API.
-- [ ] 12. (tick 2) Make /new a guided flow once Codex task 11 documents the Briefing routes in docs/API.md (git merge main to see it; until then code against its draft or mock): goal, then interview questions, then the Briefing for review, then the plan. Mock first, adapters in lib/api.ts, reducer/validation logic with tests.
-- [ ] 13. Question board: show who answered (a person, or the Briefing via auto-answer) and a "tried automatically, needs you" state for SILENT results.
-- [ ] 14. Seed mock fixtures that cover every state (running, held, send-back, over budget, paused) and use them in tests of the pure view logic. Add a /demo route that shows them with no API.
-- [ ] 15. Copy pass: plain-language labels everywhere, no jargon; add a test that scans app copy for forbidden terms (list in docs/DECISIONS.md or create it).
+- [x] 12. (tick 2) Make /new a guided flow once Codex task 11 documents the Briefing routes in docs/API.md (git merge main to see it; until then code against its draft or mock): goal, then interview questions, then the Briefing for review, then the plan. Mock first, adapters in lib/api.ts, reducer/validation logic with tests.
+- [x] 13. Question board: show who answered (a person, or the Briefing via auto-answer) and a "tried automatically, needs you" state for SILENT results.
+- [x] 14. Seed mock fixtures that cover every state (running, held, send-back, over budget, paused) and use them in tests of the pure view logic. Add a /demo route that shows them with no API.
+- [x] 15. Copy pass: plain-language labels everywhere, no jargon; add a test that scans app copy for forbidden terms (list in docs/DECISIONS.md or create it).
