@@ -48,3 +48,5 @@ One line for the decision, one for why. Newest last.
   `115 * 1.8` is `207.00000000000003` in floating point, and a bare ceiling would charge a cent that is not owed.
 - **The budget cap passes when the total exactly equals the budget; cache-read share ignores output tokens.**
   "Fits the budget" includes spending all of it, and the share is about input caching only.
+- **An acceptance command containing `;`, `&`, `|`, a backtick, `<`, `>`, `$(` or a newline is never allowed**, whatever the patterns say.
+  A wildcard pattern like `pnpm *` would otherwise let a plan chain any shell command behind an allowed one.
