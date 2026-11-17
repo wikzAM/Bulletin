@@ -18,3 +18,4 @@
 03:48 | claude | FIRST LIVE CLOUD MISSION mmwkg896v: 2/2 green on Managed Agents, $0.0485, 21s | node --test on integration: verified by me
 04:49 | coordinator | tick 1: merged codex/warroom-api (219 tests green) and cursor/web-shell (squashed: Cursor co-author trailers; 260 tests green, web build ok); main verify 301 tests green; queues refilled
 2026-11-17 04:58 EST | Codex | 8. JSONL event persistence | codex/warroom-api@94d6e04 | verify green (306 tests)
+2026-11-17 05:01 EST | Codex | 9. Runnable local API | codex/warroom-api@2abc170 | verify green (307 tests, including random-port HTTP smoke)
