@@ -36,3 +36,4 @@
 2026-11-17 06:02 EST | Codex | 11. JSONL-backed Briefing interview | codex/warroom-api@a92ce08 | verify green (327 tests)
 2026-11-17 06:06 EST | Codex | 12. Briefing-backed auto-answer | codex/warroom-api@4862cb0 | verify green (333 tests)
 2026-11-17 06:09 EST | Codex | 13. Mission approval cost guard | codex/warroom-api@7f49b30 | verify green (337 tests)
+2026-11-17 06:11 EST | Codex | 14. API errors and route contract | codex/warroom-api@5cf835f | verify green (337 tests)
