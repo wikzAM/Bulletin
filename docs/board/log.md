@@ -64,3 +64,4 @@
 07:20 | cursor | 17 /settings: jobs, models, limits and prices (mock reads config/; GET /config shape guessed, asked on BULLETIN) | cursor/web-shell@2d5a701 | verify green (402 tests), web build green
 07:24 | cursor | 18 /spend: per-project spend vs budget, 80% warning, totals (live test against the treasury route) | cursor/web-shell@dafb20c | verify green (412 tests), web build green
 07:27 | cursor | 19 review: build has no warnings; root loading/error/not-found cover every route; empty states checked, added one to the task board; unused answersPayload + back action flagged on BULLETIN (tests protect them) | cursor/web-shell@f3e8ac5 | verify green (413 tests), web build green
+07:58 | coordinator | tick 4: merged codex (e2e API test, stop, runner choice, /config) and cursor (squashed: approve, settings, spend, interview); main 422 tests green; queues refilled (codex 19-22, cursor 20-23)

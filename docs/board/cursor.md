@@ -18,3 +18,7 @@
 - [x] 17. Settings page "/settings" from GET /config (after Codex task 18 is documented): show which models do which jobs and the spend limits. Mock first.
 - [x] 18. Cross-project spend view "/spend": totals per project from GET /missions + treasury, with the 80% warning. Tests for the aggregation.
 - [x] 19. Review pass on your own code: remove dead code, make sure every page has loading/empty/error states and that `pnpm --filter web build` has no warnings. Record anything unresolved on BULLETIN.md.
+- [ ] 20. (tick 4) Decisions panel on the project page: list held units with approve/reject (mock first; routes come from Codex task 21, see docs/API.md after the next merge). Plain words: "held for your OK".
+- [ ] 21. Rules and lessons page for a project (GET /missions/:id/rules once documented): show what the system has learned, newest first.
+- [ ] 22. Dependency graph view of the plan: SVG drawn from units and needs, no new dependencies, with tests for the layout function (columns by wave, no overlapping nodes).
+- [ ] 23. Interrupted and stopped states on the project list and page (mission.finished payload stopped/interrupted), with fixtures and tests.
