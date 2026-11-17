@@ -82,3 +82,4 @@
 08:54 | cursor | 20/21 follow-up: decisions and rules on the documented routes (live tests; no integration branch yet and resolution-in-progress have their own messages) | cursor/web-shell@24e771e | verify green (479 tests), web build green
 09:58 | coordinator | tick 6: merged codex (budget passthrough, log rotation, managed warnings) and cursor (squashed: live decisions/rules routes); main 485 tests green; codex queue was empty -> refilled 25-28; cursor 26 added
 2026-11-17 09:56 EST | Codex | 25. Optional bearer token and configurable CORS | codex/warroom-api@cea0c92 | verify green (487 tests)
+2026-11-17 09:59 EST | Codex | 26. Finished mission report | codex/warroom-api@4033606 | verify green (489 tests)
