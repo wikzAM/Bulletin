@@ -50,3 +50,6 @@ One line for the decision, one for why. Newest last.
   "Fits the budget" includes spending all of it, and the share is about input caching only.
 - **An acceptance command containing `;`, `&`, `|`, a backtick, `<`, `>`, `$(` or a newline is never allowed**, whatever the patterns say.
   A wildcard pattern like `pnpm *` would otherwise let a plan chain any shell command behind an allowed one.
+
+## 2026-11-17: add @anthropic-ai/sdk to apps/api
+Needed for the Managed Agents runner adapter (apps/api/src/managed-client.ts). It is the official SDK; the runner itself stays dependency-free behind the ManagedClient interface, and tests use a fake.

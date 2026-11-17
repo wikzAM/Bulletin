@@ -11,6 +11,7 @@
     "start": "tsx src/index.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^1.9.0",
     "@bulletin/core": "workspace:*",
     "@bulletin/graph": "workspace:*",
     "@bulletin/pass-worker": "workspace:*",
