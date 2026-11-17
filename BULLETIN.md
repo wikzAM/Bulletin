@@ -26,3 +26,24 @@
 - options: (a) public repo now; (b) private until the dogfood gate
 - recommendation: (a), which you already chose by asking for a public repo. Only docs/SPEC.md is published; the pitch, market and brainstorm docs stay out of the repo.
 - status: open
+
+## [2026-11-16] Merge the M1 logic units
+- question: Merge `m1/integration` into `main`? Six units (plan validation, waves, send-back, merge policy, pass rules, treasury), 131 tests green after every merge.
+- options: (a) review `git diff main...m1/integration`, then `git merge m1/integration`; (b) ask for changes first
+- recommendation: (a)
+- status: open
+
+## [2026-11-16] Log the Claude CLI in so graph.py can run stations
+- question: `claude -p` fails with "OAuth session expired" outside the desktop app, so `graph.py` cannot start stations. Run `claude auth login` in a terminal?
+- note: the plan passed `graph.py --dry-run`; this run's six units were built by in-session subagents in isolated worktrees instead.
+- status: open
+
+## [2026-11-16] Give gh the workflow scope so CI can be pushed
+- question: GitHub rejected `.github/workflows/ci.yml` because the gh token lacks the `workflow` scope. Run `gh auth refresh -s workflow`, then `git merge ci-workflow && git push`?
+- note: the CI commit is parked on the local branch `ci-workflow`. M0's "CI runs lint, typecheck, and tests" box is not verified until this lands.
+- status: open
+
+## [2026-11-16] Docker daemon would not start
+- question: Docker Desktop did not bring up its engine in this session, so `docker compose up` is unverified. Start Docker Desktop and run `docker compose up`, then `curl localhost:4000/health`?
+- note: the api and pass-worker `/health` endpoints were verified by running them directly with tsx.
+- status: open

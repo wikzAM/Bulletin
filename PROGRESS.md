@@ -16,8 +16,12 @@ Every acceptance box of the milestone in flight is proven by an automated test o
   exist (verified); examples/todo-app with passing tests (verified); CI workflow written (not yet seen running);
   `docker compose up` + `/health` (see BULLETIN.md if not verified).
 - Graph stations start without node_modules, so the check installs first.
-- Stubs that throw "not implemented" mark the M1 logic cut into graph units: validate-plan, waves,
-  send-back, merge-policy, judge, treasury.
+- The six M1 logic units (validate-plan, waves, send-back, merge-policy, judge, treasury) are implemented on
+  branch `m1/integration`, 131 tests green after each merge. `main` still has the stubs until that branch is merged.
+- `graph.py --dry-run` accepts the plan, but `claude -p` is logged out on this machine, so stations ran as
+  in-session subagents in isolated worktrees. Agent worktrees live in `.claude/worktrees/` (ignored by git and lint).
+- GitHub rejects `.github/workflows/*` until gh has the `workflow` scope; the CI commit waits on branch `ci-workflow`.
+- Docker Desktop's engine did not start in the first session; `docker compose up` is unverified.
 
 ## Next
 Merge the M1 logic units from the graph run, then wire the M1 chain in one session: the General call,
