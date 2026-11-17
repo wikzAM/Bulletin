@@ -1,7 +1,8 @@
 import { join, resolve } from "node:path";
 import { loadModelsConfig, loadPricesConfig } from "@bulletin/core";
-import { claudeModelCall, withFallback } from "./general";
+import { claudeModelCall } from "./general";
 import { runMission } from "./orchestrator/run-mission";
+import { createGeneralCall } from "./routes/general-model";
 import { DEFAULT_UNIT_ALLOWANCE_CENTS } from "./routes/mission-ledger";
 import { allowedLocalCommands } from "./routes/mission-planning";
 import { MemoryQuestionStore } from "./routes/questions-store";
@@ -9,6 +10,7 @@ import { createRunnerFactory } from "./routes/runner-selection";
 import { buildServer } from "./server";
 import { JsonlBriefingStore } from "./store/briefing-store";
 import { JsonlEventLog } from "./store/jsonl-event-log";
+import { recoverInterruptedMissions } from "./store/mission-recovery";
 
 async function main(): Promise<void> {
   const port = Number(process.env.PORT ?? 4000);
@@ -24,8 +26,7 @@ async function main(): Promise<void> {
   const prices = loadPricesConfig(join(root, "config/prices.json"));
   const general = models.roles.general;
   if (!general) throw new Error("The General model is missing from config/models.json");
-  const primary = claudeModelCall(general.model);
-  const modelCall = general.fallback ? withFallback(primary, claudeModelCall(general.fallback)) : primary;
+  const modelCall = createGeneralCall(general);
   const interviewer = models.roles.interviewer;
   const answerer = models.roles.answerer;
 
@@ -59,6 +60,7 @@ async function main(): Promise<void> {
   });
 
   try {
+    await recoverInterruptedMissions(log);
     const address = await app.listen({ port, host: "127.0.0.1" });
     console.log(`api listening on ${address}`);
   } catch (error) {

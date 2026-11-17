@@ -17,6 +17,8 @@ The API binds to `127.0.0.1` and reads `PORT`, with `4000` as the default.
 Planning, interviews, and automatic answers use Claude Code. Put `claude` on
 `PATH` and configure Claude Code credentials. The server loads model and price
 settings from `config/models.json` and `config/prices.json`.
+If the General's primary model call fails, the server tries the configured
+fallback with the same request.
 
 Mission execution uses `BULLETIN_RUNNER=claude` by default. Set
 `BULLETIN_RUNNER=managed` and `BULLETIN_SANDBOX_REPO` to run stations in Managed
@@ -27,8 +29,9 @@ The server stores mission events in `.bulletin-scratch/api/events.jsonl` and
 restores them at startup. Set `BULLETIN_SCRATCH_DIR` to use a different data and
 worktree directory. Relative values are resolved from the repository root.
 Run one API process per log. Recovery discards an incomplete final line and
-reports a corrupt complete record with its line number. A mission interrupted
-by a process exit keeps its last recorded status.
+reports a corrupt complete record with its line number. At startup, every
+stored mission without a `mission.finished` event receives one with
+`payload.interrupted: true`. The mission's earlier events remain available.
 
 ## Server configuration
 
@@ -44,6 +47,7 @@ the engine's `events` option.
 uses in-memory defaults. `serve.ts` uses JSONL for mission events and Briefing
 interviews. Question board entries reset with the in-memory store. Question
 dispatches and decisions remain available in the mission stream after a restart.
+The `readGit` option supplies the Git reader for mission rules and lessons.
 
 ## HTTP conventions
 
@@ -61,8 +65,8 @@ Error responses include an `error` string. Planning and budget errors can
 include the additional fields shown on those endpoints.
 
 - `400 Bad Request`. `Invalid request` for malformed JSON, parameters, or fields. `Invalid event cursor` for malformed SSE cursors.
-- `404 Not Found`. `Route not found`, `Mission not found`, `Briefing not found`, or `Question not found`.
-- `409 Conflict`. `Briefing is incomplete`, `Briefing is not awaiting this answer`, `Mission already approved`, `Mission has no plan to approve`, `Plan exceeds mission budget`, `Mission is not running`, `Question already answered`, `Auto-answer already in progress`, or `Mission has no completed Briefing`.
+- `404 Not Found`. `Route not found`, `Mission not found`, `Briefing not found`, `Question not found`, `Open decision not found`, or `Mission integration branch not found`.
+- `409 Conflict`. `Briefing is incomplete`, `Briefing is not awaiting this answer`, `Mission already approved`, `Mission has no plan to approve`, `Plan exceeds mission budget`, `Mission is not running`, `Decision resolution in progress`, `Question already answered`, `Auto-answer already in progress`, or `Mission has no completed Briefing`.
 - `413 Payload Too Large`. `Payload Too Large` when the body exceeds the server's request limit.
 - `415 Unsupported Media Type`. `Unsupported Media Type` when the server cannot parse the requested content type.
 - `422 Unprocessable Entity`. `Repository unavailable`, `Mission planning failed`, or `Plan cannot be priced`.
@@ -157,7 +161,8 @@ An empty log returns `{"missions":[]}`.
 Status starts at `interview`, advances to `planning` on `briefing.versioned` or
 `plan.proposed`, advances to `running` on `plan.approved`, and becomes `finished`
 on `mission.finished`. A `mission.finished` event with `payload.status` set to
-`failed` sets the mission status to `failed`.
+`failed` sets the mission status to `failed`. A `mission.finished` event with
+`payload.interrupted: true` sets it to `interrupted`.
 
 ## `POST /missions`
 
@@ -320,6 +325,42 @@ Follow the stream for the engine's `mission.finished` event with
 `payload.stopped: true`. The mission detail stays `running` until that event.
 A mission without an active run returns `409 Conflict` with
 `{"error":"Mission is not running"}`.
+
+## `GET /missions/:id/decisions`
+
+Returns `200 OK` with `{"decisions":[...]}`. Each item is the full
+`decision.opened` `BulletinEvent` without a matching resolution. The list is
+ordered from oldest to newest. For unit holds, `unit_id` identifies the unit
+and `payload.kind` and `payload.branch` describe the hold.
+
+## `POST /missions/:id/decisions/:unit/resolve`
+
+Send `{"choice":"approve"}` or `{"choice":"reject"}`. Returns `200 OK` with the
+new `decision.resolved` event. Its payload records `opened_event_id`, `choice`,
+and `kind` when present. The endpoint records the oldest open approval decision
+for the unit. Send question answers through `POST /questions/:id/answer`.
+
+This endpoint records the choice in the mission log. Resuming held work after
+approval requires a separate engine change. An unavailable decision returns
+`404 Not Found` with `{"error":"Open decision not found"}`. A concurrent
+resolution of the same decision returns `409 Conflict` with
+`{"error":"Decision resolution in progress"}`.
+
+## `GET /missions/:id/rules`
+
+Returns `200 OK` with `.bulletin/rules.md` and `.bulletin/lessons.md` as raw
+Markdown from one snapshot of the mission's integration branch. A missing file
+has a `null` value. If the integration branch is unavailable, the response is
+`404 Not Found` with `{"error":"Mission integration branch not found"}`.
+
+```json
+{
+  "mission_id": "demo",
+  "branch": "bulletin/demo/integration",
+  "rules": "# Rules\n- Run the fixture tests.\n",
+  "lessons": null
+}
+```
 
 ## `GET /questions`
 
