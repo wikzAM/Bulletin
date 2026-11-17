@@ -22,6 +22,7 @@ async function main(): Promise<void> {
   const primary = claudeModelCall(general.model);
   const modelCall = general.fallback ? withFallback(primary, claudeModelCall(general.fallback)) : primary;
   const interviewer = models.roles.interviewer;
+  const answerer = models.roles.answerer;
 
   const log = await JsonlEventLog.open(join(dataDirectory, "events.jsonl"));
   const briefingStore = await JsonlBriefingStore.open(join(dataDirectory, "briefings.jsonl")).catch(async (error: unknown) => {
@@ -29,6 +30,7 @@ async function main(): Promise<void> {
     throw error;
   });
   const app = buildServer(log, {
+    answererCall: answerer ? claudeModelCall(answerer.model) : undefined,
     briefingStore,
     interviewerCall: interviewer ? claudeModelCall(interviewer.model) : undefined,
     modelCall,

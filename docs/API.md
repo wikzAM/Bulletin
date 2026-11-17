@@ -295,12 +295,32 @@ then `decision.opened` with `kind: "question"` and `question_id`.
 
 Send `{"answer":"Use seed 17."}`. Returns `200 OK` with the full question,
 `status` set to `answered`, the answer text, and the `answered_at` timestamp.
+The response includes `source: "human"`.
 An unknown question returns `404 Not Found` with `{"error":"Question not found"}`.
 A question with an answer returns `409 Conflict` with
 `{"error":"Question already answered"}`.
 
 The mission stream receives `dispatch.answered` with `question_id` and `answer`,
 then `decision.resolved` with `kind: "question"` and `question_id`.
+
+## `POST /questions/:id/auto-answer`
+
+Omit the body or send `{}`. The Answerer uses the mission's latest completed
+Briefing. Returns `200 OK` with the full question. A cited answer has status
+`answered`, `source: "briefing"`, and a `briefing_ref` naming the section. The
+mission stream records `dispatch.answered` and `decision.resolved` with the
+Briefing source.
+
+When the Answerer returns `SILENT` or supplies no valid citation, the question
+stays `open` with `auto_answer_tried: true`. The mission stream gets
+`dispatch.escalated` with `question_id`, `outcome: "silent"`, and
+`prompt_version`. Both outcomes are visible through `GET /questions`.
+
+- `404 Not Found` with `{"error":"Question not found"}` for an unknown ID.
+- `409 Conflict` with `{"error":"Mission has no completed Briefing"}`,
+  `{"error":"Question already answered"}`, or `{"error":"Auto-answer already in progress"}`.
+- `502 Bad Gateway` with `{"error":"Answerer failed"}` on a model failure or invalid output after a retry.
+- `503 Service Unavailable` with `{"error":"Answerer not configured"}` when the role has no configured model.
 
 Question and answer text is trimmed and must contain a non-whitespace character.
 The default question store lives in memory for the lifetime of the API process.

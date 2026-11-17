@@ -2,7 +2,7 @@ import { PlanSchema, type BulletinEvent, type EventSink, type EventType, type Pl
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import type { EventLog } from "../store/event-log";
-import { validateIdParams } from "./request-validation";
+import { emptyBody, validateIdParams } from "./request-validation";
 
 export type MissionStarter = (input: {
   missionId: string;
@@ -18,7 +18,6 @@ const missionMetadata = z.object({
   base: z.string().min(1),
   goal: z.string().optional(),
 });
-const approvalBody = z.strictObject({}).optional();
 
 function runnerEventSink(log: EventLog, missionId: string, startup: BulletinEvent[]): EventSink {
   // Standalone engine runs publish their own startup events. The API already
@@ -35,7 +34,7 @@ function runnerEventSink(log: EventLog, missionId: string, startup: BulletinEven
 export function registerMissionApproval(app: FastifyInstance, log: EventLog, startMission?: MissionStarter): void {
   const approvalsInFlight = new Set<string>();
   app.post<{ Params: { id: string } }>("/missions/:id/approve", { preValidation: validateIdParams }, async (request, reply) => {
-    if (!approvalBody.safeParse(request.body).success) return reply.code(400).send({ error: "Invalid request" });
+    if (!emptyBody.safeParse(request.body).success) return reply.code(400).send({ error: "Invalid request" });
     const { id } = request.params;
     const events = log.events.filter((event) => event.mission_id === id);
     const created = events.find((event) => event.type === "mission.created");

@@ -12,6 +12,7 @@ import { MemoryBriefingStore, type BriefingStore } from "./store/briefing-store"
 import type { EventLog } from "./store/event-log";
 
 export interface ServerOptions {
+  answererCall?: ModelCall;
   briefingStore?: BriefingStore;
   interviewerCall?: ModelCall;
   modelCall?: ModelCall;
@@ -63,7 +64,7 @@ export function buildServer(events: EventLog = new MemoryEventLog(), options: Se
   registerMissionRoutes(app, events);
   registerMissionPlanning(app, events, briefings, options.modelCall);
   registerMissionApproval(app, events, options.startMission);
-  registerQuestionRoutes(app, events, options.questionStore);
+  registerQuestionRoutes(app, events, options.questionStore, options.answererCall);
 
   return app;
 }
