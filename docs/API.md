@@ -79,7 +79,7 @@ include the additional fields shown on those endpoints.
 - `400 Bad Request`. `Invalid request` for malformed JSON, parameters, or fields. `Invalid event cursor` for malformed SSE cursors.
 - `401 Unauthorized`. `Unauthorized` when the API requires a bearer token and the request credentials are invalid or absent.
 - `404 Not Found`. `Route not found`, `Mission not found`, `Briefing not found`, `Question not found`, `Open decision not found`, or `Mission integration branch not found`.
-- `409 Conflict`. `Briefing is incomplete`, `Briefing is not awaiting this answer`, `Mission already approved`, `Mission has no plan to approve`, `Plan exceeds mission budget`, `Mission is not running`, `Decision resolution in progress`, `Question already answered`, `Auto-answer already in progress`, or `Mission has no completed Briefing`.
+- `409 Conflict`. `Briefing is incomplete`, `Briefing is not awaiting this answer`, `Mission already approved`, `Mission has no plan to approve`, `Plan exceeds mission budget`, `Mission is not running`, `Mission has not finished`, `Decision resolution in progress`, `Question already answered`, `Auto-answer already in progress`, or `Mission has no completed Briefing`.
 - `413 Payload Too Large`. `Payload Too Large` when the body exceeds the server's request limit.
 - `415 Unsupported Media Type`. `Unsupported Media Type` when the server cannot parse the requested content type.
 - `422 Unprocessable Entity`. `Repository unavailable`, `Mission planning failed`, or `Plan cannot be priced`.
@@ -278,6 +278,38 @@ non-negative safe integer `budget_cents` in the `mission.created` payload. When 
 log has no budget, `budget_cents` and `remaining_cents` are `null`.
 `remaining_cents` can be negative when spend exceeds the budget. Spend and
 remaining budget are rounded to four decimal places in cents.
+
+## `GET /missions/:id/report`
+
+Returns the final recorded mission report after `mission.finished`, including
+after a stop, budget pause, or interruption. An unfinished mission returns
+`409 Conflict` with `{"error":"Mission has not finished"}`.
+
+```json
+{
+  "mission_id": "demo",
+  "shipped": ["seed-data"],
+  "held": ["review"],
+  "failed": [],
+  "blocked": ["publish"],
+  "attempts": 2,
+  "model_calls": 2,
+  "cost_cents": 1.25,
+  "cost_per_green_unit_cents": 0.625,
+  "touches": 1,
+  "touch_rate": 1,
+  "elapsed_ms": 12000
+}
+```
+
+Attempts count `attempt.ended` events. Model calls and cost use the recorded
+ledger charges. Cost per green unit divides cost by distinct passed units,
+including held units and excluding passes that were sent back after a failed
+merge. It is `null` if none passed. Touches use the finish event count or the
+number of held units when that event lacks a count. Touch rate divides touches
+by shipped units and is `null` when none shipped. Elapsed time is the time from
+approval to the finish event, using creation as the start when approval is
+absent. Unusable timestamps yield `null`.
 
 ## `GET /missions/:id/events?after=<event id>`
 
