@@ -1,6 +1,6 @@
-import type { MemoryEventLog } from "@bulletin/core";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
+import type { EventLog } from "../store/event-log";
 import { MemoryQuestionStore, type QuestionStore } from "./questions-store";
 import { identifier, validateIdParams } from "./request-validation";
 
@@ -14,7 +14,7 @@ const answerBody = z.strictObject({ answer: z.string().trim().min(1) });
 
 export function registerQuestionRoutes(
   app: FastifyInstance,
-  log: MemoryEventLog,
+  log: EventLog,
   store: QuestionStore = new MemoryQuestionStore(),
 ): void {
   app.get("/questions", async (request, reply) => {

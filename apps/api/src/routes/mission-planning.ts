@@ -1,11 +1,13 @@
 import { randomUUID } from "node:crypto";
-import { DEFAULT_LANES, LanesConfigSchema, type MemoryEventLog } from "@bulletin/core";
+import { DEFAULT_LANES, LanesConfigSchema } from "@bulletin/core";
 import { git, tryGit } from "@bulletin/runners/git";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { runGeneral, type ModelCall } from "../general";
+import type { EventLog } from "../store/event-log";
 
 const missionBody = z.strictObject({ goal: z.string().trim().min(1), repo: z.string().trim().min(1) });
+export const allowedLocalCommands = ["pnpm *", "npm *", "node *"] as const;
 
 const unconfiguredModel: ModelCall = async () => {
   throw new Error("not configured");
@@ -33,12 +35,12 @@ async function readPlanningContext(path: string) {
     validation: {
       repoFiles,
       lanes: lanes.code === 0 ? LanesConfigSchema.parse(JSON.parse(lanes.stdout)) : DEFAULT_LANES,
-      allowedCommands: ["pnpm *", "npm *", "node *"],
+      allowedCommands: allowedLocalCommands,
     },
   };
 }
 
-export function registerMissionPlanning(app: FastifyInstance, log: MemoryEventLog, modelCall?: ModelCall): void {
+export function registerMissionPlanning(app: FastifyInstance, log: EventLog, modelCall?: ModelCall): void {
   app.post("/missions", async (request, reply) => {
     const parsed = missionBody.safeParse(request.body);
     if (!parsed.success) return reply.code(400).send({ error: "Invalid request" });

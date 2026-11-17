@@ -1,6 +1,9 @@
-import { readFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, rmdir } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { expect, it } from "vitest";
 import { buildServer } from "../server";
+import { JsonlEventLog } from "../store/jsonl-event-log";
 
 function listedOperations(routeTree: string): string[] {
   const ancestors: string[] = [];
@@ -19,8 +22,7 @@ function listedOperations(routeTree: string): string[] {
   return operations.sort();
 }
 
-it("documents every registered API operation and lists only registered operations", async () => {
-  const app = buildServer();
+async function checkOperations(app: ReturnType<typeof buildServer>): Promise<string> {
   try {
     const docs = await readFile(new URL("../../../../docs/API.md", import.meta.url), "utf8");
     const headings = [...docs.matchAll(/^## `([A-Z]+) (\/[^`]+)`$/gm)];
@@ -28,7 +30,27 @@ it("documents every registered API operation and lists only registered operation
 
     await app.ready();
     expect(listedOperations(app.printRoutes({ commonPrefix: false }))).toEqual(documented);
+    return docs;
   } finally {
     await app.close();
+  }
+}
+
+it("documents every registered API operation and lists only registered operations", async () => {
+  await checkOperations(buildServer());
+});
+
+it("covers the same operations with the JSONL log and documents the runnable API", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "bulletin-api-contract-"));
+  const path = join(directory, "events.jsonl");
+  const log = await JsonlEventLog.open(path);
+  try {
+    const docs = await checkOperations(buildServer(log));
+    expect(docs).toMatch(/^## Running the API$/m);
+    expect(docs).toContain("pnpm --filter @bulletin/api exec tsx src/serve.ts");
+  } finally {
+    await log.close();
+    await rm(path, { force: true });
+    await rmdir(directory);
   }
 });

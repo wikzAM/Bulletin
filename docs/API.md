@@ -1,7 +1,29 @@
 # War table API
 
-Mission reads project the API process's in-memory event log. A mission becomes
-visible after its `mission.created` event.
+Mission reads project the event log. A mission becomes visible after its
+`mission.created` event.
+
+## Running the API
+
+From the repository root, run this command.
+
+```sh
+pnpm --filter @bulletin/api exec tsx src/serve.ts
+```
+
+The API binds to `127.0.0.1` and reads `PORT`, with `4000` as the default.
+`PORT=0` assigns a free port and prints the listening address. Set
+`NEXT_PUBLIC_API_URL=http://localhost:4000` for the web client on port `3000`.
+Planning and execution use Claude Code. Put `claude` on `PATH` and configure
+Claude Code credentials to use these operations. The server loads model and
+price settings from `config/models.json` and `config/prices.json`.
+
+The server stores mission events in `.bulletin-scratch/api/events.jsonl` and
+restores them at startup. Set `BULLETIN_SCRATCH_DIR` to use a different data and
+worktree directory. Relative values are resolved from the repository root.
+Run one API process per log. Recovery discards an incomplete final line and
+reports a corrupt complete record with its line number. A mission interrupted
+by a process exit keeps its last recorded status.
 
 ## Server configuration
 
@@ -9,8 +31,11 @@ visible after its `mission.created` event.
 dependencies for planning, execution, and question storage. `startMission`
 receives the validated plan, repository, base branch, goal as `briefing`, and
 an event sink backed by `log`. For engine runs started separately in the same
-process, pass the same `MemoryEventLog` to the engine's `events` option.
-The standalone API uses the default in-memory log and question store.
+process, pass the same log to the engine's `events` option. `buildServer()`
+uses an in-memory log and question store by default. `serve.ts` uses the JSONL
+log and an in-memory question store. Question dispatches and decisions remain
+available in the mission stream after a restart. Question board entries reset
+with the in-memory store.
 
 ## HTTP conventions
 

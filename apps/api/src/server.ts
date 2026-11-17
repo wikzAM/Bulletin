@@ -7,6 +7,7 @@ import { registerMissionPlanning } from "./routes/mission-planning";
 import { registerMissionRoutes } from "./routes/missions";
 import { registerQuestionRoutes } from "./routes/questions";
 import type { QuestionStore } from "./routes/questions-store";
+import type { EventLog } from "./store/event-log";
 
 export interface ServerOptions {
   modelCall?: ModelCall;
@@ -30,7 +31,7 @@ function sendRequestError(error: FastifyError, request: FastifyRequest, reply: F
 }
 
 /** Pass the same event log to the server and engine when they run together. */
-export function buildServer(events = new MemoryEventLog(), options: ServerOptions = {}): FastifyInstance {
+export function buildServer(events: EventLog = new MemoryEventLog(), options: ServerOptions = {}): FastifyInstance {
   const app = Fastify({
     logger: false,
     frameworkErrors(error, request, reply) {
