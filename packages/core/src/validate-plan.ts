@@ -38,7 +38,12 @@ function patternsOverlap(a: string, b: string): boolean {
   return a === b || matchesAny(a, [b]) || matchesAny(b, [a]);
 }
 
+/** Characters that let one command start another: chaining, pipes, substitution, redirection, newlines. */
+const SHELL_METACHARACTERS = /[;&|`<>\r\n]|\$\(/;
+
 function commandAllowed(command: string, allowed: readonly string[]): boolean {
+  // A wildcard must never be able to smuggle a second command past the allowed patterns.
+  if (SHELL_METACHARACTERS.test(command)) return false;
   return allowed.some((pattern) => {
     const source = pattern
       .split("*")

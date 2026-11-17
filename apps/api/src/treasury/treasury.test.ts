@@ -150,3 +150,14 @@ describe("cacheReadShare", () => {
     expect(cacheReadShare([usage({ output_tokens: 10 }), usage({})])).toBe(0);
   });
 });
+
+describe("lookups ignore Object.prototype keys", () => {
+  for (const name of ["constructor", "toString", "__proto__"]) {
+    it(`costCents throws for a model named ${name}`, () => {
+      expect(() => costCents(name, usage({ input_tokens: 1 }), prices)).toThrow(`no price for model: ${name}`);
+    });
+    it(`fareEstimate throws for a tier named ${name}`, () => {
+      expect(() => fareEstimate([{ id: "u1", tier: name }], tiers, prices)).toThrow(`no model for tier: ${name}`);
+    });
+  }
+});

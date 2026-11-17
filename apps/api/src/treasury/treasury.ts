@@ -15,7 +15,7 @@ const ceilCents = (x: number): number => Math.ceil(Math.round(x * 1e6) / 1e6);
  * Throws an Error naming the model if it has no price.
  */
 export function costCents(model: string, usage: Usage, prices: PricesConfig): number {
-  const price = prices.models[model];
+  const price = Object.hasOwn(prices.models, model) ? prices.models[model] : undefined;
   if (!price) throw new Error(`no price for model: ${model}`);
   const cents =
     (100 *
@@ -69,7 +69,7 @@ export function fareEstimate(
   const perUnit: Record<string, number> = {};
   let sum = 0;
   for (const unit of units) {
-    const model = tiers[unit.tier];
+    const model = Object.hasOwn(tiers, unit.tier) ? tiers[unit.tier] : undefined;
     if (!model) throw new Error(`no model for tier: ${unit.tier}`);
     const est = unit.estimate ?? defaultEstimate;
     const cents = costCents(

