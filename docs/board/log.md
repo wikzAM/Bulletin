@@ -57,3 +57,4 @@
 07:05 | coordinator | tick 3: merged codex (Briefing interview, Answerer, cost guard, error docs) and cursor (squashed: guided /new, answerer states, /demo, copy checks); main 376 tests; claude: engine abort signal + runners.ts (377 tests); queues refilled
 2026-11-17 06:55 EST | Codex | 15. End-to-end HTTP mission | codex/warroom-api@ae30d3b | verify green (378 tests)
 2026-11-17 06:58 EST | Codex | 16. Stop a running mission | codex/warroom-api@30d1e8f | verify green (380 tests)
+2026-11-17 07:01 EST | Codex | 17. Local and managed runner selection | codex/warroom-api@e97786d | verify green (384 tests)
