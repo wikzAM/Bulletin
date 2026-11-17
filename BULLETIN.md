@@ -166,3 +166,10 @@
 - options: (a) I link it; (b) leave as is
 - recommendation: (a). Done in the same tick.
 - status: resolved
+
+## [2026-11-17] Web app or downloadable desktop app?
+- question: docs/SPEC.md defines Bulletin as a web app (browser and phone) plus an API; what is built matches that. You were picturing a downloadable app. Which do you want as the product shape?
+- options: (a) keep web core, add a thin desktop shell later (Tauri or Electron) that starts the API and web locally and opens a window, shipped as a Windows installer; (b) web only, hosted; (c) desktop-first, rebuild the shell now
+- recommendation: (a). The engine, API and UI are the same either way, and a local shell fits the local Claude Code runner, which needs the user's own machine and login. It also keeps the phone-browser decision inbox the spec wants. Docker is not needed for this path.
+- working default: web core continues; nothing desktop started
+- status: open
