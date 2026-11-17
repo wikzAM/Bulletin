@@ -68,3 +68,4 @@
 08:20 | claude | FULL STACK LIVE: POST /missions (General, Opus fallback) -> approve -> Sonnet station -> merged via HTTP API, $0.144, node --test verified on integration branch
 2026-11-17 07:56 EST | Codex | 19. General fallback wiring | codex/warroom-api@e5e7950 | verify green (424 tests)
 2026-11-17 07:59 EST | Codex | 20. Interrupted mission recovery | codex/warroom-api@4a12bff | verify green (424 tests)
+2026-11-17 08:02 EST | Codex | 21. Mission decision listing and resolution | codex/warroom-api@da31ddf | verify green (428 tests)
