@@ -54,7 +54,7 @@ describe("POST /missions/:id/approve", () => {
     expect(responses.find((res) => res.statusCode === 409)?.json()).toEqual({ error: "Mission already approved" });
     expect(startMission).toHaveBeenCalledExactlyOnceWith({
       missionId: "demo", repo: missionMetadata.repo, baseBranch: missionMetadata.base,
-      briefing: missionMetadata.goal, plan, events: { emit: expect.any(Function) },
+      briefing: missionMetadata.goal, plan, events: { emit: expect.any(Function) }, signal: expect.any(AbortSignal),
     });
     expect(events.events.map(({ type }) => type)).toEqual([
       "mission.created", "plan.proposed", "plan.approved", "unit.started",

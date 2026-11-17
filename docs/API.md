@@ -30,8 +30,8 @@ by a process exit keeps its last recorded status.
 `buildServer(log, options)` accepts `modelCall`, `interviewerCall`, and
 `answererCall` for model calls. Pass `{ prices, tiers }` as `pricing` for plan
 approval. The `startMission` callback receives the validated plan, repository,
-base branch, Briefing Markdown or goal as `briefing`, and an event sink backed
-by `log`. For engine runs started in the same process, pass the same log to
+base branch, Briefing Markdown or goal as `briefing`, an abort `signal`, and
+an event sink backed by `log`. For engine runs started in the same process, pass the same log to
 the engine's `events` option.
 
 `briefingStore` and `questionStore` override the state stores. `buildServer()`
@@ -56,7 +56,7 @@ include the additional fields shown on those endpoints.
 
 - `400 Bad Request`. `Invalid request` for malformed JSON, parameters, or fields. `Invalid event cursor` for malformed SSE cursors.
 - `404 Not Found`. `Route not found`, `Mission not found`, `Briefing not found`, or `Question not found`.
-- `409 Conflict`. `Briefing is incomplete`, `Briefing is not awaiting this answer`, `Mission already approved`, `Mission has no plan to approve`, `Plan exceeds mission budget`, `Question already answered`, `Auto-answer already in progress`, or `Mission has no completed Briefing`.
+- `409 Conflict`. `Briefing is incomplete`, `Briefing is not awaiting this answer`, `Mission already approved`, `Mission has no plan to approve`, `Plan exceeds mission budget`, `Mission is not running`, `Question already answered`, `Auto-answer already in progress`, or `Mission has no completed Briefing`.
 - `413 Payload Too Large`. `Payload Too Large` when the body exceeds the server's request limit.
 - `415 Unsupported Media Type`. `Unsupported Media Type` when the server cannot parse the requested content type.
 - `422 Unprocessable Entity`. `Repository unavailable`, `Mission planning failed`, or `Plan cannot be priced`.
@@ -284,6 +284,16 @@ publishes execution events to the same log.
 
 If the runner throws before finishing, `mission.finished` carries
 `{"status":"failed","error":"Mission execution failed"}` in its payload.
+
+## `POST /missions/:id/stop`
+
+Omit the body or send `{}`. Requests cancellation of the running mission and
+returns `202 Accepted` with `{"mission_id":"demo","status":"stopping"}`.
+Repeated stop requests return the same result while the runner is active.
+Follow the stream for the engine's `mission.finished` event with
+`payload.stopped: true`. The mission detail stays `running` until that event.
+A mission without an active run returns `409 Conflict` with
+`{"error":"Mission is not running"}`.
 
 ## `GET /questions`
 
