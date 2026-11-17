@@ -101,10 +101,13 @@ export class ManagedAgentsRunner implements Runner {
   constructor(
     private readonly client: ManagedClient,
     private readonly fetchBranch: FetchBranch,
+    /** Runs before each session starts, e.g. to push the base branch where the sandbox can clone it. */
+    private readonly beforeStart?: (input: AttemptInput) => Promise<void>,
   ) {}
 
   async startAttempt(input: AttemptInput): Promise<AttemptHandle> {
     const branch = attemptBranch(input.missionId, input.unit.id, input.attempt);
+    await this.beforeStart?.(input);
     const session = await this.client.createSession({
       prompt: buildManagedPrompt(input, branch),
       model: input.model,

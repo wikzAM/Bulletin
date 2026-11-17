@@ -80,6 +80,18 @@ describe("ManagedAgentsRunner", () => {
     expect(fetched).toEqual(["bulletin/m1/u1-a1"]);
     expect(evs.at(-1)).toEqual({ type: "done", ok: true });
   });
+  it("runs the beforeStart hook before creating the session", async () => {
+    const order: string[] = [];
+    const client = fakeClient([]);
+    const create = client.createSession.bind(client);
+    client.createSession = async (p) => {
+      order.push("create");
+      return create(p);
+    };
+    const runner = new ManagedAgentsRunner(client, async () => {}, async () => void order.push("hook"));
+    await runner.startAttempt(input);
+    expect(order).toEqual(["hook", "create"]);
+  });
   it("fails the attempt when the budget is reached, without fetching", async () => {
     const fetched: string[] = [];
     const runner = new ManagedAgentsRunner(
