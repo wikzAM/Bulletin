@@ -4,13 +4,16 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./judge": "./src/judge.ts",
+    "./run-pass": "./src/run-pass.ts"
   },
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "start": "tsx src/index.ts"
   },
   "dependencies": {
-    "@bulletin/core": "workspace:*"
+    "@bulletin/core": "workspace:*",
+    "@bulletin/runners": "workspace:*"
   }
 }
