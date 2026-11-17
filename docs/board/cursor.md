@@ -1,27 +1,9 @@
-# Cursor queue (worktree D:\wt-cursor, branch cursor/web-shell). Own: apps/web/** only
-- [x] 1. Next.js shell, mission list "/" and war table "/missions/[id]" with unit cards and event feed. Details in docs/prompts/cursor-web-shell.md. Mock data behind apps/web/lib/api.ts.
-- [x] 2. Event reducer (events -> unit card state) with vitest tests, failing first. Used by the feed and cards.
-- [x] 3. Treasury panel on the war table: spend per unit, total vs budget, warning state when over 80% (mock now; GET /missions/:id/treasury per docs/API.md once Codex lands it).
-- [x] 4. Question board page "/questions": list, answer form, status chips (mock now; POST /questions/:id/answer later).
-- [x] 5. New mission page "/new": goal textarea, repo field, shows the returned plan as a unit graph/list with errors if invalid (mock now; POST /missions).
-- [x] 6. Switch lib/api.ts from mock to real fetch/EventSource behind NEXT_PUBLIC_API_URL, keeping mock as fallback when unset. Only after docs/API.md exists on main (git merge main).
-- [x] 7. Accessibility and responsive pass, empty/error/loading states for every page, tests for the pure logic.
-- [x] 8. (added by coordinator) Once docs/API.md is on main (it is now): finish task 6 end to end. Run the real API (`pnpm --filter @bulletin/api exec tsx src/serve.ts` once Codex lands it; until then boot the Fastify server from apps/api/src/server.ts in a test) and test lib/api.ts adapters against real responses. Tick task 6 only when that passes.
-- [x] 9. Mission page: per-unit attempt history and send-back packets (what the pass rejected and why), using events already in the stream (pass.red payloads).
-- [x] 10. Light and dark themes through CSS variables, respecting prefers-color-scheme; no new dependencies.
-- [x] 11. apps/web/README.md: how to run against mock data and against the real API.
-- [x] 12. (tick 2) Make /new a guided flow once Codex task 11 documents the Briefing routes in docs/API.md (git merge main to see it; until then code against its draft or mock): goal, then interview questions, then the Briefing for review, then the plan. Mock first, adapters in lib/api.ts, reducer/validation logic with tests.
-- [x] 13. Question board: show who answered (a person, or the Briefing via auto-answer) and a "tried automatically, needs you" state for SILENT results.
-- [x] 14. Seed mock fixtures that cover every state (running, held, send-back, over budget, paused) and use them in tests of the pure view logic. Add a /demo route that shows them with no API.
-- [x] 15. Copy pass: plain-language labels everywhere, no jargon; add a test that scans app copy for forbidden terms (list in docs/DECISIONS.md or create it).
-- [x] 16. (tick 3) Mission page actions: Approve plan (POST /missions/:id/approve, show the 409 cost-guard message in plain words) and Stop mission (POST /missions/:id/stop once Codex documents it; hide until docs/API.md lists it). Pure logic + adapters tested.
-- [x] 17. Settings page "/settings" from GET /config (after Codex task 18 is documented): show which models do which jobs and the spend limits. Mock first.
-- [x] 18. Cross-project spend view "/spend": totals per project from GET /missions + treasury, with the 80% warning. Tests for the aggregation.
-- [x] 19. Review pass on your own code: remove dead code, make sure every page has loading/empty/error states and that `pnpm --filter web build` has no warnings. Record anything unresolved on BULLETIN.md.
-- [x] 20. (tick 4) Decisions panel on the project page: list held units with approve/reject (mock first; routes come from Codex task 21, see docs/API.md after the next merge). Plain words: "held for your OK".
-- [x] 21. Rules and lessons page for a project (GET /missions/:id/rules once documented): show what the system has learned, newest first.
-- [x] 22. Dependency graph view of the plan: SVG drawn from units and needs, no new dependencies, with tests for the layout function (columns by wave, no overlapping nodes).
-- [x] 23. Interrupted and stopped states on the project list and page (mission.finished payload stopped/interrupted), with fixtures and tests.
-- [ ] 24. (tick 5) A mission paused by its budget shows as "Paused: spending limit reached" with spent vs limit, and offers raising the limit as an explanation only (no API for that yet). Fixture + tests; the existing paused fixture may already cover part of this.
-- [ ] 25. Final review pass over the whole web app: unused code, copy, keyboard order, contrast in both themes; list anything you could not resolve on BULLETIN.md.
-- [ ] 26. (tick 6) Report view on a finished project (GET /missions/:id/report once Codex documents it in docs/API.md after the next merge): what shipped, what is held or failed, cost per finished task, how often a person had to step in. Mock first, adapter tested.
+# Cursor queue (worktree D:\wt-cursor, branch cursor/web-shell). DIRECTION CHANGED: Bulletin is now a Tauri 2 desktop app with a React + Vite + Tailwind + React Flow UI (docs/SPEC.md, Platform section; docs/DECISIONS.md). Read both first.
+# Own: apps/desktop/** (new) and, until it is retired, apps/web/**
+Commit what you have in apps/web first (tasks 24-26 of the old queue are cancelled except committing finished work). New work, in order:
+- [ ] 1. Create apps/desktop: Vite + React + TypeScript + Tailwind, React Router. Port the pure logic from apps/web/lib (reducers, adapters, copy, fixtures, treasury, interview, plan graph layout) and its tests into apps/desktop/src/lib unchanged where possible. No Next.js APIs. `pnpm --filter desktop test`, `build` and lint green.
+- [ ] 2. Transport abstraction apps/desktop/src/lib/transport.ts: one interface `request(method, path, body)` and `subscribe(missionId, after, onEvent)`. Implementations: (a) HTTP+SSE against the dev API (VITE_API_URL), (b) Tauri: `invoke("rpc", ...)` and `listen("bulletin://event")` via @tauri-apps/api (dynamic import so the browser build works). Choose at runtime by `window.__TAURI_INTERNALS__`. Tests with a fake of each.
+- [ ] 3. Port every page to the new app: projects list, project page with task cards and activity feed, spending, questions, new-project guided flow, settings, rules and lessons, demo, report view. Replace the SVG graph with React Flow (the spec's war table): nodes per task in wave columns, edges showing "reads" on hover, status icon + text + colour, fog over not-started tasks. Add the dependency per the spec and a DECISIONS.md line.
+- [ ] 4. War table extras from spec section 13: couriers animation on question/answer events, treasury meter top right, decision inbox as a right drawer, bulletin feed along the bottom, and the receipt on mission.finished. Respect prefers-reduced-motion.
+- [ ] 5. Window feel: desktop layout first (no phone-only patterns), keyboard shortcuts, native-looking title area, remember window size via a settings store behind the transport (mock in browser).
+- [ ] 6. When apps/desktop reaches parity, delete nothing: mark apps/web as legacy in apps/web/README.md. I will retire it.

@@ -27,3 +27,13 @@ putting your branch next to it. Merge happens only from the Claude Code session,
   - Pure logic is tested (98 web tests): event reducer, treasury, questions, new-project validation, plan batches, adapters, copy rules.
   - Real API mode: set `NEXT_PUBLIC_API_URL` and run the web on port 3000 (the API's CORS origin); unset keeps mock data.
   - Open on BULLETIN.md: optional API fields (goal, titles), a browser-safe core entry, and the env var in `.env.example`.
+
+
+## Direction change (2026-11-17): desktop app
+Bulletin is now a Tauri 2 desktop app, Windows first (docs/SPEC.md Platform section). Units now:
+
+| Unit | Owner | Branch | Files |
+|------|-------|--------|-------|
+| sidecar, sqlite, platform layer, src-tauri | Codex | `codex/warroom-api` | `apps/sidecar/**`, `apps/api/**`, `src-tauri/**`, `docs/API.md`, `docs/SIDECAR.md` |
+| desktop UI (React + Vite + Tailwind + React Flow) | Cursor | `cursor/web-shell` | `apps/desktop/**`, `apps/web/**` |
+| engine, runners, General, packaging, CI, toolchain | Claude | `claude/general` | `apps/api/src/orchestrator/**`, `apps/api/src/general.ts`, `apps/api/src/runners.ts`, `apps/api/src/cli.ts`, `packages/**`, `scripts/**`, `.github/**` |
