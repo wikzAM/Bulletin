@@ -2,6 +2,7 @@ import { join, resolve } from "node:path";
 import { loadModelsConfig, loadPricesConfig } from "@bulletin/core";
 import { claudeModelCall, withFallback } from "./general";
 import { runMission } from "./orchestrator/run-mission";
+import { DEFAULT_UNIT_ALLOWANCE_CENTS } from "./routes/mission-ledger";
 import { allowedLocalCommands } from "./routes/mission-planning";
 import { MemoryQuestionStore } from "./routes/questions-store";
 import { createRunnerFactory } from "./routes/runner-selection";
@@ -36,9 +37,9 @@ async function main(): Promise<void> {
   const app = buildServer(log, {
     answererCall: answerer ? claudeModelCall(answerer.model) : undefined,
     briefingStore,
+    config: { models, prices },
     interviewerCall: interviewer ? claudeModelCall(interviewer.model) : undefined,
     modelCall,
-    pricing: { prices, tiers: models.tiers },
     questionStore: new MemoryQuestionStore(),
     startMission(mission) {
       const scratchDir = join(dataDirectory, mission.missionId);
@@ -49,7 +50,7 @@ async function main(): Promise<void> {
         prices,
         tiers: models.tiers,
         allowedCommands: allowedLocalCommands,
-        unitAllowanceCents: 200,
+        unitAllowanceCents: DEFAULT_UNIT_ALLOWANCE_CENTS,
       });
     },
   });

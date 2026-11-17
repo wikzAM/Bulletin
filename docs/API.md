@@ -33,8 +33,9 @@ by a process exit keeps its last recorded status.
 ## Server configuration
 
 `buildServer(log, options)` accepts `modelCall`, `interviewerCall`, and
-`answererCall` for model calls. Pass `{ prices, tiers }` as `pricing` for plan
-approval. The `startMission` callback receives the validated plan, repository,
+`answererCall` for model calls. Pass `{ models, prices }` as `config` for the
+settings response and plan approval. The `pricing` option overrides approval
+pricing with `{ prices, tiers }`. The `startMission` callback receives the validated plan, repository,
 base branch, Briefing Markdown or goal as `briefing`, an abort `signal`, and
 an event sink backed by `log`. For engine runs started in the same process, pass the same log to
 the engine's `events` option.

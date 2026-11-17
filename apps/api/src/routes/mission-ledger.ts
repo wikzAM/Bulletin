@@ -1,5 +1,8 @@
 import type { BulletinEvent } from "@bulletin/core";
 
+export const DEFAULT_MISSION_BUDGET_CENTS = 500;
+export const DEFAULT_UNIT_ALLOWANCE_CENTS = 200;
+
 export function readMissionBudget(value: unknown): number | null {
   return typeof value === "number" && Number.isSafeInteger(value) && value >= 0 ? value : null;
 }

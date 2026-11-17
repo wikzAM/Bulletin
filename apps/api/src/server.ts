@@ -3,6 +3,7 @@ import { MemoryEventLog } from "@bulletin/core";
 import Fastify, { type FastifyError, type FastifyInstance, type FastifyReply, type FastifyRequest } from "fastify";
 import type { ModelCall } from "./general";
 import { registerBriefings } from "./routes/briefings";
+import { registerConfig, type ConfigSource } from "./routes/config";
 import { registerMissionApproval, type MissionPricing, type MissionStarter } from "./routes/mission-approval";
 import { registerMissionPlanning } from "./routes/mission-planning";
 import { registerMissionRoutes } from "./routes/missions";
@@ -14,6 +15,7 @@ import type { EventLog } from "./store/event-log";
 export interface ServerOptions {
   answererCall?: ModelCall;
   briefingStore?: BriefingStore;
+  config?: ConfigSource;
   interviewerCall?: ModelCall;
   modelCall?: ModelCall;
   pricing?: MissionPricing;
@@ -60,11 +62,13 @@ export function buildServer(events: EventLog = new MemoryEventLog(), options: Se
   });
 
   app.get("/health", async () => ({ status: "ok", service: "api" }));
+  registerConfig(app, options.config);
   const briefings = options.briefingStore ?? new MemoryBriefingStore();
+  const pricing = options.pricing ?? (options.config && { prices: options.config.prices, tiers: options.config.models.tiers });
   registerBriefings(app, briefings, options.interviewerCall);
   registerMissionRoutes(app, events);
   registerMissionPlanning(app, events, briefings, options.modelCall);
-  registerMissionApproval(app, events, options.startMission, options.pricing);
+  registerMissionApproval(app, events, options.startMission, pricing);
   registerQuestionRoutes(app, events, options.questionStore, options.answererCall);
 
   return app;
