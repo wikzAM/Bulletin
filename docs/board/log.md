@@ -54,3 +54,4 @@
 06:16 | cursor | 13 question board: who answered + tried-automatically state (API fields asked on BULLETIN) | cursor/web-shell@6471a35 | verify green (348 tests), web build green
 06:20 | cursor | 14 demo fixtures (5 states) + /demo route, view split from live stream | cursor/web-shell@bcbaa0c | verify green (357 tests), web build green
 06:23 | cursor | 15 copy pass (no merge/lane/stage jargon) + plain-language test reading forbidden-ui-terms from DECISIONS.md | cursor/web-shell@d5f3897 | verify green (363 tests), web build green; queue empty
+07:05 | coordinator | tick 3: merged codex (Briefing interview, Answerer, cost guard, error docs) and cursor (squashed: guided /new, answerer states, /demo, copy checks); main 376 tests; claude: engine abort signal + runners.ts (377 tests); queues refilled
