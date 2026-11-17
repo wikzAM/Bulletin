@@ -17,7 +17,7 @@ Every acceptance box of the milestone in flight is proven by an automated test o
   `docker compose up` + `/health` (see BULLETIN.md if not verified).
 - Graph stations start without node_modules, so the check installs first.
 - M1 engine is on main (validate-plan, waves, send-back, merge-policy, judge, treasury, runMission, pass runner), plus the General (`bulletin plan --goal`, falls back to Opus when Fable has no credits), the local Claude Code runner and the Managed Agents runner (`bulletin run --runner managed`). Verified live: a local 3-unit mission (3/3 green) and a cloud mission on Managed Agents (2/2 green, $0.0485).
-- War table API (Codex) and web shell (Cursor) are merged; main verify is 301 tests. Overnight coordination runs from `docs/board/`.
+- War table API (Codex) and web shell (Cursor) are merged; main verify is 496 tests. The API covers Briefing interview, plan, approve, stop, treasury, questions, decisions, rules, report, bearer auth, restart recovery. The engine enforces a hard mission budget and a stop signal. A full run through the HTTP API (General, station, merge) was verified live for $0.144. Overnight coordination runs from `docs/board/`.
 - `graph.py` runs stations end to end now that `claude` is logged in (verified on a scratch repo). It needs `.workbench/` in `.gitignore`.
 - GitHub rejects `.github/workflows/*` until gh has the `workflow` scope; the CI commit waits on branch `ci-workflow`.
 - Docker Desktop will not start: stale socket entries in `%LOCALAPPDATA%\Docker\run` give access denied when removed (see BULLETIN.md). `docker compose up` is unverified.

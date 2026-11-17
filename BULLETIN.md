@@ -153,3 +153,16 @@
 ## [2026-11-17] Link the running guide
 
 - Please link `docs/RUNNING.md` from the root `README.md` under “Try it without Docker.”
+
+## [2026-11-17] Cursor went quiet at 08:54
+- question: Cursor has not committed since 08:54 and its worktree (D:\wt-cursor) has uncommitted edits in war-table.tsx, api-adapters.ts, copy.ts, ending.ts and fixtures.ts. Queue tasks 24 to 26 (paused-by-budget view, final review, report view) are not done.
+- options: (a) it hit a usage limit or is waiting on a prompt: nudge it in the Cursor window; (b) leave it and finish those three tasks in the next session
+- recommendation: (a). Its uncommitted work is not on main; nothing is lost, and I only merge committed, verified work.
+- working default: (b)
+- status: open
+
+## [2026-11-17] Link docs/RUNNING.md from the root README
+- question: Codex wrote docs/RUNNING.md (run API + web, with or without the managed runner). The root README is not Codex's to edit.
+- options: (a) I link it; (b) leave as is
+- recommendation: (a). Done in the same tick.
+- status: resolved

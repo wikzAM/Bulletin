@@ -35,7 +35,7 @@ pnpm --filter @bulletin/api exec tsx src/serve.ts
 pnpm --filter web dev
 ```
 
-The API is documented in [docs/API.md](docs/API.md). From the command line, `tsx apps/api/src/cli.ts plan --repo <path> --goal "..."` writes a plan, and `tsx apps/api/src/cli.ts run --repo <path> --plan plan.json` builds it with parallel Claude Code stations (add `--runner managed --sandbox-repo <url>` for Managed Agents; see [docs/MANAGED-AGENTS.md](docs/MANAGED-AGENTS.md)). Work is split across tools by [docs/WORKBOARD.md](docs/WORKBOARD.md).
+The API is documented in [docs/API.md](docs/API.md). From the command line, `tsx apps/api/src/cli.ts plan --repo <path> --goal "..."` writes a plan, and `tsx apps/api/src/cli.ts run --repo <path> --plan plan.json` builds it with parallel Claude Code stations (add `--runner managed --sandbox-repo <url>` for Managed Agents; see [docs/MANAGED-AGENTS.md](docs/MANAGED-AGENTS.md)). Full run guide: [docs/RUNNING.md](docs/RUNNING.md). Work is split across tools by [docs/WORKBOARD.md](docs/WORKBOARD.md).
 
 ## Layout
 

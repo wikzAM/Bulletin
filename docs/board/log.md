@@ -85,3 +85,4 @@
 2026-11-17 09:59 EST | Codex | 26. Finished mission report | codex/warroom-api@4033606 | verify green (489 tests)
 2026-11-17 10:01 EST | Codex | 27. Mission list status and limit filters | codex/warroom-api@940ba8f | verify green (496 tests)
 2026-11-17 10:03 EST | Codex | 28. API and web running guide | codex/warroom-api@3b03c7f | verify green (496 tests)
+10:52 | coordinator | tick 7 (last): merged codex (bearer auth, mission report, list filters, RUNNING.md); main 496 tests green. Cursor idle since 08:54 with uncommitted edits (question on BULLETIN.md); nothing new from it to merge
