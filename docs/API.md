@@ -1,9 +1,33 @@
 # War table API
 
-The mission endpoints are read-only. They project the engine events in the API
-process's in-memory log. A mission is visible after its `mission.created` event.
-To serve an in-process engine run, pass the same `MemoryEventLog` to
-`buildServer(log)` and to the engine's `events` option.
+Mission reads project the API process's in-memory event log. A mission becomes
+visible after its `mission.created` event.
+
+## Server configuration
+
+`buildServer(log, { modelCall, startMission, questionStore })` accepts optional
+dependencies for planning, execution, and question storage. `startMission`
+receives the validated plan, repository, base branch, goal as `briefing`, and
+an event sink backed by `log`. For engine runs started separately in the same
+process, pass the same `MemoryEventLog` to the engine's `events` option.
+The standalone API uses the default in-memory log and question store.
+
+## HTTP conventions
+
+Send write bodies as `application/json`. Invalid input returns
+`400 Bad Request` with `{"error":"Invalid request"}` unless an endpoint
+documents a more specific error. Unknown routes return `404 Not Found` with
+`{"error":"Route not found"}`. An unknown mission ID returns `404 Not Found`
+with `{"error":"Mission not found"}`.
+
+The API allows browser requests from `http://localhost:3000`. Preflight
+requests from that origin return `204 No Content` with `GET`, `HEAD`, `POST`,
+and `OPTIONS` allowed and `Content-Type` and `Last-Event-ID` accepted. JSON read
+routes also accept `HEAD` and return headers only.
+
+## `GET /health`
+
+Returns `200 OK` with `{"status":"ok","service":"api"}`.
 
 ## `GET /missions`
 
@@ -93,7 +117,7 @@ event's `unit_id`. `lane` and `wave` are `null` until reported. Unit statuses
 use the `@bulletin/core` values. A unit starts as `pending`, then follows unit,
 attempt, and pass events.
 
-`ledger.charges` counts events with a numeric `payload.cost_cents` in
+`ledger.charges` counts events with a finite numeric `payload.cost_cents` in
 `ledger.charged`. `ledger.cost_cents` sums those costs, rounded to four decimal
 places in cents. Both fields start at zero.
 
@@ -118,7 +142,7 @@ unit. Units use the same discovery order as mission detail.
 
 Totals use the same charge rules as `GET /missions/:id`. A charge with no
 `unit_id` contributes to the mission total only. The budget comes from a
-non-negative integer `budget_cents` in the `mission.created` payload. When the
+non-negative safe integer `budget_cents` in the `mission.created` payload. When the
 log has no budget, `budget_cents` and `remaining_cents` are `null`.
 `remaining_cents` can be negative when spend exceeds the budget. Spend and
 remaining budget are rounded to four decimal places in cents.
@@ -138,7 +162,8 @@ decimal digits. Invalid cursors return `400 Bad Request` with
 
 Each frame has an `id` line, an `event` line naming the event type, and a `data`
 line with the full `BulletinEvent` JSON from `@bulletin/core`. A blank line ends
-the frame. The stream also sends SSE comments on connect and while open.
+the frame. The stream also sends SSE comments on connect and every 15 seconds
+while the client can accept data.
 
 ```text
 id: 7
@@ -149,17 +174,14 @@ data: {"id":7,"mission_id":"demo","ts":"2026-11-17T14:00:01.000Z","type":"unit.s
 
 With `EventSource`, register listeners by event type, for example
 `source.addEventListener("unit.started", handler)`, and parse `event.data` as
-JSON. The `unit_id` field is `null` for mission-level events. Payloads come
-directly from the engine. The `EVENT_TYPES` export in `@bulletin/core` lists the
-available event names.
-
-Mission-specific endpoints return `404 Not Found` with
-`{"error":"Mission not found"}` for an unknown mission ID.
+JSON. The `unit_id` field is `null` for mission-level events. The payload is
+whatever the event producer wrote. The `EVENT_TYPES` export in `@bulletin/core`
+lists the available event names.
 
 ## `POST /missions/:id/approve`
 
 Approves the current proposal and starts the configured mission runner in the
-background. Send an empty request body. Returns `202 Accepted` with
+background. Omit the body or send `{}`. Returns `202 Accepted` with
 `{"mission_id":"demo","status":"running"}`. Follow the mission stream for
 execution progress. The API publishes `plan.approved` once and the runner
 publishes execution events to the same log.
@@ -211,5 +233,4 @@ The mission stream receives `dispatch.answered` with `question_id` and `answer`,
 then `decision.resolved` with `kind: "question"` and `question_id`.
 
 Question and answer text is trimmed and must contain a non-whitespace character.
-Invalid inputs return `400 Bad Request` with `{"error":"Invalid request"}`.
 The default question store lives in memory for the lifetime of the API process.
