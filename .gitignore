@@ -10,3 +10,4 @@ dist/
 *.log
 coverage/
 .claude/worktrees/
+.bulletin-local.json
