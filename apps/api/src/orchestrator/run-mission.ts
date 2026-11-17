@@ -28,7 +28,7 @@ import {
   readyUnits,
 } from "@bulletin/graph";
 import { runPass } from "@bulletin/pass-worker/run-pass";
-import { integrationBranch, type Runner } from "@bulletin/runners";
+import { integrationBranch, type AttemptHandle, type Runner } from "@bulletin/runners";
 import { addWorktree, git, removeWorktree, tryGit } from "@bulletin/runners/git";
 import { costCents } from "../treasury/treasury";
 
@@ -55,6 +55,8 @@ export interface MissionOptions {
   maxAttempts?: number;
   /** Spend cap handed to each station attempt, in cents. 0 means no per-attempt cap. */
   unitAllowanceCents?: number;
+  /** Aborting stops new work: running attempts are cancelled and unstarted units end up blocked. */
+  signal?: AbortSignal;
   events?: EventSink;
 }
 
@@ -147,6 +149,11 @@ export async function runMission(options: MissionOptions): Promise<MissionReport
   const integDir = join(options.scratchDir, "integration");
   await addWorktree(repo, integDir, integ, options.baseBranch);
   const exclusive = mutex();
+  const stopped = () => options.signal?.aborted === true;
+  const active = new Set<AttemptHandle>();
+  options.signal?.addEventListener("abort", () => {
+    for (const h of active) void runner.cancel(h).catch(() => undefined);
+  });
 
   const statuses: Record<string, UnitStatus> = Object.fromEntries(plan.units.map((u) => [u.id, "pending"]));
   const attempts: AttemptRecord[] = [];
@@ -188,6 +195,10 @@ export async function runMission(options: MissionOptions): Promise<MissionReport
     let lastReason: string | null = null;
 
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      if (stopped()) {
+        lastReason = "stopped";
+        break;
+      }
       const tier = attemptTier(unit.tier, attempt, lastReason);
       const model = options.tiers[tier] ?? options.tiers[unit.tier];
       if (!model) throw new Error(`no model for tier: ${unit.tier}`);
@@ -208,6 +219,7 @@ export async function runMission(options: MissionOptions): Promise<MissionReport
       });
 
       let stationError: string | undefined;
+      active.add(handle);
       for await (const event of runner.events(handle)) {
         if (event.type === "usage") {
           const row: LedgerRow = {
@@ -224,6 +236,7 @@ export async function runMission(options: MissionOptions): Promise<MissionReport
           stationError = event.error ?? "station failed";
         }
       }
+      active.delete(handle);
 
       let verdict: PassVerdict;
       try {
@@ -295,7 +308,7 @@ export async function runMission(options: MissionOptions): Promise<MissionReport
       await emit("wave.started", undefined, { wave, units: ready.map((u) => u.id) });
     }
     for (const unit of ready) {
-      if (running.size >= parallel) break;
+      if (stopped() || running.size >= parallel) break;
       statuses[unit.id] = "running";
       const task = runUnit(unit).finally(() => running.delete(unit.id));
       running.set(unit.id, task);
@@ -336,6 +349,7 @@ export async function runMission(options: MissionOptions): Promise<MissionReport
     elapsedMs: Date.now() - started,
   };
   await emit("mission.finished", undefined, {
+    stopped: stopped(),
     shipped: shipped.length,
     held: held.length,
     failed: report.failed.length,

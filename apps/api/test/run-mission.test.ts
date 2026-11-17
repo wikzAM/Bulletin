@@ -105,6 +105,24 @@ const good = (file: string) => ({ files: { [file]: `export const x = 1; // ${fil
 const lessons = (branch: string) => sh(repo, "show", `${branch}:.bulletin/lessons.md`);
 
 describe("graph engine: M1 acceptance", () => {
+  it("stops starting work when the abort signal fires, and blocks what has not started", async () => {
+    const abort = new AbortController();
+    const units = [unit("u1", "src/a.ts"), unit("u2", "src/b.ts", { needs: [{ unit: "u1", reads: "a from src/a.ts" }] })];
+    const started: string[] = [];
+    const { report, events } = await run(
+      units,
+      (input) => {
+        started.push(input.unit.id);
+        if (input.unit.id === "u1") setTimeout(() => abort.abort(), 20);
+        return { ...good("src/a.ts"), delayMs: 100 };
+      },
+      { signal: abort.signal },
+    );
+    expect(started).toEqual(["u1"]);
+    expect(report.statuses.u2).toBe("blocked");
+    const finished = events.events.find((e) => e.type === "mission.finished");
+    expect(finished?.payload).toMatchObject({ stopped: true });
+  });
   it("rejects a plan with a fake edge before anything runs", async () => {
     const units = [unit("u1", "src/a.ts"), unit("u2", "src/b.ts", { needs: [{ unit: "u1", reads: " " }] })];
     await expect(run(units, () => good("src/a.ts"))).rejects.toThrow(
