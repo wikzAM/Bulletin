@@ -1,10 +1,10 @@
 import { join, resolve } from "node:path";
 import { loadModelsConfig, loadPricesConfig } from "@bulletin/core";
-import { ClaudeCodeRunner } from "@bulletin/runners/claude-code-runner";
 import { claudeModelCall, withFallback } from "./general";
 import { runMission } from "./orchestrator/run-mission";
 import { allowedLocalCommands } from "./routes/mission-planning";
 import { MemoryQuestionStore } from "./routes/questions-store";
+import { createRunnerFactory } from "./routes/runner-selection";
 import { buildServer } from "./server";
 import { JsonlBriefingStore } from "./store/briefing-store";
 import { JsonlEventLog } from "./store/jsonl-event-log";
@@ -14,6 +14,10 @@ async function main(): Promise<void> {
   if (!Number.isInteger(port) || port < 0 || port > 65535) throw new Error("PORT must be an integer from 0 to 65535");
 
   const root = resolve(import.meta.dirname, "../../..");
+  const createRunner = createRunnerFactory({
+    BULLETIN_RUNNER: process.env.BULLETIN_RUNNER,
+    BULLETIN_SANDBOX_REPO: process.env.BULLETIN_SANDBOX_REPO,
+  }, root);
   const dataDirectory = resolve(root, process.env.BULLETIN_SCRATCH_DIR ?? ".bulletin-scratch", "api");
   const models = loadModelsConfig(join(root, "config/models.json"));
   const prices = loadPricesConfig(join(root, "config/prices.json"));
@@ -41,7 +45,7 @@ async function main(): Promise<void> {
       return runMission({
         ...mission,
         scratchDir,
-        runner: new ClaudeCodeRunner(mission.repo, scratchDir),
+        runner: createRunner(mission.repo, scratchDir),
         prices,
         tiers: models.tiers,
         allowedCommands: allowedLocalCommands,

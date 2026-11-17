@@ -14,9 +14,14 @@ pnpm --filter @bulletin/api exec tsx src/serve.ts
 The API binds to `127.0.0.1` and reads `PORT`, with `4000` as the default.
 `PORT=0` assigns a free port and prints the listening address. Set
 `NEXT_PUBLIC_API_URL=http://localhost:4000` for the web client on port `3000`.
-Planning and execution use Claude Code. Put `claude` on `PATH` and configure
-Claude Code credentials to use these operations. The server loads model and
-price settings from `config/models.json` and `config/prices.json`.
+Planning, interviews, and automatic answers use Claude Code. Put `claude` on
+`PATH` and configure Claude Code credentials. The server loads model and price
+settings from `config/models.json` and `config/prices.json`.
+
+Mission execution uses `BULLETIN_RUNNER=claude` by default. Set
+`BULLETIN_RUNNER=managed` and `BULLETIN_SANDBOX_REPO` to run stations in Managed
+Agents. The mission's local repository must be a clone of that sandbox
+repository. See [Managed Agents setup](MANAGED-AGENTS.md).
 
 The server stores mission events in `.bulletin-scratch/api/events.jsonl` and
 restores them at startup. Set `BULLETIN_SCRATCH_DIR` to use a different data and
