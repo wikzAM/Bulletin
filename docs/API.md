@@ -58,6 +58,32 @@ unit starts as `pending`, then follows unit, attempt, and pass events.
 `ledger.charged`. `ledger.cost_cents` sums those costs, rounded to four decimal
 places in cents. Both fields start at zero.
 
+## `GET /missions/:id/treasury`
+
+Returns `200 OK` with the mission budget, total spend, and spend for each known
+unit. Units use the same discovery order as mission detail.
+
+```json
+{
+  "mission_id": "demo",
+  "budget_cents": 500,
+  "cost_cents": 1.25,
+  "remaining_cents": 498.75,
+  "charges": 2,
+  "units": [
+    { "id": "seed-data", "cost_cents": 1, "charges": 1 },
+    { "id": "review", "cost_cents": 0, "charges": 0 }
+  ]
+}
+```
+
+Totals use the same charge rules as `GET /missions/:id`. A charge with no
+`unit_id` contributes to the mission total only. The budget comes from a
+non-negative integer `budget_cents` in the `mission.created` payload. When the
+log has no budget, `budget_cents` and `remaining_cents` are `null`.
+`remaining_cents` can be negative when spend exceeds the budget. Spend and
+remaining budget are rounded to four decimal places in cents.
+
 ## `GET /missions/:id/events?after=<event id>`
 
 Returns `200 OK` with `Content-Type: text/event-stream; charset=utf-8`.
@@ -88,5 +114,5 @@ JSON. The `unit_id` field is `null` for mission-level events. Payloads come
 directly from the engine. The `EVENT_TYPES` export in `@bulletin/core` lists the
 available event names.
 
-Both mission-specific endpoints return `404 Not Found` with
+Mission-specific endpoints return `404 Not Found` with
 `{"error":"Mission not found"}` for an unknown mission ID.
