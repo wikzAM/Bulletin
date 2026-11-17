@@ -158,6 +158,21 @@ describe("lib/api.ts against the real API", () => {
     expect(spend.find((p) => p.id === "other")).toMatchObject({ spent_cents: 0, budget_cents: null });
   });
 
+  it("reads rules and lessons, or says the server does not share them yet", async () => {
+    const result = await api.getRules(M);
+    expect(["ok", "unavailable"]).toContain(result.kind);
+  });
+
+  it("reads the settings from GET /config", async () => {
+    const settings = await api.getSettings();
+    expect(settings?.roles.length).toBeGreaterThan(0);
+    expect(settings?.tiers.length).toBeGreaterThan(0);
+    expect(settings?.pricedModels.length).toBeGreaterThan(0);
+    expect(settings?.lanes?.closed.length).toBeGreaterThan(0);
+    expect(settings?.defaultBudgetCents).toBe(500);
+    expect(settings?.unitAllowanceCents).toBeGreaterThan(0);
+  });
+
   it("lists and answers a question", async () => {
     const created = await app.inject({ method: "POST", url: "/questions", payload: { mission_id: M, unit_id: "store", body: "Include a time?" } });
     expect(created.statusCode).toBe(201);

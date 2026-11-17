@@ -18,6 +18,16 @@ export interface UnitCard {
   started: boolean;
   /** One entry per try, oldest first. */
   history: AttemptRecord[];
+  /** Set when the task is held for a person's OK (decision.opened), with the choice once made. */
+  decision: UnitDecision | null;
+}
+
+export type DecisionChoice = "approve" | "reject";
+
+export interface UnitDecision {
+  kind: "closed_lane_merge" | "gated_retry";
+  branch: string | null;
+  choice: DecisionChoice | null;
 }
 
 export type AttemptResult = "green" | "red" | "error" | "cancelled";
@@ -49,10 +59,21 @@ export interface WarTableState {
   units: Record<string, UnitCard>;
   feed: FeedItem[];
   finished: boolean;
+  /** How mission.finished ended the project; null until it arrives. */
+  ending: Ending | null;
   /** Set by plan.approved. */
   approved: boolean;
   /** Set by budget.paused; cleared when any attempt starts again. */
   paused: boolean;
+}
+
+export type Ending = "done" | "stopped" | "interrupted" | "failed";
+
+export function endingOf(payload: Record<string, unknown>): Ending {
+  if (payload.stopped === true) return "stopped";
+  if (payload.interrupted === true) return "interrupted";
+  if (payload.status === "failed") return "failed";
+  return "done";
 }
 
 export const FEED_LIMIT = 200;
@@ -69,12 +90,18 @@ const STATUS_ON: Partial<Record<EventType, UnitStatus>> = {
   "unit.blocked": "blocked",
 };
 
-const UNIT_EVENTS = new Set<EventType>([...(Object.keys(STATUS_ON) as EventType[]), "ledger.charged", "attempt.ended"]);
+const UNIT_EVENTS = new Set<EventType>([...(Object.keys(STATUS_ON) as EventType[]), "ledger.charged", "attempt.ended", "decision.opened", "decision.resolved"]);
+
+const MERGE_DECISIONS = new Set<unknown>(["closed_lane_merge", "gated_retry"]);
+
+function choiceOf(value: unknown): DecisionChoice | null {
+  return value === "approve" || value === "reject" ? value : null;
+}
 
 const ENDED_RESULTS = new Set<unknown>(["green", "red", "error", "cancelled"]);
 
 function card(unit: Pick<PlannedUnit, "id" | "title" | "lane" | "wave">): UnitCard {
-  return { ...unit, status: "pending", attempts: 0, spent_cents: 0, last_reason: null, started: false, history: [] };
+  return { ...unit, status: "pending", attempts: 0, spent_cents: 0, last_reason: null, started: false, history: [], decision: null };
 }
 
 function newAttempt(attempt: number, startedAt: string | null): AttemptRecord {
@@ -130,6 +157,7 @@ export function initialState(units: PlannedUnit[]): WarTableState {
     units: Object.fromEntries(units.map((u) => [u.id, card(u)])),
     feed: [],
     finished: false,
+    ending: null,
     approved: false,
     paused: false,
   };
@@ -166,6 +194,14 @@ function updateUnit(prev: UnitCard, event: BulletinEvent): UnitCard {
     case "ledger.charged":
       next.spent_cents = prev.spent_cents + (num(p.cost_cents) ?? 0);
       break;
+    case "decision.opened":
+      if (MERGE_DECISIONS.has(p.kind)) next.decision = { kind: p.kind as UnitDecision["kind"], branch: str(p.branch), choice: null };
+      break;
+    case "decision.resolved": {
+      const choice = choiceOf(p.choice);
+      if (choice) next.decision = { kind: prev.decision?.kind ?? (prev.lane === "closed" ? "closed_lane_merge" : "gated_retry"), branch: prev.decision?.branch ?? null, choice };
+      break;
+    }
     default:
       break;
   }
@@ -200,7 +236,8 @@ export function applyEvent(state: WarTableState, event: BulletinEvent): WarTable
   if (event.type === "plan.proposed") ({ order, units } = applyPlan(order, units, event.payload.plan));
 
   const unitId = event.unit_id;
-  if (unitId && UNIT_EVENTS.has(event.type)) {
+  const isDecision = event.type === "decision.opened" || event.type === "decision.resolved";
+  if (unitId && UNIT_EVENTS.has(event.type) && (!isDecision || units[unitId])) {
     const prev = units[unitId];
     if (!prev) order = [...order, unitId];
     units = { ...units, [unitId]: updateUnit(prev ?? card({ id: unitId, title: unitId, lane: "open", wave: 0 }), event) };
@@ -212,6 +249,7 @@ export function applyEvent(state: WarTableState, event: BulletinEvent): WarTable
     units,
     feed,
     finished: state.finished || event.type === "mission.finished",
+    ending: event.type === "mission.finished" ? endingOf(event.payload) : state.ending,
     approved: state.approved || event.type === "plan.approved",
     paused: event.type === "budget.paused" ? true : event.type === "attempt.started" ? false : state.paused,
   };
@@ -238,6 +276,13 @@ export function reduceEvents(units: PlannedUnit[], events: BulletinEvent[]): War
 
 type Describer = (p: Record<string, unknown>) => string;
 
+const FINISHED_TEXT: Record<Ending, string> = {
+  done: "Project finished",
+  stopped: "Project stopped by a person",
+  interrupted: "Project interrupted: the server restarted before it finished",
+  failed: "Project failed",
+};
+
 const MISSION_TEXT: Record<string, Describer> = {
   "mission.created": () => "Project created",
   "briefing.versioned": (p) => (num(p.version) ? `Requirements updated to version ${num(p.version)}` : "Requirements updated"),
@@ -245,7 +290,7 @@ const MISSION_TEXT: Record<string, Describer> = {
   "plan.approved": () => "Plan approved",
   "wave.started": (p) => (num(p.wave) ? `Batch ${num(p.wave)} started` : "Next batch started"),
   "budget.paused": () => "Paused: the budget would be exceeded",
-  "mission.finished": () => "Project finished",
+  "mission.finished": (p) => FINISHED_TEXT[endingOf(p)],
 };
 
 const UNIT_TEXT: Record<string, Describer> = {
@@ -257,7 +302,7 @@ const UNIT_TEXT: Record<string, Describer> = {
   "dispatch.escalated": () => "question sent to a person",
   "dispatch.posted": () => "posted an update",
   "decision.opened": () => "needs a decision",
-  "decision.resolved": () => "decision made",
+  "decision.resolved": (p) => (p.choice === "approve" ? "approved" : p.choice === "reject" ? "rejected" : "decision made"),
   "pass.green": () => "checks passed",
   "pass.red": (p) => (str(p.reason) ? `checks failed (${str(p.reason)})` : "checks failed"),
   "unit.sent_back": (p) => (str(p.reason) ? `sent back to fix: ${str(p.reason)}` : "sent back to fix"),

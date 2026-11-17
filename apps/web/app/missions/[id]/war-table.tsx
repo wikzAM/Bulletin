@@ -2,9 +2,11 @@
 
 import { useEffect, useMemo, useReducer, useState } from "react";
 import type { BulletinEvent } from "@bulletin/core";
-import { approveMission, subscribeEvents, type ConnectionState } from "../../../lib/api";
+import { approveMission, resolveDecision, stopMission, subscribeEvents, type ConnectionState } from "../../../lib/api";
 import { approveMessage, canApprove, type ApproveMessage } from "../../../lib/approve";
-import { copy, LANE_LABELS, STATUS_LABELS } from "../../../lib/copy";
+import { copy, LANE_LABELS } from "../../../lib/copy";
+import { heldForYou, resolveMessage } from "../../../lib/decisions";
+import { attemptResultLabel, canStop, cardStatus, stopMessage } from "../../../lib/ending";
 import { formatCents, formatPercent } from "../../../lib/format";
 import { summarizeTreasury, type TreasurySummary } from "../../../lib/treasury";
 import type { MissionStatus, PlannedUnit, TreasuryInfo } from "../../../lib/types";
@@ -15,6 +17,8 @@ import {
   initialState,
   unitTitles,
   type AttemptRecord,
+  type DecisionChoice,
+  type Ending,
   type UnitCard,
   type WarTableState,
 } from "../../../lib/war-table";
@@ -69,7 +73,7 @@ function TreasuryPanel({ summary }: { summary: TreasurySummary }) {
   );
 }
 
-function History({ history }: { history: AttemptRecord[] }) {
+function History({ history, ending }: { history: AttemptRecord[]; ending: Ending | null }) {
   const h = t.history;
   return (
     <details className="history">
@@ -77,7 +81,7 @@ function History({ history }: { history: AttemptRecord[] }) {
       <ol>
         {history.map((a) => (
           <li key={a.attempt}>
-            <strong>{h.tryLabel(a.attempt)}</strong>: {h.results[a.result ?? "none"]}
+            <strong>{h.tryLabel(a.attempt)}</strong>: {attemptResultLabel(a, ending)}
             {a.reason && a.result !== "green" && ` (${a.reason})`}
             {a.spent_cents > 0 && ` · ${formatCents(a.spent_cents)}`}
             {a.sent_back && <div className="muted">{h.sentBack}</div>}
@@ -100,8 +104,8 @@ function History({ history }: { history: AttemptRecord[] }) {
   );
 }
 
-function TaskCard({ unit }: { unit: UnitCard }) {
-  const status = STATUS_LABELS[unit.status];
+function TaskCard({ unit, ending }: { unit: UnitCard; ending: Ending | null }) {
+  const status = cardStatus(unit, ending);
   return (
     <article className={`card status-${unit.status}${unit.started ? "" : " dim"}`} aria-label={unit.title}>
       <h4>{unit.title}</h4>
@@ -122,7 +126,7 @@ function TaskCard({ unit }: { unit: UnitCard }) {
           </>
         )}
       </dl>
-      {unit.history.length > 0 && <History history={unit.history} />}
+      {unit.history.length > 0 && <History history={unit.history} ending={ending} />}
     </article>
   );
 }
@@ -149,7 +153,9 @@ export function WarTable({
   return (
     <>
       {canApprove(status, state) && <ApprovePanel missionId={missionId} />}
-      <WarTableView state={state} treasury={treasury} badge={state.finished ? t.finished : t.connection[connection]} />
+      <HeldPanel missionId={missionId} state={state} />
+      {canStop(status, state) && <StopPanel missionId={missionId} />}
+      <WarTableView state={state} treasury={treasury} badge={state.ending ? t.endings[state.ending] : t.connection[connection]} />
     </>
   );
 }
@@ -197,6 +203,120 @@ function ApprovePanel({ missionId }: { missionId: string }) {
   );
 }
 
+function StopPanel({ missionId }: { missionId: string }) {
+  const ts = copy.stop;
+  const [asking, setAsking] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
+
+  const stop = async () => {
+    setBusy(true);
+    try {
+      const result = await stopMission(missionId);
+      setMessage(stopMessage(result));
+      if (result.ok || result.reason === "not_running") setAsking(false);
+    } catch {
+      setMessage({ tone: "error", text: ts.failed });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="stop" aria-busy={busy}>
+      {!asking && message?.tone !== "ok" && (
+        <button type="button" className="secondary" onClick={() => setAsking(true)}>
+          {ts.button}
+        </button>
+      )}
+      {asking && (
+        <div role="group" aria-label={ts.button}>
+          <p>{ts.confirm}</p>
+          <div className="actions">
+            <button type="button" onClick={() => void stop()} disabled={busy}>
+              {busy ? ts.stopping : ts.yes}
+            </button>
+            <button type="button" className="secondary" onClick={() => setAsking(false)} disabled={busy}>
+              {ts.no}
+            </button>
+          </div>
+        </div>
+      )}
+      {message &&
+        (message.tone === "ok" ? (
+          <p className="notice" role="status">
+            {message.text}
+          </p>
+        ) : (
+          <p className="form-error" role="alert">
+            {message.text}
+          </p>
+        ))}
+    </div>
+  );
+}
+function HeldPanel({ missionId, state }: { missionId: string; state: WarTableState }) {
+  const th = copy.held;
+  const [local, setLocal] = useState<Record<string, DecisionChoice>>({});
+  const [busy, setBusy] = useState<string | null>(null);
+  const [messages, setMessages] = useState<Record<string, { tone: "ok" | "error"; text: string }>>({});
+  const items = heldForYou(state, local);
+  if (items.length === 0) return null;
+
+  const decide = async (unitId: string, choice: DecisionChoice) => {
+    setBusy(unitId);
+    try {
+      const result = await resolveDecision(missionId, unitId, choice);
+      setMessages((m) => ({ ...m, [unitId]: resolveMessage(choice, result) }));
+      if (result.ok) setLocal((l) => ({ ...l, [unitId]: choice }));
+    } catch {
+      setMessages((m) => ({ ...m, [unitId]: { tone: "error", text: th.failed } }));
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  return (
+    <section className="held" aria-labelledby="held-title">
+      <h2 id="held-title">{th.title}</h2>
+      <p className="muted">{th.intro}</p>
+      <ul>
+        {items.map((item) => {
+          const message = messages[item.id];
+          return (
+            <li key={item.id} aria-busy={busy === item.id}>
+              <h3>{item.title}</h3>
+              <p>{item.why}</p>
+              {item.branch && <p className="muted">{th.branch(item.branch)}</p>}
+              {item.choice ? (
+                <p className="status">{th.choice[item.choice]}</p>
+              ) : (
+                <div className="actions">
+                  <button type="button" onClick={() => void decide(item.id, "approve")} disabled={busy !== null}>
+                    {busy === item.id ? th.saving : th.approve}
+                  </button>
+                  <button type="button" className="secondary" onClick={() => void decide(item.id, "reject")} disabled={busy !== null}>
+                    {th.reject}
+                  </button>
+                </div>
+              )}
+              {message &&
+                (message.tone === "ok" ? (
+                  <p className="notice" role="status">
+                    {message.text}
+                  </p>
+                ) : (
+                  <p className="form-error" role="alert">
+                    {message.text}
+                  </p>
+                ))}
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
+}
 /** The task board, spending and activity for one project state; no data fetching. */
 export function WarTableView({ state, treasury, badge }: { state: WarTableState; treasury: TreasuryInfo | null; badge: string }) {
   const waves = useMemo(() => groupWaves(state), [state]);
@@ -215,7 +335,7 @@ export function WarTableView({ state, treasury, badge }: { state: WarTableState;
               <h3>{wave === 0 ? t.unplanned : t.batch(wave)}</h3>
               <div className="cards">
                 {cards.map((unit) => (
-                  <TaskCard key={unit.id} unit={unit} />
+                  <TaskCard key={unit.id} unit={unit} ending={state.ending} />
                 ))}
               </div>
             </div>

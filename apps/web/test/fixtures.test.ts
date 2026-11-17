@@ -13,8 +13,8 @@ const byId = (id: string) => {
 const cards = (state: ReturnType<typeof demoState>): UnitCard[] => state.order.flatMap((id) => (state.units[id] ? [state.units[id]] : []));
 
 describe("demo scenarios", () => {
-  it("cover running, held, sent back, over budget and paused", () => {
-    expect(DEMO_SCENARIOS.map((s) => s.id)).toEqual(["running", "held", "sent-back", "over-budget", "paused"]);
+  it("cover running, held, sent back, over budget, paused, stopped and interrupted", () => {
+    expect(DEMO_SCENARIOS.map((s) => s.id)).toEqual(["running", "held", "sent-back", "over-budget", "paused", "stopped", "interrupted"]);
     for (const s of DEMO_SCENARIOS) {
       expect(copy.demo.scenarios[s.id].title).toBeTruthy();
       expect(copy.demo.scenarios[s.id].summary).toBeTruthy();

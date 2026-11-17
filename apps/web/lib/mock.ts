@@ -3,7 +3,7 @@ import models from "../../../config/models.json";
 import prices from "../../../config/prices.json";
 import type { BriefingReply } from "./api-adapters";
 import { briefingFromGoal, briefingGoal } from "./interview";
-import type { ApproveResult, CreateMissionResponse, MissionDetail, MissionSummary, Question, TreasuryInfo } from "./types";
+import type { ApproveResult, CreateMissionResponse, MissionDetail, MissionSummary, Question, ResolveResult, StopResult, TreasuryInfo } from "./types";
 
 const TODO_ID = "m-todo";
 const NOTES_ID = "m-notes";
@@ -278,15 +278,20 @@ export const mockEvents: Record<string, BulletinEvent[]> = {
   ]),
 };
 
-/** A guess at the GET /config body. Model names and prices come from config/, never from code. */
+/** The GET /config body. Model names come from config/; the lanes copy DEFAULT_LANES (a test keeps them equal). */
 export function mockSettings(): unknown {
   return {
-    models,
-    prices,
-    limits: { maxUnits: 12, maxAttempts: 3, parallel: 4, maxQuestionsPerAttempt: 10, maxDiffLines: 400 },
-    default_budget_cents: 500,
+    roles: models.roles,
+    tiers: models.tiers,
+    lanes: {
+      closed: ["**/migrations/**", "**/*migration*", "**/*payment*", "infra/**", "**/*.env*", "**/*secret*"],
+      gated: ["**/package.json", "**/pnpm-lock.yaml", "**/package-lock.json", "**/shared/**", "**/db/**", "**/*schema*"],
+    },
+    priced_models: Object.keys(prices.models).sort(),
+    limits: { default_budget_cents: 500, unit_allowance_cents: 200 },
   };
 }
+
 /** Spend for one mock project: its ledger.charged costs and its mock budget. */
 export function mockSpend(id: string): { spent_cents: number; budget_cents: number | null } | null {
   if (!mockMissions.some((m) => m.id === id)) return null;
@@ -294,4 +299,41 @@ export function mockSpend(id: string): { spent_cents: number; budget_cents: numb
     .filter((e) => e.type === "ledger.charged")
     .reduce((sum, e) => sum + (typeof e.payload.cost_cents === "number" ? e.payload.cost_cents : 0), 0);
   return { spent_cents: spent, budget_cents: mockTreasury[id]?.budget_cents ?? null };
+}
+const resolvedMock = new Set<string>();
+
+/** Mock mode records the choice in memory; the replayed stream does not change. */
+export function mockResolveDecision(missionId: string, unitId: string, _choice: "approve" | "reject"): ResolveResult {
+  const open = (mockEvents[missionId] ?? []).some((e) => e.type === "decision.opened" && e.unit_id === unitId);
+  if (!open) return { ok: false, reason: "not_found" };
+  const key = `${missionId}/${unitId}`;
+  if (resolvedMock.has(key)) return { ok: false, reason: "already" };
+  resolvedMock.add(key);
+  return { ok: true };
+}
+const LESSONS_HEADER = "# Lessons\n\nOne line per send-back.\n";
+const RULES_HEADER = "# Rules\n\nRules about how to cut units, promoted from lessons.md.\n";
+
+/** .bulletin/rules.md and lessons.md as the engine writes them (packages/graph send-back.ts). */
+const mockRuleFiles: Record<string, { rules: string; lessons: string }> = {
+  [TODO_ID]: {
+    rules: `${RULES_HEADER}- Keep database migrations in a task of their own\n- Cut units so this cannot recur: missing a test for the empty list\n`,
+    lessons: `${LESSONS_HEADER}- missing a test for the empty list (list: Todo list view)\n- missing a test for the empty list (done-filter: Done filter)\n- tests failed (u1: Due date field in the store)\n`,
+  },
+  [NOTES_ID]: { rules: RULES_HEADER, lessons: LESSONS_HEADER },
+  [SEARCH_ID]: { rules: RULES_HEADER, lessons: LESSONS_HEADER },
+};
+
+export function mockRules(id: string): { rules: string; lessons: string } | null {
+  return mockRuleFiles[id] ?? null;
+}
+const stoppedMock = new Set<string>();
+
+/** Mock mode answers like POST /missions/:id/stop; the replayed stream does not change. */
+export function mockStopMission(id: string): StopResult {
+  const mission = mockMissions.find((m) => m.id === id);
+  if (!mission) return { ok: false, reason: "not_found" };
+  if (mission.status !== "running" || stoppedMock.has(id)) return { ok: false, reason: "not_running" };
+  stoppedMock.add(id);
+  return { ok: true };
 }

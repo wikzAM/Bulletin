@@ -3,7 +3,7 @@ import type { PlannedUnit, TreasuryInfo } from "./types";
 import { reduceEvents, type WarTableState } from "./war-table";
 
 /** Fixed project states for /demo and for tests of the view logic; no API needed. */
-export type DemoScenarioId = "running" | "held" | "sent-back" | "over-budget" | "paused";
+export type DemoScenarioId = "running" | "held" | "sent-back" | "over-budget" | "paused" | "stopped" | "interrupted";
 
 export interface DemoScenario {
   id: DemoScenarioId;
@@ -134,6 +134,30 @@ export const DEMO_SCENARIOS: DemoScenario[] = [
       ["pass.red", "list", { attempt: 1, reason: "type check failed", evidence: "src/list.tsx(12,7): error TS2322" }],
       ["attempt.ended", "list", { attempt: 1, result: "red" }],
       ["budget.paused", null, { spent_cents: 42, budget_cents: 50 }],
+    ]),
+  },
+  {
+    id: "stopped",
+    units: UNITS,
+    treasury: { budget_cents: 500 },
+    events: build([
+      ...firstBatchDone,
+      ["unit.started", "list"],
+      ["attempt.started", "list", { attempt: 1 }],
+      ["ledger.charged", "list", { attempt: 1, cost_cents: 7 }],
+      ["attempt.ended", "list", { attempt: 1, result: "cancelled" }],
+      ["mission.finished", null, { stopped: true }],
+    ]),
+  },
+  {
+    id: "interrupted",
+    units: UNITS,
+    treasury: { budget_cents: 500 },
+    events: build([
+      ...firstBatchDone,
+      ["unit.started", "list"],
+      ["attempt.started", "list", { attempt: 1 }],
+      ["mission.finished", null, { interrupted: true }],
     ]),
   },
 ];

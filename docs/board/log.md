@@ -70,3 +70,9 @@
 2026-11-17 07:59 EST | Codex | 20. Interrupted mission recovery | codex/warroom-api@4a12bff | verify green (424 tests)
 2026-11-17 08:02 EST | Codex | 21. Mission decision listing and resolution | codex/warroom-api@da31ddf | verify green (428 tests)
 2026-11-17 08:04 EST | Codex | 22. Rules and lessons from Git | codex/warroom-api@cd99e43 | verify green (431 tests)
+07:51 | cursor | 17 follow-up: /settings on the documented GET /config (lanes, priced models, budget + per-task allowance; live test) | cursor/web-shell@5a5dc11 | verify green (424 tests), web build green
+07:55 | cursor | 20 held-for-your-OK panel on the project page (approve/reject, mock first; route shape asked on BULLETIN) | cursor/web-shell@1c7c7d8 | verify green (436 tests), web build green
+08:00 | cursor | 21 rules and lessons page /missions/:id/lessons (newest first, parser tested against packages/graph writers; route body asked on BULLETIN) | cursor/web-shell@5c5d4e8 | verify green (445 tests), web build green
+08:03 | cursor | 22 plan dependency graph on the project page (SVG, layout tested: columns by batch, no overlaps, edges; text version) | cursor/web-shell@8e56928 | verify green (455 tests), web build green
+08:09 | cursor | 23 stopped/interrupted endings (reducer, list statuses, card labels, demo scenarios) + Stop button now that /stop is documented | cursor/web-shell@86fbf31 | verify green (467 tests), web build green; queue empty
+08:11 | cursor | 23 follow-up: unfinished try after a stop reads 'Did not finish' in the history | cursor/web-shell@f234ed9 | verify green (468 tests), web build green

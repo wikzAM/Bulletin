@@ -120,11 +120,25 @@
 - question: what body will GET /config (codex task 18) return? /settings guesses
   `{models:{roles,tiers}, prices:{as_of,models}, limits:{maxUnits,...}, default_budget_cents}`.
   If the real shape differs, only toSettings in apps/web/lib/api-adapters.ts needs to change.
-- status: open.
+- status: resolved (2026-11-17). docs/API.md now documents GET /config; /settings follows it (5a5dc11) and a live test reads it from buildServer.
 ## web: dead code kept because tests cover it (cursor, 2026-11-17)
 
 - question: may cursor delete `answersPayload` and the `back` action in apps/web/lib/interview.ts, together
   with their tests in apps/web/test/interview.test.ts? The /new flow now sends one answer at a time
   (pendingAnswer) and has no Back button, so nothing in the app uses them. The rules forbid deleting
   tests without a decision, so they stay until someone says yes.
+- status: open.
+## web: decisions route details (cursor, 2026-11-17)
+
+- question: for Codex task 21, the web assumes POST /missions/:id/decisions/:unit/resolve takes `{choice}`
+  and returns 2xx; 404 for an unknown mission or decision; 409 when already decided; and decision.resolved
+  carries `payload.choice`. If any of these differ, only toResolveResult (apps/web/lib/api-adapters.ts) and the
+  decision.resolved case in apps/web/lib/war-table.ts need to change. GET /missions/:id/decisions is not used:
+  the page already has the stream.
+- status: open.
+## web: GET /missions/:id/rules body (cursor, 2026-11-17)
+
+- question: for Codex task 22, the web reads `{rules, lessons}` as markdown strings (null or missing means an
+  empty file; `rules_md` and `lessons_md` are also accepted). A 404 with "Mission not found" shows the not-found
+  page; any other 404 or 405 shows "not shared yet". If the body differs, only toRulesInfo needs to change.
 - status: open.

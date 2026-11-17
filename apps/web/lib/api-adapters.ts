@@ -1,13 +1,21 @@
 import { isLane, isRecord, parsePlan } from "./guards";
 import type { InterviewQuestion } from "./interview";
-import type { ApproveRefusal, ApproveResult, CreateMissionResponse, MissionDetail, MissionStatus, MissionSummary, PlannedUnit, Question, SettingsInfo, TreasuryInfo } from "./types";
+import type { ApproveRefusal, ApproveResult, CreateMissionResponse, MissionDetail, MissionStatus, MissionSummary, PlannedUnit, Question, ResolveResult, SettingsInfo, StopResult, TreasuryInfo } from "./types";
 
 /*
  * Turn API bodies (docs/API.md on codex/warroom-api) into the shapes the pages use. Everything here
  * tolerates missing fields, so a field the API adds later (goal, titles) is picked up without changes.
  */
 
-const MISSION_STATUSES: Record<MissionStatus, true> = { interview: true, planning: true, running: true, finished: true, failed: true };
+const MISSION_STATUSES: Record<MissionStatus, true> = {
+  interview: true,
+  planning: true,
+  running: true,
+  finished: true,
+  failed: true,
+  stopped: true,
+  interrupted: true,
+};
 
 function str(value: unknown): string | null {
   return typeof value === "string" && value.length > 0 ? value : null;
@@ -27,7 +35,8 @@ function toSummary(m: unknown): MissionSummary | null {
   if (!isRecord(m)) return null;
   const id = str(m.id);
   if (!id) return null;
-  const status = typeof m.status === "string" && Object.hasOwn(MISSION_STATUSES, m.status) ? (m.status as MissionStatus) : "interview";
+  const listed = typeof m.status === "string" && Object.hasOwn(MISSION_STATUSES, m.status) ? (m.status as MissionStatus) : "interview";
+  const status: MissionStatus = listed === "finished" && m.stopped === true ? "stopped" : listed === "finished" && m.interrupted === true ? "interrupted" : listed;
   return {
     id,
     goal: str(m.goal) ?? str(m.repo) ?? id,
@@ -193,28 +202,32 @@ function records(value: unknown): [string, Record<string, unknown>][] {
   return isRecord(value) ? Object.entries(value).flatMap(([k, v]) => (isRecord(v) ? [[k, v] as [string, Record<string, unknown>]] : [])) : [];
 }
 
-/** GET /config is not documented yet (Codex task 18); reads config/models.json and prices.json shapes. */
+function strings(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((v): v is string => str(v) !== null) : [];
+}
+
+/** GET /config: { roles, tiers, lanes, priced_models, limits: { default_budget_cents, unit_allowance_cents } }. */
 export function toSettings(body: unknown): SettingsInfo | null {
   if (!isRecord(body)) return null;
-  const models = isRecord(body.models) && (isRecord(body.models.roles) || isRecord(body.models.tiers)) ? body.models : body;
-  const roles = records(models.roles).flatMap(([role, r]) => {
+  const roles = records(body.roles).flatMap(([role, r]) => {
     const model = str(r.model);
     return model ? [{ role, model, fallback: str(r.fallback), escalate: str(r.escalate) }] : [];
   });
-  const tiers = isRecord(models.tiers)
-    ? Object.entries(models.tiers).flatMap(([tier, m]) => (str(m) ? [{ tier, model: m as string }] : []))
+  const tiers = isRecord(body.tiers)
+    ? Object.entries(body.tiers).flatMap(([tier, m]) => (str(m) ? [{ tier, model: m as string }] : []))
     : [];
-  const priceTable = isRecord(body.prices) ? body.prices : {};
-  const prices = records(priceTable.models).flatMap(([model, p]) => {
-    const input = num(p.input);
-    const output = num(p.output);
-    return input !== null && output !== null ? [{ model, input, output }] : [];
-  });
-  const limits: Record<string, number> = {};
-  if (isRecord(body.limits)) for (const [k, v] of Object.entries(body.limits)) if (num(v) !== null) limits[k] = v as number;
-  const defaultBudgetCents = num(body.default_budget_cents);
-  if (roles.length === 0 && tiers.length === 0 && prices.length === 0 && Object.keys(limits).length === 0 && defaultBudgetCents === null) return null;
-  return { roles, tiers, prices, pricesAsOf: str(priceTable.as_of), limits, defaultBudgetCents };
+  const lanes = isRecord(body.lanes) ? { closed: strings(body.lanes.closed), gated: strings(body.lanes.gated) } : null;
+  const limits = isRecord(body.limits) ? body.limits : {};
+  const info: SettingsInfo = {
+    roles,
+    tiers,
+    pricedModels: strings(body.priced_models),
+    lanes,
+    defaultBudgetCents: num(limits.default_budget_cents),
+    unitAllowanceCents: num(limits.unit_allowance_cents),
+  };
+  const nothing = roles.length === 0 && tiers.length === 0 && info.pricedModels.length === 0 && lanes === null;
+  return nothing && info.defaultBudgetCents === null && info.unitAllowanceCents === null ? null : info;
 }
 /** GET /missions/:id/treasury: total spend (cost_cents) and the budget, which may be null. */
 export function toSpendInfo(body: unknown): { spent_cents: number; budget_cents: number | null } | null {
@@ -223,4 +236,32 @@ export function toSpendInfo(body: unknown): { spent_cents: number; budget_cents:
   const budget = num(body.budget_cents);
   if (spent === null && budget === null) return null;
   return { spent_cents: spent ?? 0, budget_cents: budget };
+}
+/** POST /missions/:id/decisions/:unit/resolve (Codex task 21). A missing route reads as unavailable. */
+export function toResolveResult(status: number, body: unknown): ResolveResult {
+  if (status >= 200 && status < 300) return { ok: true };
+  const error = isRecord(body) ? str(body.error) : null;
+  if (status === 405 || (status === 404 && error === "Route not found")) return { ok: false, reason: "unavailable" };
+  if (status === 404) return { ok: false, reason: "not_found" };
+  if (status === 409) return { ok: false, reason: "already" };
+  throw new Error(`Resolve failed: ${status}${error ? ` ${error}` : ""}`);
+}
+/** GET /missions/:id/rules (Codex task 22): the two files as text; a missing file reads as empty. */
+export function toRulesInfo(body: unknown): { rules: string; lessons: string } | null {
+  if (!isRecord(body)) return null;
+  const text = (a: unknown, b: unknown): string | null => (typeof a === "string" ? a : typeof b === "string" ? b : null);
+  const rules = text(body.rules, body.rules_md);
+  const lessons = text(body.lessons, body.lessons_md);
+  const hasField = "rules" in body || "lessons" in body || "rules_md" in body || "lessons_md" in body;
+  if (!hasField) return null;
+  return { rules: rules ?? "", lessons: lessons ?? "" };
+}
+/** POST /missions/:id/stop: 202 while stopping, 409 when nothing is running. */
+export function toStopResult(status: number, body: unknown): StopResult {
+  if (status >= 200 && status < 300) return { ok: true };
+  const error = isRecord(body) ? str(body.error) : null;
+  if (status === 405 || (status === 404 && error === "Route not found")) return { ok: false, reason: "unavailable" };
+  if (status === 404) return { ok: false, reason: "not_found" };
+  if (status === 409) return { ok: false, reason: "not_running" };
+  throw new Error(`Stop failed: ${status}${error ? ` ${error}` : ""}`);
 }

@@ -8,14 +8,17 @@ import {
   toMissionSummaries,
   toQuestion,
   toQuestions,
+  toResolveResult,
+  toRulesInfo,
+  toStopResult,
   toSettings,
   toSpendInfo,
   toTreasuryInfo,
 } from "./api-adapters";
 import { EVENT_TYPE_LIST, parseEventData } from "./guards";
-import { mockAnswerBriefing, mockApproveMission, mockCreateMission, mockEvents, mockStartBriefing, mockMissions, mockQuestions, mockSettings, mockSpend, mockSummaries, mockTreasury } from "./mock";
+import { mockAnswerBriefing, mockApproveMission, mockCreateMission, mockEvents, mockStartBriefing, mockMissions, mockQuestions, mockResolveDecision, mockRules, mockSettings, mockSpend, mockStopMission, mockSummaries, mockTreasury } from "./mock";
 import type { ProjectSpend } from "./spend";
-import type { ApproveResult, CreateMissionResponse, MissionDetail, MissionSummary, Question, SettingsInfo, TreasuryInfo } from "./types";
+import type { ApproveResult, CreateMissionResponse, MissionDetail, MissionSummary, Question, ResolveResult, SettingsInfo, StopResult, TreasuryInfo } from "./types";
 
 /**
  * The only module that talks to the API (routes in docs/API.md). With NEXT_PUBLIC_API_URL unset,
@@ -66,6 +69,25 @@ export async function listProjectSpend(): Promise<ProjectSpend[]> {
     missions.map(async (m) => (usingMock ? mockSpend(m.id) : toSpendInfo(await getJson(`/missions/${encodeURIComponent(m.id)}/treasury`)))),
   );
   return missions.map((m, i) => ({ id: m.id, goal: m.goal, status: m.status, spent_cents: spend[i]?.spent_cents ?? 0, budget_cents: spend[i]?.budget_cents ?? null }));
+}
+
+export type RulesResult = { kind: "ok"; rules: string; lessons: string } | { kind: "unavailable" } | { kind: "not_found" };
+
+/** .bulletin/rules.md and lessons.md for a project. A server without the route reads as unavailable. */
+export async function getRules(missionId: string): Promise<RulesResult> {
+  if (usingMock) {
+    const files = mockRules(missionId);
+    return files ? { kind: "ok", ...files } : { kind: "not_found" };
+  }
+  const res = await fetch(`${API_URL}/missions/${encodeURIComponent(missionId)}/rules`, { cache: "no-store" });
+  const body: unknown = await res.json().catch(() => null);
+  if (res.status === 404 || res.status === 405) {
+    const error = body && typeof body === "object" && "error" in body ? (body as { error: unknown }).error : null;
+    return error === "Mission not found" ? { kind: "not_found" } : { kind: "unavailable" };
+  }
+  if (!res.ok) throw new Error(`GET /missions/${missionId}/rules failed: ${res.status}`);
+  const files = toRulesInfo(body);
+  return files ? { kind: "ok", ...files } : { kind: "unavailable" };
 }
 
 /** Null when the server has no GET /config yet. */
@@ -120,6 +142,20 @@ export async function createMission(goal: string, repo: string, briefingId: stri
   if (usingMock) return mockCreateMission(goal, repo);
   const res = await postJson("/missions", briefingId ? { goal, repo, briefing_id: briefingId } : { goal, repo });
   return toCreateMissionResponse(res.status, res.body);
+}
+
+/** Ask the runner to stop. The stream's mission.finished with payload.stopped confirms it. */
+export async function stopMission(missionId: string): Promise<StopResult> {
+  if (usingMock) return mockStopMission(missionId);
+  const { status, body } = await postJson(`/missions/${encodeURIComponent(missionId)}/stop`, {});
+  return toStopResult(status, body);
+}
+
+/** Record a person's OK or rejection for a held task. The engine does not act on it yet (docs/API.md). */
+export async function resolveDecision(missionId: string, unitId: string, choice: "approve" | "reject"): Promise<ResolveResult> {
+  if (usingMock) return mockResolveDecision(missionId, unitId, choice);
+  const { status, body } = await postJson(`/missions/${encodeURIComponent(missionId)}/decisions/${encodeURIComponent(unitId)}/resolve`, { choice });
+  return toResolveResult(status, body);
 }
 
 /** Approve the proposed plan and start the work. Refusals (budget, already approved) come back as a reason, not a throw. */

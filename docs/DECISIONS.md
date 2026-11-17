@@ -101,9 +101,40 @@ Needed for the Managed Agents runner adapter (apps/api/src/managed-client.ts). I
   level and skips anything it cannot read. A 404 shows "settings not shared yet".
 - The mock imports config/*.json instead of copying model names, so model ids stay out of code.
 - Limits the copy has no label for are left out rather than shown under a raw key.
+- Update: GET /config is now documented (roles, tiers, lanes, priced_models, limits). /settings follows it: priced model
+  names instead of a price table, the default file rules, and the budget and per-task allowance as spend limits.
 ## web: /spend (2026-11-17)
 
 - Totals come from GET /missions plus one GET /missions/:id/treasury per project (cost_cents and budget_cents).
   No new route is needed; one request per project is fine at the scale the spec describes.
 - The warning and over-budget rule lives in one place (budgetLevel in lib/treasury.ts), so the project page
   and /spend cannot disagree. Projects without a budget are counted separately, not added to the total budget.
+## web: held tasks panel (2026-11-17)
+
+- "Held for your OK" lists tasks the engine held (unit.held / decision.opened with kind closed_lane_merge or
+  gated_retry). Question decisions stay on /questions.
+- The reducer stores the decision on the task card, and the choice from decision.resolved `payload.choice`.
+  Decision events for tasks the plan does not list are ignored, so they never create stray cards.
+- Approving says plainly that the choice is saved but held tasks are not added automatically yet, matching
+  Codex task 21 ("recording only").
+## web: rules and lessons page (2026-11-17)
+
+- /missions/:id/lessons parses the line formats packages/graph writes (lessonLine, promoteLessons) and shows
+  both lists newest first (last line in the file first). The test builds its input with those functions,
+  imported by relative path because apps/web does not depend on @bulletin/graph (no lockfile change).
+- Hand-written bullets are kept; a learned rule reads "Plan so this does not happen again: <reason>".
+## web: plan dependency graph (2026-11-17)
+
+- Hand-drawn SVG from a pure layout function (lib/graph-layout.ts): one column per batch, plan order inside a
+  column, fixed node sizes, so nodes cannot overlap. No graph library, so no new dependency.
+- The drawing sits in a closed <details> above the task board, with the same facts as sentences
+  ("X waits for Y") for screen readers and narrow screens.
+## web: stopped and interrupted projects (2026-11-17)
+
+- The reducer reads how mission.finished ended things: payload.stopped, payload.interrupted, payload.status
+  "failed", otherwise done. After an early end, a running card reads "Stopped before it finished" and a
+  waiting one "Not started", so nothing looks busy on a project that has ended.
+- The project list accepts "stopped" and "interrupted" statuses, and finished + stopped/interrupted flags,
+  for when Codex task 20 lands. "failed" now reads "Failed" instead of "Stopped".
+- Stop is now shown (POST /missions/:id/stop is documented), behind a confirm step. This supersedes
+  "Stop hidden" above.

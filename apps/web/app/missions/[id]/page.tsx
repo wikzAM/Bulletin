@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getMission, getTreasury } from "../../../lib/api";
 import { copy } from "../../../lib/copy";
+import { PlanGraph } from "./plan-graph";
 import { WarTable } from "./war-table";
 
 export const dynamic = "force-dynamic";
@@ -24,8 +25,10 @@ export default async function MissionPage({ params }: { params: Promise<{ id: st
       </p>
       <h1>{mission.goal}</h1>
       <p className="muted">
-        {mission.repo} · <span className="badge">{copy.missionStatus[mission.status]}</span>
+        {mission.repo} · <span className="badge">{copy.missionStatus[mission.status]}</span> ·{" "}
+        <Link href={`/missions/${encodeURIComponent(mission.id)}/lessons`}>{t.lessonsLink}</Link>
       </p>
+      <PlanGraph units={mission.units} />
       <WarTable missionId={mission.id} status={mission.status} units={mission.units} treasury={treasury} />
     </main>
   );

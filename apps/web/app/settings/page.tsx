@@ -82,30 +82,46 @@ export default async function SettingsPage() {
         </section>
       )}
 
-      {info.prices.length > 0 && (
-        <section className="settings-section" aria-labelledby="prices-title">
-          <h2 id="prices-title">{t.pricesTitle}</h2>
-          <p className="muted">{t.pricesNote(info.pricesAsOf)}</p>
+      {view.lanes.length > 0 && (
+        <section className="settings-section" aria-labelledby="lanes-title">
+          <h2 id="lanes-title">{t.lanesTitle}</h2>
+          <p className="muted">{t.lanesNote}</p>
           <table className="settings">
-            <thead>
-              <tr>
-                <th scope="col">{t.model}</th>
-                <th scope="col">{t.input}</th>
-                <th scope="col">{t.output}</th>
-              </tr>
-            </thead>
             <tbody>
-              {info.prices.map((p) => (
-                <tr key={p.model}>
-                  <th scope="row">
-                    <code>{p.model}</code>
-                  </th>
-                  <td>${p.input.toFixed(2)}</td>
-                  <td>${p.output.toFixed(2)}</td>
+              {view.lanes.map((l) => (
+                <tr key={l.key}>
+                  <th scope="row">{l.label}</th>
+                  <td>
+                    {l.patterns.length === 0 ? (
+                      t.noPatterns
+                    ) : (
+                      <ul className="patterns">
+                        {l.patterns.map((p) => (
+                          <li key={p}>
+                            <code>{p}</code>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
+        </section>
+      )}
+
+      {info.pricedModels.length > 0 && (
+        <section className="settings-section" aria-labelledby="priced-title">
+          <h2 id="priced-title">{t.pricedTitle}</h2>
+          <p className="muted">{t.pricedNote}</p>
+          <ul className="patterns">
+            {info.pricedModels.map((m) => (
+              <li key={m}>
+                <code>{m}</code>
+              </li>
+            ))}
+          </ul>
         </section>
       )}
     </main>

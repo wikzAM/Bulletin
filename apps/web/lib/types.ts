@@ -4,7 +4,7 @@ import type { Lane, Plan } from "@bulletin/core";
  * Response shapes the web app expects from the API (GET /missions, GET /missions/:id).
  * Assumed until docs/API.md lands; only lib/api.ts and lib/mock.ts produce these.
  */
-export type MissionStatus = "interview" | "planning" | "running" | "finished" | "failed";
+export type MissionStatus = "interview" | "planning" | "running" | "finished" | "failed" | "stopped" | "interrupted";
 
 export interface MissionSummary {
   id: string;
@@ -64,12 +64,19 @@ export interface MissionDetail extends MissionSummary {
   units: PlannedUnit[];
 }
 
-/** What GET /config reports for the settings page: models per job, prices and limits. No secrets. */
+/** GET /config: models per job, the default file rules and the spend limits. No secrets. */
 export interface SettingsInfo {
   roles: { role: string; model: string; fallback: string | null; escalate: string | null }[];
   tiers: { tier: string; model: string }[];
-  prices: { model: string; input: number; output: number }[];
-  pricesAsOf: string | null;
-  limits: Record<string, number>;
+  /** Models with a price on file; a task on any other model cannot be priced. */
+  pricedModels: string[];
+  lanes: { closed: string[]; gated: string[] } | null;
   defaultBudgetCents: number | null;
+  unitAllowanceCents: number | null;
 }
+export type ResolveRefusal = "already" | "not_found" | "unavailable";
+/** POST /missions/:id/decisions/:unit/resolve. Recording only: the engine does not resume held tasks yet. */
+export type ResolveResult = { ok: true } | { ok: false; reason: ResolveRefusal };
+export type StopRefusal = "not_running" | "not_found" | "unavailable";
+/** POST /missions/:id/stop. The stream's mission.finished (payload.stopped) confirms the stop. */
+export type StopResult = { ok: true } | { ok: false; reason: StopRefusal };

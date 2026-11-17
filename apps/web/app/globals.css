@@ -672,11 +672,126 @@ table.settings td {
   margin-top: 1.5rem;
 }
 
-table.settings code {
+table.settings code,
+ul.patterns code {
   font-size: 0.95rem;
+}
+
+ul.patterns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
 .spend-meter {
   min-width: 6rem;
   margin-top: 0.3rem;
+}
+
+.held {
+  max-width: 40rem;
+  margin-bottom: 1.5rem;
+  padding: 0.75rem 1rem;
+  background: var(--card);
+  border: 1px solid var(--held);
+  border-left-width: 4px;
+  border-radius: 6px;
+}
+
+.held h2 {
+  margin: 0 0 0.25rem;
+}
+
+.held ul {
+  margin: 0.5rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.held li {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.6rem 0;
+  border-top: 1px solid var(--border);
+}
+
+.held h3,
+.held p {
+  margin: 0;
+}
+
+ul.lesson-list {
+  margin: 0.5rem 0 0;
+  padding: 0;
+  list-style: none;
+  max-width: 48rem;
+}
+
+ul.lesson-list li {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-top: none;
+}
+
+ul.lesson-list li:first-child {
+  border-top: 1px solid var(--border);
+}
+
+.plan-graph {
+  margin-bottom: 1.5rem;
+}
+
+.plan-graph summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.plan-graph-scroll {
+  overflow-x: auto;
+  margin: 0.5rem 0;
+}
+
+.plan-graph-node rect {
+  fill: var(--card);
+  stroke: var(--border);
+}
+
+.plan-graph-node text {
+  fill: var(--fg);
+  font-size: 13px;
+}
+
+.plan-graph-edge {
+  fill: none;
+  stroke: var(--muted);
+  stroke-width: 1.5;
+}
+
+.plan-graph-arrowhead {
+  fill: var(--muted);
+}
+
+.plan-graph-words {
+  margin: 0.5rem 0 0;
+  padding-left: 1.2rem;
+}
+
+.stop {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-width: 40rem;
+  margin-bottom: 1.5rem;
+}
+
+.stop p {
+  margin: 0;
 }
