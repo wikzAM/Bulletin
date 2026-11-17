@@ -48,6 +48,13 @@
 - note: the api and pass-worker `/health` endpoints were verified by running them directly with tsx.
 - status: open
 
+## [2026-11-17] Managed Agents: adapter, repo access and secrets
+- question: The Managed Agents runner is built and tested against an injected client. To run it for real we need (1) the `@anthropic-ai/sdk` dependency and a thin adapter, (2) a GitHub remote the cloud sandbox can push to, and (3) an ANTHROPIC_API_KEY (Claude Code login does not cover Managed Agents).
+- options: (a) add the SDK + adapter now and test it with your API key when you wake up; (b) wait until the AWS/site setup is done
+- recommendation: (a). It is one dependency and one small file. A GitHub token with push rights to a scratch repo is needed; use a throwaway repo, not Bulletin.
+- working default: not started; the local Claude Code runner stays the default
+- status: open
+
 ## [2026-11-17] War table engine integration
 
 - Which unit should connect engine runs to the API process? `buildServer(log)` can read the same `MemoryEventLog` as an in-process runner, while `bulletin run` currently creates its own log in a separate process.
