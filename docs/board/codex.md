@@ -25,5 +25,5 @@
 - [x] 24. Idle-time hygiene: log rotation or size guard for the JSONL store (no data loss), and a startup warning when BULLETIN_RUNNER=managed is missing a required env var NAME (never print values).
 - [x] 25. (tick 6) Optional API token: when BULLETIN_API_TOKEN is set, every route except GET /health needs `Authorization: Bearer <token>` (401 otherwise, constant-time compare); CORS origins come from BULLETIN_WEB_ORIGINS (default http://localhost:3000). Never log the token. Docs and tests.
 - [x] 26. GET /missions/:id/report: shipped, held, failed, blocked, attempts, cost, cost per green, touches and touch rate, elapsed, computed from the event log with the same meaning as formatReport in apps/api/src/orchestrator/run-mission.ts (read it, do not edit it). Docs first, tests with a recorded event fixture.
-- [ ] 27. GET /missions: ?status= and ?limit= filters with stable ordering; docs and tests.
+- [x] 27. GET /missions: ?status= and ?limit= filters with stable ordering; docs and tests.
 - [ ] 28. docs/RUNNING.md: how to run API + web together, with and without the managed runner, env var NAMES only, and the order of first-run steps. Link it from the root README.md? No: root README.md is not yours; add a line to BULLETIN.md asking me to link it.

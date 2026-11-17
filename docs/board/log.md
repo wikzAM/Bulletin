@@ -83,3 +83,4 @@
 09:58 | coordinator | tick 6: merged codex (budget passthrough, log rotation, managed warnings) and cursor (squashed: live decisions/rules routes); main 485 tests green; codex queue was empty -> refilled 25-28; cursor 26 added
 2026-11-17 09:56 EST | Codex | 25. Optional bearer token and configurable CORS | codex/warroom-api@cea0c92 | verify green (487 tests)
 2026-11-17 09:59 EST | Codex | 26. Finished mission report | codex/warroom-api@4033606 | verify green (489 tests)
+2026-11-17 10:01 EST | Codex | 27. Mission list status and limit filters | codex/warroom-api@940ba8f | verify green (496 tests)
