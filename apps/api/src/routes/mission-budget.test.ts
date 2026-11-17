@@ -1,6 +1,7 @@
 import { MemoryEventLog, type PricesConfig } from "@bulletin/core";
 import { expect, it, vi } from "vitest";
 import { buildServer } from "../server";
+import type { MissionStarter } from "./mission-approval";
 
 const prices: PricesConfig = {
   currency: "USD", unit: "per_million_tokens", as_of: "test",
@@ -48,6 +49,24 @@ it("approves an exact fit including prior mission spend", async () => {
     expect(res.statusCode).toBe(202);
     expect(startMission).toHaveBeenCalledTimes(1);
     expect(log.events.at(-1)?.type).toBe("plan.approved");
+  } finally {
+    await app.close();
+  }
+});
+
+it("passes the saved mission budget to the runner and projects a budget pause in both mission views", async () => {
+  const log = await missionWithBudget(1160);
+  const startMission = vi.fn<MissionStarter>(async ({ missionId: mission_id, events, budgetCents }) => {
+    await events.emit({ mission_id, type: "budget.paused", payload: { budget_cents: budgetCents } });
+    await events.emit({ mission_id, type: "mission.finished", payload: { paused: true } });
+  });
+  const app = buildServer(log, { startMission, pricing });
+  try {
+    expect((await app.inject({ method: "POST", url: "/missions/demo/approve" })).statusCode).toBe(202);
+    expect(startMission).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ budgetCents: 1160 }));
+    await vi.waitFor(() => expect(log.events.at(-1)).toMatchObject({ type: "mission.finished", payload: { paused: true } }));
+    expect((await app.inject("/missions")).json()).toMatchObject({ missions: [{ id: "demo", status: "paused" }] });
+    expect((await app.inject("/missions/demo")).json()).toMatchObject({ id: "demo", status: "paused" });
   } finally {
     await app.close();
   }

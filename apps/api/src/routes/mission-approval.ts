@@ -14,6 +14,7 @@ export type MissionStarter = (input: {
   plan: Plan;
   events: EventSink;
   signal: AbortSignal;
+  budgetCents?: number;
 }) => Promise<unknown>;
 
 export interface MissionPricing {
@@ -97,7 +98,10 @@ export function registerMissionApproval(
     const briefing = typeof markdown === "string" ? markdown : goal;
     const sink = runnerEventSink(log, id, [created, proposed, approved]);
     void Promise.resolve()
-      .then(() => startMission({ missionId: id, repo, baseBranch: base, briefing, plan: plan.data, events: sink, signal: controller.signal }))
+      .then(() => startMission({
+        missionId: id, repo, baseBranch: base, briefing, plan: plan.data, events: sink, signal: controller.signal,
+        ...(budgetCents === null ? {} : { budgetCents }),
+      }))
       .catch(async (error: unknown) => {
         request.log.error({ err: error }, "Mission execution failed");
         if (log.events.some((event) => event.mission_id === id && event.type === "mission.finished")) return;
