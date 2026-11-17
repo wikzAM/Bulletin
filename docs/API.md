@@ -2,6 +2,8 @@
 
 The mission endpoints are read-only. They project the engine events in the API
 process's in-memory log. A mission is visible after its `mission.created` event.
+To serve an in-process engine run, pass the same `MemoryEventLog` to
+`buildServer(log)` and to the engine's `events` option.
 
 ## `GET /missions`
 
@@ -71,7 +73,7 @@ decimal digits. Invalid cursors return `400 Bad Request` with
 
 Each frame has an `id` line, an `event` line naming the event type, and a `data`
 line with the full `BulletinEvent` JSON from `@bulletin/core`. A blank line ends
-the frame. For example:
+the frame. The stream also sends SSE comments on connect and while open.
 
 ```text
 id: 7
