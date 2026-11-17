@@ -1,0 +1,135 @@
+import type { Lane, UnitStatus } from "@bulletin/core";
+
+/**
+ * Every word the UI shows lives here. Code and logs keep the glossary names (mission, unit, lane);
+ * the screen uses plain language until the themed copy is tested with users.
+ */
+export const copy = {
+  appName: "Bulletin",
+  tagline: "Turn a goal into a plan, and a plan into checked work.",
+  nav: { projects: "Projects", questions: "Questions", newProject: "New project", label: "Main" },
+  skipToContent: "Skip to content",
+  states: {
+    loading: "Loading…",
+    error: {
+      title: "Something went wrong",
+      body: "The page could not load. The server may be down or still starting.",
+      retry: "Try again",
+    },
+    notFound: { title: "Page not found", body: "There is nothing at this address.", home: "Go to projects" },
+  },
+  missionList: {
+    title: "Projects",
+    empty: "No projects yet.",
+    emptyAction: "Start a new project",
+    goal: "Goal",
+    status: "Status",
+    progress: "Tasks done",
+    started: "Started",
+  },
+  missionPage: {
+    back: "All projects",
+    tasks: "Tasks",
+    activity: "Activity",
+    activityEmpty: "Nothing has happened yet.",
+    stage: "Stage",
+    attempts: "Tries",
+    spent: "Spent",
+    lastReason: "Last problem",
+    connection: { connecting: "Connecting", live: "Live", reconnecting: "Reconnecting" },
+    finished: "Finished",
+    batch: (n: number) => `Batch ${n}`,
+    unplanned: "Not in the plan",
+  },
+  treasury: {
+    title: "Spending",
+    spentOf: (spent: string, budget: string) => `${spent} of ${budget}`,
+    spentNoBudget: (spent: string) => `${spent} spent, no budget set`,
+    remaining: (left: string) => `${left} left`,
+    levels: {
+      ok: { label: "Within budget", icon: "✓" },
+      warning: { label: "Over 80% of budget", icon: "⚠" },
+      over: { label: "Over budget", icon: "✕" },
+      unknown: { label: "No budget", icon: "–" },
+    },
+    paused: "Paused until someone approves more budget.",
+    perTask: "By task",
+    none: "Nothing spent yet.",
+  },
+  questions: {
+    title: "Questions",
+    intro: "Questions the agents could not answer from the requirements. Your answer is added to the requirements and sent to every task waiting on it.",
+    filters: { open: "Needs an answer", answered: "Answered", all: "All" },
+    empty: { open: "No questions are waiting for you.", answered: "Nothing has been answered yet.", all: "No questions yet." },
+    chips: {
+      open: { label: "Needs an answer", icon: "?" },
+      human: { label: "Answered by a person", icon: "✓" },
+      briefing: { label: "Answered from the requirements", icon: "📄" },
+      cache: { label: "Answered from an earlier answer", icon: "↺" },
+      answered: { label: "Answered", icon: "✓" },
+    },
+    askedBy: (task: string) => `Asked by ${task}`,
+    project: "Project",
+    answerLabel: "Your answer",
+    submit: "Send answer",
+    sending: "Sending…",
+    answer: "Answer",
+    reference: (ref: string) => `From the requirements section "${ref}"`,
+    sent: (body: string) => `Answer sent for: ${body}`,
+    errors: {
+      empty: "Write an answer first.",
+      tooLong: (max: number) => `Keep the answer under ${max} characters.`,
+      failed: "The answer could not be sent. Try again.",
+    },
+  },
+  newMission: {
+    title: "New project",
+    intro: "Describe what you want built. Bulletin writes a plan of small, checkable tasks for you to review.",
+    goalLabel: "What should be built?",
+    goalHint: "A sentence or two is enough.",
+    repoLabel: "Where is the code?",
+    repoHint: "A local folder, or a GitHub URL like https://github.com/owner/repo.",
+    submit: "Make a plan",
+    submitting: "Planning…",
+    planTitle: "Proposed plan",
+    planInvalid: "The plan could not be made valid. These problems remain:",
+    unplaced: "Could not be scheduled",
+    needs: (unit: string, reads: string) => `Needs ${unit}: ${reads}`,
+    files: "Files",
+    checks: "Checks",
+    openProject: "Open the project",
+    attempts: (n: number) => (n === 1 ? "Planned in one try." : `Planned in ${n} tries.`),
+    errors: {
+      goalEmpty: "Describe the goal in a sentence or two.",
+      goalShort: (min: number) => `Say a little more (at least ${min} characters).`,
+      goalLong: (max: number) => `Keep the goal under ${max} characters.`,
+      repoEmpty: "Give a local folder or a GitHub URL.",
+      repoUrl: "Use a GitHub URL like https://github.com/owner/repo, or a local folder.",
+      failed: "The plan could not be requested. Try again.",
+    },
+  },
+  missionStatus: {
+    interview: "Gathering requirements",
+    planning: "Planning",
+    running: "In progress",
+    finished: "Finished",
+    failed: "Stopped",
+  },
+} as const;
+
+export const STATUS_LABELS: Record<UnitStatus, { label: string; icon: string }> = {
+  pending: { label: "Waiting", icon: "○" },
+  running: { label: "Working", icon: "◐" },
+  green: { label: "Checks passed", icon: "✓" },
+  red: { label: "Checks failed, retrying", icon: "↺" },
+  held: { label: "Needs approval", icon: "⏸" },
+  merged: { label: "Done", icon: "●" },
+  failed: { label: "Failed", icon: "✕" },
+  blocked: { label: "Blocked", icon: "⊘" },
+};
+
+export const LANE_LABELS: Record<Lane, string> = {
+  open: "Merges on pass",
+  gated: "Merges on first-try pass",
+  closed: "Always needs approval",
+};

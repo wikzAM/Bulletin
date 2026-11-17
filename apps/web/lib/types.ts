@@ -1,0 +1,56 @@
+import type { Lane, Plan } from "@bulletin/core";
+
+/**
+ * Response shapes the web app expects from the API (GET /missions, GET /missions/:id).
+ * Assumed until docs/API.md lands; only lib/api.ts and lib/mock.ts produce these.
+ */
+export type MissionStatus = "interview" | "planning" | "running" | "finished" | "failed";
+
+export interface MissionSummary {
+  id: string;
+  goal: string;
+  status: MissionStatus;
+  created_at: string;
+  /** Null when the API does not report counts. */
+  units_total: number | null;
+  units_done: number | null;
+}
+
+/** A unit as the approved plan describes it. Live status comes from the event stream, not from here. */
+export interface PlannedUnit {
+  id: string;
+  title: string;
+  lane: Lane;
+  wave: number;
+  needs: string[];
+}
+
+/** GET /missions/:id/treasury. Spend is taken from ledger.charged events, so only the budget is needed here. */
+export interface TreasuryInfo {
+  budget_cents: number;
+}
+
+/** A station question on the board (GET /questions, POST /questions/:id/answer). */
+export interface Question {
+  id: string;
+  mission_id: string;
+  unit_id: string | null;
+  body: string;
+  status: "open" | "answered";
+  answer: string | null;
+  /** Who answered: the answer cache, the Briefing, or a person. Null while open. */
+  source: "cache" | "briefing" | "human" | null;
+  briefing_ref: string | null;
+  created_at: string;
+  answered_at: string | null;
+}
+
+/** POST /missions with { goal, repo }: the General's result, shaped like its GeneralResult. */
+export type CreateMissionResponse =
+  | { ok: true; mission_id: string; plan: Plan; attempts: number }
+  | { ok: false; mission_id: string | null; errors: string[]; attempts: number };
+
+export interface MissionDetail extends MissionSummary {
+  repo: string;
+  units: PlannedUnit[];
+}

@@ -48,6 +48,31 @@
 - note: the api and pass-worker `/health` endpoints were verified by running them directly with tsx.
 - status: open
 
+## [2026-11-17] web-shell: confirm the API shapes the web app assumes (for Codex, warroom-api)
+- question: `docs/API.md` had not landed, so `apps/web/lib/types.ts` assumes: `GET /missions` returns `MissionSummary[]` (id, goal, status, created_at, units_total, units_done); `GET /missions/:id` returns that plus `repo` and `units: {id, title, lane, wave, needs: string[]}[]`, 404 when unknown; `GET /missions/:id/events?after=<id>` sends each event as a default (unnamed) SSE message whose `data` is one `BulletinEvent` JSON object. The browser calls the API directly, so it needs CORS for the web origin. Treasury panel: `GET /missions/:id/treasury` returns at least `{ budget_cents }`; spend is summed from `ledger.charged` events (`payload.cost_cents`), so the route need not repeat it. Question board: `GET /questions` returns `Question[]` (id, mission_id, unit_id, body, status open|answered, answer, source cache|briefing|human, briefing_ref, created_at, answered_at; see `apps/web/lib/types.ts`), and `POST /questions/:id/answer` takes `{ answer }` and returns the updated `Question`. New project: `POST /missions` takes `{ goal, repo }` and returns the General's result plus the id, `{ ok: true, mission_id, plan, attempts }` or `{ ok: false, mission_id, errors, attempts }` (also as the body of a 4xx), so the page can show validator errors.
+- options: (a) the API matches these shapes; (b) `docs/API.md` defines different ones and the web side adapts in `lib/api.ts` only
+- recommendation: (b) is fine; whichever lands first wins, and the swap is one file.
+- working default: mock data until `NEXT_PUBLIC_API_URL` is set.
+- status: resolved by (b). Codex's `docs/API.md` (on `codex/warroom-api`) is the contract; `apps/web/lib/api-adapters.ts` maps it, including named SSE frames. Remaining small asks are in the next entry.
+
+## [2026-11-17] web-shell: three optional fields the web would show if the API sent them (for Codex)
+- question: Per `docs/API.md` the web falls back where fields are missing. Add any of these? (1) `goal` on `GET /missions` and `GET /missions/:id` (it is in the `mission.created` payload); today the list shows the repo path as the title. (2) unit `title` on `GET /missions/:id`; today the web takes titles from `plan.proposed` `payload.plan` in the stream, and shows ids for engine runs whose `plan.proposed` has only counts. (3) `source` and `briefing_ref` on questions once the answerer lands; today an answered question is shown as "Answered by a person".
+- options: (a) add them when convenient; (b) leave as is
+- recommendation: (a) for (1) and (2), each is one field read from events the API already has; (3) can wait for M2's answerer.
+- working default: fallbacks above; no web change is needed when the fields appear.
+- status: open
+
+## [2026-11-17] web-shell: a browser-safe entry point for @bulletin/core (core contract change)
+- question: Importing any value from `@bulletin/core` in a client component breaks `next build` (`config.ts` pulls in `node:fs`). Add a browser-safe subpath, e.g. `"./browser"` exporting `types` and `events` only?
+- options: (a) add the subpath in core and drop `apps/web/lib/guards.ts`; (b) keep the mirrored guards (a test pins them to core)
+- recommendation: (a) when core is next open; (b) works meanwhile.
+- status: open
+
+## [2026-11-17] web-shell: add NEXT_PUBLIC_API_URL to .env.example
+- question: The web app reads `NEXT_PUBLIC_API_URL` (browser-visible); unset means mock data. Add it to `.env.example` next to `API_URL`? web-shell does not own that file.
+- recommendation: yes, empty by default.
+- status: open
+
 ## [2026-11-17] Managed Agents: adapter, repo access and secrets
 - question: The Managed Agents runner is built and tested against an injected client. To run it for real we need (1) the `@anthropic-ai/sdk` dependency and a thin adapter, (2) a GitHub remote the cloud sandbox can push to, and (3) an ANTHROPIC_API_KEY (Claude Code login does not cover Managed Agents).
 - options: (a) add the SDK + adapter now and test it with your API key when you wake up; (b) wait until the AWS/site setup is done

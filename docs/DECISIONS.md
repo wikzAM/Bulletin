@@ -51,5 +51,18 @@ One line for the decision, one for why. Newest last.
 - **An acceptance command containing `;`, `&`, `|`, a backtick, `<`, `>`, `$(` or a newline is never allowed**, whatever the patterns say.
   A wildcard pattern like `pnpm *` would otherwise let a plan chain any shell command behind an allowed one.
 
+## web-shell (2026-11-17)
+
+- **No new web dependencies: plain CSS in `app/globals.css`, task cards instead of React Flow.**
+  Adding Tailwind or React Flow changes the locked lockfile; both can replace the CSS and card grid later without touching `lib/`.
+- **All UI wording lives in `apps/web/lib/copy.ts`, in plain language ("Projects", "Tasks", "Batch").**
+  Code keeps glossary names; the themed copy (BULLETIN, military theme) becomes a one-file swap.
+- **Browser code imports only types from `@bulletin/core`; `apps/web/lib/guards.ts` mirrors lanes and event types.**
+  The core index re-exports `config.ts`, which reads `node:fs`, so a value import breaks the client bundle. Records keyed by the core types plus a test against `EVENT_TYPES` and `LANES` stop drift.
+- **The war table rebuilds unit state from the event stream from id 0; `GET /missions/:id` only supplies the plan.**
+  The spec says a reload rebuilds the map from the log; the reducer drops ids it has seen so reconnects with `?after=` cannot double count.
+- **Mock mode is the default: `NEXT_PUBLIC_API_URL` unset serves `lib/mock.ts`.**
+  The API routes are not merged yet, and `API_URL` in `.env.example` is not visible to browser code.
+
 ## 2026-11-17: add @anthropic-ai/sdk to apps/api
 Needed for the Managed Agents runner adapter (apps/api/src/managed-client.ts). It is the official SDK; the runner itself stays dependency-free behind the ManagedClient interface, and tests use a fake.

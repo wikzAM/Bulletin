@@ -1,14 +1,33 @@
 import type { ReactNode } from "react";
+import Link from "next/link";
+import { copy } from "../lib/copy";
+import "./globals.css";
 
 export const metadata = {
-  title: "Bulletin",
-  description: "Turn a goal into a plan, and a plan into checked work.",
+  title: copy.appName,
+  description: copy.tagline,
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
-      <body style={{ fontFamily: "system-ui, sans-serif", margin: 0, padding: "2rem" }}>{children}</body>
+      <body>
+        <a href="#content" className="skip-link">
+          {copy.skipToContent}
+        </a>
+        <header className="shell-header">
+          <Link href="/" className="brand">
+            {copy.appName}
+          </Link>
+          <span className="tagline">{copy.tagline}</span>
+          <nav aria-label={copy.nav.label} className="shell-nav">
+            <Link href="/">{copy.nav.projects}</Link>
+            <Link href="/questions">{copy.nav.questions}</Link>
+            <Link href="/new">{copy.nav.newProject}</Link>
+          </nav>
+        </header>
+        {children}
+      </body>
     </html>
   );
 }

@@ -16,9 +16,14 @@ putting your branch next to it. Merge happens only from the Claude Code session,
 
 ## Status
 - general: done (bulletin plan --goal), on claude/general
-- web-shell: not started
 - warroom-api: complete on `codex/warroom-api`.
   - API contract published first in `docs/API.md`.
   - Mission list and detail project units and ledger totals from core events.
   - SSE replays history, resumes from a cursor, and follows live events.
   - `pnpm run verify` passed with 176 tests.
+- web-shell: queue tasks 1-5 and 7 done, merged to main (task 6 pending end-to-end check); verify and web build green.
+  - Pages: `/` projects, `/missions/[id]` live task cards by batch plus spending panel and activity feed, `/questions` answer board, `/new` plan request.
+  - All fetching is in `apps/web/lib/api.ts`; mock data by default, real routes when `NEXT_PUBLIC_API_URL` is set, mapped by `lib/api-adapters.ts`.
+  - Pure logic is tested (82 web tests): event reducer, treasury, questions, new-project validation, plan batches, adapters, copy rules.
+  - Task 6 (real API) is coded against Codex's `docs/API.md` but waits for that file on main before it is ticked and checked end to end.
+  - Open on BULLETIN.md: optional API fields (goal, titles), a browser-safe core entry, and the env var in `.env.example`.
