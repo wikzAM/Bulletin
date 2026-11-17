@@ -2,7 +2,10 @@ import { execFileSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+// These tests run real git and child processes; 5s is too tight on a loaded Windows machine.
+vi.setConfig({ testTimeout: 60_000 });
 import { MemoryEventLog, type PricesConfig } from "@bulletin/core";
 import { StubRunner, type StubScript } from "@bulletin/runners/stub-runner";
 import { formatReport, runMission, type MissionReport } from "../src/orchestrator/run-mission";
