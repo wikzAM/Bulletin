@@ -23,7 +23,7 @@ Every acceptance box of the milestone in flight is proven by an automated test o
 - Docker Desktop will not start: stale socket entries in `%LOCALAPPDATA%\Docker\run` give access denied when removed (see BULLETIN.md). `docker compose up` is unverified.
 
 ## Next
-Wire the API entry (`serve.ts`) and finish the web shell against the real API; add the Treasury hard stop to the managed path; Docker and the CI workflow (needs `gh auth refresh -s workflow`); open founder decisions on BULLETIN.md.
+Nudge Cursor (tasks 24-26 undone, edits uncommitted in D:\wt-cursor); revoke the exposed API key; CI workflow (`gh auth refresh -s workflow`); Docker; engine resume for held units; open founder decisions on BULLETIN.md.
 
 ## Never
 - Never put prices or model ids in code (config/ only).
