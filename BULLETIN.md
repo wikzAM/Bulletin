@@ -149,3 +149,7 @@
 - recommendation: Use a server-side proxy so the bearer token stays in the server environment.
 - working default: Direct local web setup uses the API with token authentication disabled. Authenticated API clients can send a bearer header on JSON and SSE requests.
 - status: open
+
+## [2026-11-17] Link the running guide
+
+- Please link `docs/RUNNING.md` from the root `README.md` under “Try it without Docker.”
