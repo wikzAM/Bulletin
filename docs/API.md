@@ -27,28 +27,42 @@ by a process exit keeps its last recorded status.
 
 ## Server configuration
 
-`buildServer(log, { modelCall, startMission, questionStore })` accepts optional
-dependencies for planning, execution, and question storage. `startMission`
-receives the validated plan, repository, base branch, goal as `briefing`, and
-an event sink backed by `log`. For engine runs started separately in the same
-process, pass the same log to the engine's `events` option. `buildServer()`
-uses an in-memory log and question store by default. `serve.ts` uses the JSONL
-log and an in-memory question store. Question dispatches and decisions remain
-available in the mission stream after a restart. Question board entries reset
-with the in-memory store.
+`buildServer(log, options)` accepts `modelCall`, `interviewerCall`, and
+`answererCall` for model calls. Pass `{ prices, tiers }` as `pricing` for plan
+approval. The `startMission` callback receives the validated plan, repository,
+base branch, Briefing Markdown or goal as `briefing`, and an event sink backed
+by `log`. For engine runs started in the same process, pass the same log to
+the engine's `events` option.
+
+`briefingStore` and `questionStore` override the state stores. `buildServer()`
+uses in-memory defaults. `serve.ts` uses JSONL for mission events and Briefing
+interviews. Question board entries reset with the in-memory store. Question
+dispatches and decisions remain available in the mission stream after a restart.
 
 ## HTTP conventions
 
-Send write bodies as `application/json`. Invalid input returns
-`400 Bad Request` with `{"error":"Invalid request"}` unless an endpoint
-documents a more specific error. Unknown routes return `404 Not Found` with
-`{"error":"Route not found"}`. An unknown mission ID returns `404 Not Found`
-with `{"error":"Mission not found"}`.
+Send write bodies as `application/json`. Question and answer text is trimmed
+and must contain a non-whitespace character.
 
 The API allows browser requests from `http://localhost:3000`. Preflight
 requests from that origin return `204 No Content` with `GET`, `HEAD`, `POST`,
 and `OPTIONS` allowed and `Content-Type` and `Last-Event-ID` accepted. JSON read
 routes also accept `HEAD` and return headers only.
+
+## Errors
+
+Error responses include an `error` string. Planning and budget errors can
+include the additional fields shown on those endpoints.
+
+- `400 Bad Request`. `Invalid request` for malformed JSON, parameters, or fields. `Invalid event cursor` for malformed SSE cursors.
+- `404 Not Found`. `Route not found`, `Mission not found`, `Briefing not found`, or `Question not found`.
+- `409 Conflict`. `Briefing is incomplete`, `Briefing is not awaiting this answer`, `Mission already approved`, `Mission has no plan to approve`, `Plan exceeds mission budget`, `Question already answered`, `Auto-answer already in progress`, or `Mission has no completed Briefing`.
+- `413 Payload Too Large`. `Payload Too Large` when the body exceeds the server's request limit.
+- `415 Unsupported Media Type`. `Unsupported Media Type` when the server cannot parse the requested content type.
+- `422 Unprocessable Entity`. `Repository unavailable`, `Mission planning failed`, or `Plan cannot be priced`.
+- `500 Internal Server Error`. `Internal server error` on an unexpected server failure.
+- `502 Bad Gateway`. `Interviewer failed` or `Answerer failed` when an injected model call fails or output remains invalid after a retry.
+- `503 Service Unavailable`. `Mission planning failed`, `Interviewer not configured`, `Answerer not configured`, `Mission pricing not configured`, or `Mission runner not configured`.
 
 ## `GET /health`
 
@@ -329,6 +343,3 @@ stays `open` with `auto_answer_tried: true`. The mission stream gets
   `{"error":"Question already answered"}`, or `{"error":"Auto-answer already in progress"}`.
 - `502 Bad Gateway` with `{"error":"Answerer failed"}` on a model failure or invalid output after a retry.
 - `503 Service Unavailable` with `{"error":"Answerer not configured"}` when the role has no configured model.
-
-Question and answer text is trimmed and must contain a non-whitespace character.
-The default question store lives in memory for the lifetime of the API process.
