@@ -13,6 +13,7 @@ export type MissionStarter = (input: {
   briefing?: string;
   plan: Plan;
   events: EventSink;
+  signal: AbortSignal;
 }) => Promise<unknown>;
 
 export interface MissionPricing {
@@ -44,14 +45,14 @@ export function registerMissionApproval(
   startMission?: MissionStarter,
   pricing?: MissionPricing,
 ): void {
-  const approvalsInFlight = new Set<string>();
+  const active = new Map<string, AbortController>();
   app.post<{ Params: { id: string } }>("/missions/:id/approve", { preValidation: validateIdParams }, async (request, reply) => {
     if (!emptyBody.safeParse(request.body).success) return reply.code(400).send({ error: "Invalid request" });
     const { id } = request.params;
     const events = log.events.filter((event) => event.mission_id === id);
     const created = events.find((event) => event.type === "mission.created");
     if (!created) return reply.code(404).send({ error: "Mission not found" });
-    if (approvalsInFlight.has(id) || events.some(({ type }) => type === "plan.approved" || type === "mission.finished")) {
+    if (active.has(id) || events.some(({ type }) => type === "plan.approved" || type === "mission.finished")) {
       return reply.code(409).send({ error: "Mission already approved" });
     }
 
@@ -82,19 +83,21 @@ export function registerMissionApproval(
     }
     if (!startMission) return reply.code(503).send({ error: "Mission runner not configured" });
 
-    approvalsInFlight.add(id);
+    const controller = new AbortController();
+    active.set(id, controller);
     let approved: BulletinEvent;
     try {
       approved = await log.emit({ mission_id: id, type: "plan.approved" });
-    } finally {
-      approvalsInFlight.delete(id);
+    } catch (error) {
+      active.delete(id);
+      throw error;
     }
     const { repo, base, goal } = metadata.data;
     const markdown = events.findLast(({ type }) => type === "briefing.versioned")?.payload.markdown;
     const briefing = typeof markdown === "string" ? markdown : goal;
     const sink = runnerEventSink(log, id, [created, proposed, approved]);
     void Promise.resolve()
-      .then(() => startMission({ missionId: id, repo, baseBranch: base, briefing, plan: plan.data, events: sink }))
+      .then(() => startMission({ missionId: id, repo, baseBranch: base, briefing, plan: plan.data, events: sink, signal: controller.signal }))
       .catch(async (error: unknown) => {
         request.log.error({ err: error }, "Mission execution failed");
         if (log.events.some((event) => event.mission_id === id && event.type === "mission.finished")) return;
@@ -105,8 +108,24 @@ export function registerMissionApproval(
         } catch (appendError) {
           request.log.error({ err: appendError }, "Could not record mission failure");
         }
-      });
+      })
+      .finally(() => active.delete(id));
 
     return reply.code(202).send({ mission_id: id, status: "running" });
+  });
+
+  app.post<{ Params: { id: string } }>("/missions/:id/stop", { preValidation: validateIdParams }, async (request, reply) => {
+    if (!emptyBody.safeParse(request.body).success) return reply.code(400).send({ error: "Invalid request" });
+    const { id } = request.params;
+    const events = log.events.filter((event) => event.mission_id === id);
+    if (!events.some(({ type }) => type === "mission.created")) return reply.code(404).send({ error: "Mission not found" });
+
+    const controller = active.get(id);
+    if (!controller || !events.some(({ type }) => type === "plan.approved") || events.some(({ type }) => type === "mission.finished")) {
+      return reply.code(409).send({ error: "Mission is not running" });
+    }
+
+    controller.abort();
+    return reply.code(202).send({ mission_id: id, status: "stopping" });
   });
 }

@@ -14,9 +14,14 @@ pnpm --filter @bulletin/api exec tsx src/serve.ts
 The API binds to `127.0.0.1` and reads `PORT`, with `4000` as the default.
 `PORT=0` assigns a free port and prints the listening address. Set
 `NEXT_PUBLIC_API_URL=http://localhost:4000` for the web client on port `3000`.
-Planning and execution use Claude Code. Put `claude` on `PATH` and configure
-Claude Code credentials to use these operations. The server loads model and
-price settings from `config/models.json` and `config/prices.json`.
+Planning, interviews, and automatic answers use Claude Code. Put `claude` on
+`PATH` and configure Claude Code credentials. The server loads model and price
+settings from `config/models.json` and `config/prices.json`.
+
+Mission execution uses `BULLETIN_RUNNER=claude` by default. Set
+`BULLETIN_RUNNER=managed` and `BULLETIN_SANDBOX_REPO` to run stations in Managed
+Agents. The mission's local repository must be a clone of that sandbox
+repository. See [Managed Agents setup](MANAGED-AGENTS.md).
 
 The server stores mission events in `.bulletin-scratch/api/events.jsonl` and
 restores them at startup. Set `BULLETIN_SCRATCH_DIR` to use a different data and
@@ -28,10 +33,11 @@ by a process exit keeps its last recorded status.
 ## Server configuration
 
 `buildServer(log, options)` accepts `modelCall`, `interviewerCall`, and
-`answererCall` for model calls. Pass `{ prices, tiers }` as `pricing` for plan
-approval. The `startMission` callback receives the validated plan, repository,
-base branch, Briefing Markdown or goal as `briefing`, and an event sink backed
-by `log`. For engine runs started in the same process, pass the same log to
+`answererCall` for model calls. Pass `{ models, prices }` as `config` for the
+settings response and plan approval. The `pricing` option overrides approval
+pricing with `{ prices, tiers }`. The `startMission` callback receives the validated plan, repository,
+base branch, Briefing Markdown or goal as `briefing`, an abort `signal`, and
+an event sink backed by `log`. For engine runs started in the same process, pass the same log to
 the engine's `events` option.
 
 `briefingStore` and `questionStore` override the state stores. `buildServer()`
@@ -56,7 +62,7 @@ include the additional fields shown on those endpoints.
 
 - `400 Bad Request`. `Invalid request` for malformed JSON, parameters, or fields. `Invalid event cursor` for malformed SSE cursors.
 - `404 Not Found`. `Route not found`, `Mission not found`, `Briefing not found`, or `Question not found`.
-- `409 Conflict`. `Briefing is incomplete`, `Briefing is not awaiting this answer`, `Mission already approved`, `Mission has no plan to approve`, `Plan exceeds mission budget`, `Question already answered`, `Auto-answer already in progress`, or `Mission has no completed Briefing`.
+- `409 Conflict`. `Briefing is incomplete`, `Briefing is not awaiting this answer`, `Mission already approved`, `Mission has no plan to approve`, `Plan exceeds mission budget`, `Mission is not running`, `Question already answered`, `Auto-answer already in progress`, or `Mission has no completed Briefing`.
 - `413 Payload Too Large`. `Payload Too Large` when the body exceeds the server's request limit.
 - `415 Unsupported Media Type`. `Unsupported Media Type` when the server cannot parse the requested content type.
 - `422 Unprocessable Entity`. `Repository unavailable`, `Mission planning failed`, or `Plan cannot be priced`.
@@ -67,6 +73,26 @@ include the additional fields shown on those endpoints.
 ## `GET /health`
 
 Returns `200 OK` with `{"status":"ok","service":"api"}`.
+
+## `GET /config`
+
+Returns `200 OK` with the configured model names for each role and tier,
+default lane patterns, sorted names of models in the price table, and default
+spending limits in cents. The response includes only these settings.
+
+```json
+{
+  "roles": { "general": { "model": "example-general", "fallback": "example-fallback" } },
+  "tiers": { "station": "example-station" },
+  "lanes": { "closed": ["infra/**"], "gated": ["**/package.json"] },
+  "priced_models": ["example-general", "example-station"],
+  "limits": { "default_budget_cents": 500, "unit_allowance_cents": 200 }
+}
+```
+
+Role model records may include `fallback` and `escalate` alongside `model`.
+Repository-specific lane rules are read from each repository when planning
+and running a mission.
 
 ## `POST /briefings`
 
@@ -284,6 +310,16 @@ publishes execution events to the same log.
 
 If the runner throws before finishing, `mission.finished` carries
 `{"status":"failed","error":"Mission execution failed"}` in its payload.
+
+## `POST /missions/:id/stop`
+
+Omit the body or send `{}`. Requests cancellation of the running mission and
+returns `202 Accepted` with `{"mission_id":"demo","status":"stopping"}`.
+Repeated stop requests return the same result while the runner is active.
+Follow the stream for the engine's `mission.finished` event with
+`payload.stopped: true`. The mission detail stays `running` until that event.
+A mission without an active run returns `409 Conflict` with
+`{"error":"Mission is not running"}`.
 
 ## `GET /questions`
 

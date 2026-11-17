@@ -21,7 +21,7 @@ it("boots the API on an assigned port and serves missions from disk", async () =
     }
 
     const child = spawn(process.execPath, ["--import", "tsx", fileURLToPath(new URL("../serve.ts", import.meta.url))], {
-      env: { ...process.env, PORT: "0", BULLETIN_SCRATCH_DIR: directory },
+      env: { ...process.env, PORT: "0", BULLETIN_SCRATCH_DIR: directory, BULLETIN_RUNNER: "claude" },
       stdio: ["ignore", "pipe", "pipe"],
       windowsHide: true,
     });

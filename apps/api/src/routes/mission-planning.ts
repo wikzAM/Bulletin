@@ -6,13 +6,14 @@ import { z } from "zod";
 import { runGeneral, type ModelCall } from "../general";
 import type { BriefingStore } from "../store/briefing-store";
 import type { EventLog } from "../store/event-log";
+import { DEFAULT_MISSION_BUDGET_CENTS } from "./mission-ledger";
 import { identifier } from "./request-validation";
 
 const missionBody = z.strictObject({
   goal: z.string().trim().min(1),
   repo: z.string().trim().min(1),
   briefing_id: identifier.optional(),
-  budget_cents: z.number().int().nonnegative().default(500),
+  budget_cents: z.number().int().nonnegative().default(DEFAULT_MISSION_BUDGET_CENTS),
 });
 export const allowedLocalCommands = ["pnpm *", "npm *", "node *"] as const;
 
