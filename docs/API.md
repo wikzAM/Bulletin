@@ -122,6 +122,8 @@ on `mission.finished`. A `mission.finished` event with `payload.status` set to
 ## `POST /missions`
 
 Send `{"goal":"Seed the demo with test data","repo":"D:/repos/todo-app"}`.
+Set `budget_cents` to a non-negative integer to choose a budget. The default
+for new API missions is `500` cents.
 Include `briefing_id` to plan against a completed interview. A missing
 Briefing returns `404` with `{"error":"Briefing not found"}`. A Briefing in
 progress returns `409` with `{"error":"Briefing is incomplete"}`.
@@ -152,7 +154,8 @@ General produces a valid `@bulletin/core` `Plan`.
 ```
 
 Success emits `mission.created` with `goal`, `repo` (the local repository root),
-and `base`, then `plan.proposed` with the validated `plan` and the `units` count.
+`base`, and `budget_cents`, then `plan.proposed` with the validated `plan` and
+the `units` count.
 When `briefing_id` is supplied, the API also emits `briefing.versioned` with
 `briefing_id`, `version`, and `markdown` before proposing the plan.
 The new mission is visible in `GET /missions` with status `planning`.
@@ -258,6 +261,11 @@ publishes execution events to the same log.
 
 - `409 Conflict` with `{"error":"Mission has no plan to approve"}` if the mission has no full proposal or lacks repository metadata.
 - `409 Conflict` with `{"error":"Mission already approved"}` if execution has already been approved or has finished.
+- `409 Conflict` with `{"error":"Plan exceeds mission budget","budget_cents":500,"estimated_cents":1150,"spent_cents":10,"shortfall_cents":660}`
+  when the baseline Treasury fare estimate plus recorded spend exceeds the
+  mission budget. The mission stays in planning. An exact fit can run.
+- `422 Unprocessable Entity` with `{"error":"Plan cannot be priced"}` if a budgeted plan has an unknown tier or a missing model price.
+- `503 Service Unavailable` with `{"error":"Mission pricing not configured"}` if a budgeted mission has no configured pricing.
 - `503 Service Unavailable` with `{"error":"Mission runner not configured"}` if the API has no runner. The mission stays in planning.
 
 If the runner throws before finishing, `mission.finished` carries

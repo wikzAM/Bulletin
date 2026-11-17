@@ -34,6 +34,7 @@ async function main(): Promise<void> {
     briefingStore,
     interviewerCall: interviewer ? claudeModelCall(interviewer.model) : undefined,
     modelCall,
+    pricing: { prices, tiers: models.tiers },
     questionStore: new MemoryQuestionStore(),
     startMission(mission) {
       const scratchDir = join(dataDirectory, mission.missionId);

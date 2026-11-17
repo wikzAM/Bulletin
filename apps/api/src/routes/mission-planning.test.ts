@@ -46,7 +46,7 @@ describe("POST /missions", () => {
     expect(modelCall.mock.calls[0]?.[1]).toContain("apps/api/src/server.ts");
     expect(modelCall.mock.calls[1]?.[1]).toContain("REVISE THE PREVIOUS PLAN");
     expect(events.events).toMatchObject([
-      { mission_id, type: "mission.created", payload: { goal, repo: expect.any(String), base: expect.any(String) } },
+      { mission_id, type: "mission.created", payload: { goal, repo: expect.any(String), base: expect.any(String), budget_cents: 500 } },
       { mission_id, type: "plan.proposed", payload: { plan, units: 1 } },
     ]);
     expect((await app?.inject("/missions"))?.json()).toMatchObject({ missions: [{ id: mission_id, status: "planning" }] });

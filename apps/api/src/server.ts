@@ -3,7 +3,7 @@ import { MemoryEventLog } from "@bulletin/core";
 import Fastify, { type FastifyError, type FastifyInstance, type FastifyReply, type FastifyRequest } from "fastify";
 import type { ModelCall } from "./general";
 import { registerBriefings } from "./routes/briefings";
-import { registerMissionApproval, type MissionStarter } from "./routes/mission-approval";
+import { registerMissionApproval, type MissionPricing, type MissionStarter } from "./routes/mission-approval";
 import { registerMissionPlanning } from "./routes/mission-planning";
 import { registerMissionRoutes } from "./routes/missions";
 import { registerQuestionRoutes } from "./routes/questions";
@@ -16,6 +16,7 @@ export interface ServerOptions {
   briefingStore?: BriefingStore;
   interviewerCall?: ModelCall;
   modelCall?: ModelCall;
+  pricing?: MissionPricing;
   questionStore?: QuestionStore;
   startMission?: MissionStarter;
 }
@@ -63,7 +64,7 @@ export function buildServer(events: EventLog = new MemoryEventLog(), options: Se
   registerBriefings(app, briefings, options.interviewerCall);
   registerMissionRoutes(app, events);
   registerMissionPlanning(app, events, briefings, options.modelCall);
-  registerMissionApproval(app, events, options.startMission);
+  registerMissionApproval(app, events, options.startMission, options.pricing);
   registerQuestionRoutes(app, events, options.questionStore, options.answererCall);
 
   return app;

@@ -8,7 +8,12 @@ import type { BriefingStore } from "../store/briefing-store";
 import type { EventLog } from "../store/event-log";
 import { identifier } from "./request-validation";
 
-const missionBody = z.strictObject({ goal: z.string().trim().min(1), repo: z.string().trim().min(1), briefing_id: identifier.optional() });
+const missionBody = z.strictObject({
+  goal: z.string().trim().min(1),
+  repo: z.string().trim().min(1),
+  briefing_id: identifier.optional(),
+  budget_cents: z.number().int().nonnegative().default(500),
+});
 export const allowedLocalCommands = ["pnpm *", "npm *", "node *"] as const;
 
 const unconfiguredModel: ModelCall = async () => {
@@ -47,7 +52,7 @@ export function registerMissionPlanning(app: FastifyInstance, log: EventLog, bri
     const parsed = missionBody.safeParse(request.body);
     if (!parsed.success) return reply.code(400).send({ error: "Invalid request" });
 
-    const { goal, repo: path, briefing_id } = parsed.data;
+    const { goal, repo: path, briefing_id, budget_cents } = parsed.data;
     const briefing = briefing_id === undefined ? undefined : briefings.get(briefing_id);
     if (briefing_id !== undefined && !briefing) return reply.code(404).send({ error: "Briefing not found" });
     if (briefing?.markdown === null) return reply.code(409).send({ error: "Briefing is incomplete" });
@@ -71,7 +76,7 @@ export function registerMissionPlanning(app: FastifyInstance, log: EventLog, bri
     const mission_id = randomUUID();
     const { attempts } = result;
     const plan = briefing ? { ...result.plan, briefing_version: 1 } : result.plan;
-    await log.emit({ mission_id, type: "mission.created", payload: { goal, repo, base } });
+    await log.emit({ mission_id, type: "mission.created", payload: { goal, repo, base, budget_cents } });
     if (briefing) {
       await log.emit({ mission_id, type: "briefing.versioned", payload: { briefing_id, version: 1, markdown: briefing.markdown } });
     }
