@@ -1,4 +1,4 @@
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { once } from "node:events";
 import { mkdtemp, rm, rmdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -81,3 +81,19 @@ it("boots on an assigned port and durably marks unfinished missions interrupted 
     await rmdir(directory);
   }
 }, 15_000);
+
+it("warns about missing managed environment variable names without printing configured values", () => {
+  const entry = fileURLToPath(new URL("../serve.ts", import.meta.url));
+  const configuredValue = "fake-managed-key-for-startup-test";
+  const result = spawnSync(process.execPath, ["--import", "tsx", entry], {
+    env: {
+      ...process.env, PORT: "0", BULLETIN_RUNNER: "managed", BULLETIN_SANDBOX_REPO: "",
+      ANTHROPIC_API_KEY: configuredValue, BULLETIN_GITHUB_TOKEN: "",
+      BULLETIN_MA_AGENT_ID: "configured", BULLETIN_MA_ENV_ID: "configured",
+    },
+    encoding: "utf8", timeout: 5000, windowsHide: true,
+  });
+  expect(result.status).toBe(1);
+  expect(result.stderr).toContain("Managed runner is missing environment variables: BULLETIN_SANDBOX_REPO, BULLETIN_GITHUB_TOKEN");
+  expect(`${result.stdout}${result.stderr}`).not.toContain(configuredValue);
+}, 8000);

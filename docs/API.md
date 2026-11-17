@@ -23,13 +23,18 @@ fallback with the same request.
 Mission execution uses `BULLETIN_RUNNER=claude` by default. Set
 `BULLETIN_RUNNER=managed` and `BULLETIN_SANDBOX_REPO` to run stations in Managed
 Agents. The mission's local repository must be a clone of that sandbox
-repository. See [Managed Agents setup](MANAGED-AGENTS.md).
+repository. Startup warns by variable name when required configuration is
+missing. See [Managed Agents setup](MANAGED-AGENTS.md).
 
 The server stores mission events in `.bulletin-scratch/api/events.jsonl` and
 restores them at startup. Set `BULLETIN_SCRATCH_DIR` to use a different data and
 worktree directory. Relative values are resolved from the repository root.
-Run one API process per log. Recovery discards an incomplete final line and
-reports a corrupt complete record with its line number. At startup, every
+Each JSONL log rotates into numbered sibling files (`.1`, `.2`, and so on)
+when an append would take a nonempty segment past 16 MiB. Startup replays all
+segments in order and preserves previously written records. Run one API
+process per log. Recovery discards an incomplete final line in the active
+segment. Corruption in an archived segment stops startup with its location.
+At startup, every
 stored mission without a `mission.finished` event receives one with
 `payload.interrupted: true`. The mission's earlier events remain available.
 

@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { loadModelsConfig, loadPricesConfig } from "@bulletin/core";
 import { claudeModelCall } from "./general";
@@ -6,7 +7,7 @@ import { createGeneralCall } from "./routes/general-model";
 import { DEFAULT_UNIT_ALLOWANCE_CENTS } from "./routes/mission-ledger";
 import { allowedLocalCommands } from "./routes/mission-planning";
 import { MemoryQuestionStore } from "./routes/questions-store";
-import { createRunnerFactory } from "./routes/runner-selection";
+import { createRunnerFactory, missingManagedVariableNames } from "./routes/runner-selection";
 import { buildServer } from "./server";
 import { JsonlBriefingStore } from "./store/briefing-store";
 import { JsonlEventLog } from "./store/jsonl-event-log";
@@ -17,6 +18,13 @@ async function main(): Promise<void> {
   if (!Number.isInteger(port) || port < 0 || port > 65535) throw new Error("PORT must be an integer from 0 to 65535");
 
   const root = resolve(import.meta.dirname, "../../..");
+  if (process.env.BULLETIN_RUNNER === "managed") {
+    const missing = missingManagedVariableNames(
+      (name) => Boolean(process.env[name]?.trim()),
+      existsSync(join(root, ".bulletin-local.json")),
+    );
+    if (missing.length > 0) console.warn(`Managed runner is missing environment variables: ${missing.join(", ")}`);
+  }
   const createRunner = createRunnerFactory({
     BULLETIN_RUNNER: process.env.BULLETIN_RUNNER,
     BULLETIN_SANDBOX_REPO: process.env.BULLETIN_SANDBOX_REPO,

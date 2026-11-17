@@ -5,12 +5,12 @@ import { JsonlFile } from "./jsonl-file";
 export class JsonlEventLog implements EventLog {
   private constructor(private readonly file: JsonlFile<BulletinEvent>) {}
 
-  static async open(path: string): Promise<JsonlEventLog> {
+  static async open(path: string, segmentBytes?: number): Promise<JsonlEventLog> {
     const file = await JsonlFile.open<BulletinEvent>(path, "event", (value, previous) => {
       const event = BulletinEventSchema.parse(value);
       if (event.id <= (previous?.id ?? 0)) throw new Error("Event IDs must increase");
       return event;
-    });
+    }, segmentBytes);
     return new JsonlEventLog(file);
   }
 

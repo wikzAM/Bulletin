@@ -7,6 +7,12 @@ interface RunnerEnvironment {
   BULLETIN_SANDBOX_REPO?: string;
 }
 
+export function missingManagedVariableNames(configured: (name: string) => boolean, hasLocalIds: boolean): string[] {
+  const names = ["BULLETIN_SANDBOX_REPO", "ANTHROPIC_API_KEY", "BULLETIN_GITHUB_TOKEN"];
+  if (!hasLocalIds) names.push("BULLETIN_MA_AGENT_ID", "BULLETIN_MA_ENV_ID");
+  return names.filter((name) => !configured(name));
+}
+
 export function createRunnerFactory(env: RunnerEnvironment, root: string): (repo: string, scratchDir: string) => Runner {
   switch (env.BULLETIN_RUNNER ?? "claude") {
     case "claude":
