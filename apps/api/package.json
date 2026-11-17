@@ -13,6 +13,7 @@
   "dependencies": {
     "@bulletin/core": "workspace:*",
     "@bulletin/graph": "workspace:*",
+    "@bulletin/pass-worker": "workspace:*",
     "@bulletin/prompts": "workspace:*",
     "@bulletin/runners": "workspace:*",
     "fastify": "^5.12.8",

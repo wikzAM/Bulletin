@@ -41,6 +41,9 @@ importers:
       '@bulletin/graph':
         specifier: workspace:*
         version: link:../../packages/graph
+      '@bulletin/pass-worker':
+        specifier: workspace:*
+        version: link:../pass-worker
       '@bulletin/prompts':
         specifier: workspace:*
         version: link:../../packages/prompts
@@ -59,6 +62,9 @@ importers:
       '@bulletin/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@bulletin/runners':
+        specifier: workspace:*
+        version: link:../../packages/runners
 
   apps/web:
     dependencies:
