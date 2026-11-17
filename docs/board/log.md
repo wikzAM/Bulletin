@@ -2,3 +2,4 @@
 03:21 | claude | managed-agents runner | main@57658a1 | verify green (175 tests)
 2026-11-17 03:22 EST | Codex | 1. War table API | codex/warroom-api@a4af236 | verify green (182 tests following main sync, WORKBOARD status conflict resolved)
 2026-11-17 03:25 EST | Codex | 2. Mission treasury | codex/warroom-api@44f3ac3 | verify green (190 tests, shared board entries preserved during main sync)
+2026-11-17 03:29 EST | Codex | 3. Question board API | codex/warroom-api@4b5e5fa | verify green (194 tests)
