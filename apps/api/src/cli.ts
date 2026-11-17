@@ -96,11 +96,23 @@ function managedRunner(repo: string, root: string, sandboxRepo?: string): Manage
       "managed runner needs ANTHROPIC_API_KEY, BULLETIN_GITHUB_TOKEN, --sandbox-repo <github url>, and agent/env ids (run apps/api/scripts/ma-setup.ts)",
     );
   }
+  const pushed = new Map<string, Promise<void>>();
   const client = sdkManagedClient(new Anthropic().beta.sessions, { agentId, environmentId, repoUrl: sandboxRepo, githubToken });
   return new ManagedAgentsRunner(
     client,
     async (branch) => void (await git(repo, "fetch", "origin", `+${branch}:${branch}`)),
-    async (input) => void (await git(repo, "push", "-f", "origin", `${input.baseBranch}:${input.baseBranch}`)),
+    async (input) => {
+      // Stations of one wave start together and share a base: push each branch version once.
+      const sha = await git(repo, "rev-parse", input.baseBranch);
+      const key = `${input.baseBranch}@${sha}`;
+      let push = pushed.get(key);
+      if (!push) {
+        push = git(repo, "push", "-f", "origin", `${input.baseBranch}:${input.baseBranch}`).then(() => undefined);
+        pushed.set(key, push);
+        push.catch(() => pushed.delete(key));
+      }
+      await push;
+    },
   );
 }
 
