@@ -1,6 +1,7 @@
-import { PlanSchema, type BulletinEvent, type EventSink, type EventType, type MemoryEventLog, type Plan } from "@bulletin/core";
+import { PlanSchema, type BulletinEvent, type EventSink, type EventType, type Plan } from "@bulletin/core";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
+import type { EventLog } from "../store/event-log";
 import { validateIdParams } from "./request-validation";
 
 export type MissionStarter = (input: {
@@ -19,7 +20,7 @@ const missionMetadata = z.object({
 });
 const approvalBody = z.strictObject({}).optional();
 
-function runnerEventSink(log: MemoryEventLog, missionId: string, startup: BulletinEvent[]): EventSink {
+function runnerEventSink(log: EventLog, missionId: string, startup: BulletinEvent[]): EventSink {
   // Standalone engine runs publish their own startup events. The API already
   // recorded these for plan review, so reuse them when that engine starts.
   const published = new Map<EventType, BulletinEvent>(startup.map((event) => [event.type, event]));
@@ -31,14 +32,15 @@ function runnerEventSink(log: MemoryEventLog, missionId: string, startup: Bullet
   };
 }
 
-export function registerMissionApproval(app: FastifyInstance, log: MemoryEventLog, startMission?: MissionStarter): void {
+export function registerMissionApproval(app: FastifyInstance, log: EventLog, startMission?: MissionStarter): void {
+  const approvalsInFlight = new Set<string>();
   app.post<{ Params: { id: string } }>("/missions/:id/approve", { preValidation: validateIdParams }, async (request, reply) => {
     if (!approvalBody.safeParse(request.body).success) return reply.code(400).send({ error: "Invalid request" });
     const { id } = request.params;
     const events = log.events.filter((event) => event.mission_id === id);
     const created = events.find((event) => event.type === "mission.created");
     if (!created) return reply.code(404).send({ error: "Mission not found" });
-    if (events.some(({ type }) => type === "plan.approved" || type === "mission.finished")) {
+    if (approvalsInFlight.has(id) || events.some(({ type }) => type === "plan.approved" || type === "mission.finished")) {
       return reply.code(409).send({ error: "Mission already approved" });
     }
 
@@ -50,9 +52,13 @@ export function registerMissionApproval(app: FastifyInstance, log: MemoryEventLo
     }
     if (!startMission) return reply.code(503).send({ error: "Mission runner not configured" });
 
-    // MemoryEventLog appends synchronously before it returns its promise. A
-    // concurrent approve request therefore sees this approval before starting.
-    const approved = await log.emit({ mission_id: id, type: "plan.approved" });
+    approvalsInFlight.add(id);
+    let approved: BulletinEvent;
+    try {
+      approved = await log.emit({ mission_id: id, type: "plan.approved" });
+    } finally {
+      approvalsInFlight.delete(id);
+    }
     const { repo, base, goal } = metadata.data;
     const sink = runnerEventSink(log, id, [created, proposed, approved]);
     void Promise.resolve()
@@ -60,9 +66,13 @@ export function registerMissionApproval(app: FastifyInstance, log: MemoryEventLo
       .catch(async (error: unknown) => {
         request.log.error({ err: error }, "Mission execution failed");
         if (log.events.some((event) => event.mission_id === id && event.type === "mission.finished")) return;
-        await log.emit({ mission_id: id, type: "mission.finished", payload: {
-          status: "failed", error: "Mission execution failed",
-        } });
+        try {
+          await log.emit({ mission_id: id, type: "mission.finished", payload: {
+            status: "failed", error: "Mission execution failed",
+          } });
+        } catch (appendError) {
+          request.log.error({ err: appendError }, "Could not record mission failure");
+        }
       });
 
     return reply.code(202).send({ mission_id: id, status: "running" });

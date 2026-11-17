@@ -1,5 +1,6 @@
-import { LaneSchema, type BulletinEvent, type EventType, type Lane, type MemoryEventLog, type UnitStatus } from "@bulletin/core";
+import { LaneSchema, type BulletinEvent, type EventType, type Lane, type UnitStatus } from "@bulletin/core";
 import type { FastifyInstance } from "fastify";
+import type { EventLog } from "../store/event-log";
 import { registerMissionEventStream } from "./mission-events";
 import { validateIdParams } from "./request-validation";
 
@@ -116,7 +117,7 @@ function missionProgress(events: readonly BulletinEvent[]) {
   return { units: [...units.values()], ledger, ledgerByUnit };
 }
 
-export function registerMissionRoutes(app: FastifyInstance, log: MemoryEventLog): void {
+export function registerMissionRoutes(app: FastifyInstance, log: EventLog): void {
   app.get("/missions", async () => ({ missions: listMissions(log.events) }));
 
   app.get<{ Params: { id: string } }>("/missions/:id", { preValidation: validateIdParams }, async (request, reply) => {

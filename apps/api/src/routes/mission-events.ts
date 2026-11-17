@@ -1,6 +1,6 @@
 import { PassThrough } from "node:stream";
-import type { MemoryEventLog } from "@bulletin/core";
 import type { FastifyInstance } from "fastify";
+import type { EventLog } from "../store/event-log";
 import { validateIdParams } from "./request-validation";
 
 function parseCursor(value: unknown): number | undefined {
@@ -10,7 +10,7 @@ function parseCursor(value: unknown): number | undefined {
   return Number.isSafeInteger(cursor) ? cursor : undefined;
 }
 
-function followMission(log: MemoryEventLog, missionId: string, after: number): PassThrough {
+function followMission(log: EventLog, missionId: string, after: number): PassThrough {
   const stream = new PassThrough();
   const firstUnseen = log.events.findIndex((event) => event.id > after);
   let nextIndex = firstUnseen === -1 ? log.events.length : firstUnseen;
@@ -29,7 +29,7 @@ function followMission(log: MemoryEventLog, missionId: string, after: number): P
     }
   }
 
-  // The core log exposes an append-only array. One index covers replay and new
+  // The log exposes an append-only array. One index covers replay and new
   // appends, including events emitted while a client is still reading history.
   const poll = setInterval(flushEvents, 50).unref();
   const heartbeat = setInterval(() => {
@@ -45,7 +45,7 @@ function followMission(log: MemoryEventLog, missionId: string, after: number): P
   return stream;
 }
 
-export function registerMissionEventStream(app: FastifyInstance, log: MemoryEventLog): void {
+export function registerMissionEventStream(app: FastifyInstance, log: EventLog): void {
   const streams = new Set<PassThrough>();
   app.addHook("preClose", async () => {
     for (const stream of streams) stream.end();
