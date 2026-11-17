@@ -243,7 +243,7 @@ export function toResolveResult(status: number, body: unknown): ResolveResult {
   const error = isRecord(body) ? str(body.error) : null;
   if (status === 405 || (status === 404 && error === "Route not found")) return { ok: false, reason: "unavailable" };
   if (status === 404) return { ok: false, reason: "not_found" };
-  if (status === 409) return { ok: false, reason: "already" };
+  if (status === 409) return { ok: false, reason: error === "Decision resolution in progress" ? "busy" : "already" };
   throw new Error(`Resolve failed: ${status}${error ? ` ${error}` : ""}`);
 }
 /** GET /missions/:id/rules (Codex task 22): the two files as text; a missing file reads as empty. */

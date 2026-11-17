@@ -28,6 +28,8 @@ export function resolveMessage(choice: DecisionChoice, result: ResolveResult): {
   switch (result.reason) {
     case "already":
       return { tone: "ok", text: t.already };
+    case "busy":
+      return { tone: "error", text: t.busy };
     case "not_found":
       return { tone: "error", text: t.notFound };
     case "unavailable":

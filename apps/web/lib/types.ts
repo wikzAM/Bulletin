@@ -74,7 +74,7 @@ export interface SettingsInfo {
   defaultBudgetCents: number | null;
   unitAllowanceCents: number | null;
 }
-export type ResolveRefusal = "already" | "not_found" | "unavailable";
+export type ResolveRefusal = "already" | "busy" | "not_found" | "unavailable";
 /** POST /missions/:id/decisions/:unit/resolve. Recording only: the engine does not resume held tasks yet. */
 export type ResolveResult = { ok: true } | { ok: false; reason: ResolveRefusal };
 export type StopRefusal = "not_running" | "not_found" | "unavailable";

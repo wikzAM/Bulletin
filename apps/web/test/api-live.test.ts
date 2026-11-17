@@ -97,6 +97,17 @@ const BRIEFING = [
   "## Constraints", "Local only.", "## Out of scope", "Reminders.", "## Decisions log",
 ].join("\n");
 
+const RULES_MD = "# Rules\n- Run the fixture tests.\n";
+
+/** Only D:/repo has an integration branch; it has rules.md but no lessons.md. */
+async function readGit(repo: string, ...args: string[]) {
+  const fail = { code: 128, stdout: "", stderr: "fatal" };
+  if (repo !== "D:/repo") return fail;
+  if (args[0] === "rev-parse") return { code: 0, stdout: `${"a".repeat(40)}\n`, stderr: "" };
+  if (args[0] === "show" && args[1]?.endsWith(":.bulletin/rules.md")) return { code: 0, stdout: RULES_MD, stderr: "" };
+  return fail;
+}
+
 let app: ReturnType<typeof buildServer>;
 let log: MemoryEventLog;
 let api: typeof ApiModule;
@@ -112,6 +123,7 @@ beforeAll(async () => {
       const answers = (JSON.parse(user) as { answers: unknown[] }).answers;
       return JSON.stringify(answers.length < 2 ? { question: `Question ${answers.length + 1}?` } : { markdown: BRIEFING });
     },
+    readGit,
   });
   const address = await app.listen({ port: 0, host: "127.0.0.1" });
   vi.stubEnv("NEXT_PUBLIC_API_URL", address);
@@ -158,9 +170,22 @@ describe("lib/api.ts against the real API", () => {
     expect(spend.find((p) => p.id === "other")).toMatchObject({ spent_cents: 0, budget_cents: null });
   });
 
-  it("reads rules and lessons, or says the server does not share them yet", async () => {
-    const result = await api.getRules(M);
-    expect(["ok", "unavailable"]).toContain(result.kind);
+  it("reads rules and lessons from the integration branch, and says when there is no branch yet", async () => {
+    expect(await api.getRules(M)).toEqual({ kind: "ok", rules: RULES_MD, lessons: "" });
+    expect(await api.getRules("other")).toEqual({ kind: "no_branch" });
+    expect(await api.getRules("nope")).toEqual({ kind: "not_found" });
+  });
+
+  it("records a choice for a held task once", async () => {
+    const id = "held-mission";
+    await log.emit({ mission_id: id, type: "mission.created", payload: { repo: "D:/held", base: "main" } });
+    await log.emit({ mission_id: id, type: "unit.held", unit_id: "api", payload: { lane: "closed", attempt: 1 } });
+    await log.emit({ mission_id: id, type: "decision.opened", unit_id: "api", payload: { kind: "closed_lane_merge", branch: "b" } });
+    expect(await api.resolveDecision(id, "api", "approve")).toEqual({ ok: true });
+    expect(await api.resolveDecision(id, "api", "approve")).toEqual({ ok: false, reason: "not_found" });
+    const resolved = log.events.find((e) => e.mission_id === id && e.type === "decision.resolved");
+    expect(resolved?.payload.choice).toBe("approve");
+    expect(reduceEvents([], log.events.filter((e) => e.mission_id === id)).units.api?.decision).toMatchObject({ kind: "closed_lane_merge", choice: "approve" });
   });
 
   it("reads the settings from GET /config", async () => {

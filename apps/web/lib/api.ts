@@ -71,7 +71,11 @@ export async function listProjectSpend(): Promise<ProjectSpend[]> {
   return missions.map((m, i) => ({ id: m.id, goal: m.goal, status: m.status, spent_cents: spend[i]?.spent_cents ?? 0, budget_cents: spend[i]?.budget_cents ?? null }));
 }
 
-export type RulesResult = { kind: "ok"; rules: string; lessons: string } | { kind: "unavailable" } | { kind: "not_found" };
+export type RulesResult =
+  | { kind: "ok"; rules: string; lessons: string }
+  | { kind: "no_branch" }
+  | { kind: "unavailable" }
+  | { kind: "not_found" };
 
 /** .bulletin/rules.md and lessons.md for a project. A server without the route reads as unavailable. */
 export async function getRules(missionId: string): Promise<RulesResult> {
@@ -83,7 +87,8 @@ export async function getRules(missionId: string): Promise<RulesResult> {
   const body: unknown = await res.json().catch(() => null);
   if (res.status === 404 || res.status === 405) {
     const error = body && typeof body === "object" && "error" in body ? (body as { error: unknown }).error : null;
-    return error === "Mission not found" ? { kind: "not_found" } : { kind: "unavailable" };
+    if (error === "Mission not found") return { kind: "not_found" };
+    return error === "Mission integration branch not found" ? { kind: "no_branch" } : { kind: "unavailable" };
   }
   if (!res.ok) throw new Error(`GET /missions/${missionId}/rules failed: ${res.status}`);
   const files = toRulesInfo(body);

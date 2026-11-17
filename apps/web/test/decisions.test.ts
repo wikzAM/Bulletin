@@ -81,6 +81,8 @@ describe("toResolveResult", () => {
 
   it("names the refusals", () => {
     expect(toResolveResult(409, { error: "Decision already resolved" })).toEqual({ ok: false, reason: "already" });
+    expect(toResolveResult(409, { error: "Decision resolution in progress" })).toEqual({ ok: false, reason: "busy" });
+    expect(toResolveResult(404, { error: "Open decision not found" })).toEqual({ ok: false, reason: "not_found" });
     expect(toResolveResult(404, { error: "Decision not found" })).toEqual({ ok: false, reason: "not_found" });
     expect(toResolveResult(404, { error: "Mission not found" })).toEqual({ ok: false, reason: "not_found" });
     expect(toResolveResult(404, { error: "Route not found" })).toEqual({ ok: false, reason: "unavailable" });
@@ -98,6 +100,7 @@ describe("resolveMessage", () => {
     expect(resolveMessage("reject", { ok: true }).tone).toBe("ok");
     expect(resolveMessage("approve", { ok: false, reason: "already" }).tone).toBe("ok");
     expect(resolveMessage("approve", { ok: false, reason: "unavailable" }).tone).toBe("error");
+    expect(resolveMessage("approve", { ok: false, reason: "busy" })).toEqual({ tone: "error", text: expect.stringContaining("right now") });
   });
 });
 

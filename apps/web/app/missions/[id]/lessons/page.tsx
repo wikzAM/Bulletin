@@ -23,12 +23,12 @@ export default async function LessonsPage({ params }: { params: Promise<{ id: st
     </p>
   );
 
-  if (result.kind === "unavailable") {
+  if (result.kind === "unavailable" || result.kind === "no_branch") {
     return (
       <main id="content">
         {back}
         <h1>{t.title}</h1>
-        <p className="notice info">{t.unavailable}</p>
+        <p className="notice info">{result.kind === "no_branch" ? t.noBranch : t.unavailable}</p>
       </main>
     );
   }

@@ -135,10 +135,10 @@
   carries `payload.choice`. If any of these differ, only toResolveResult (apps/web/lib/api-adapters.ts) and the
   decision.resolved case in apps/web/lib/war-table.ts need to change. GET /missions/:id/decisions is not used:
   the page already has the stream.
-- status: open.
+- status: resolved (2026-11-17). The documented route matches; its 409 means another resolution is in progress, shown as 'someone else is deciding'. Live test added (24e771e).
 ## web: GET /missions/:id/rules body (cursor, 2026-11-17)
 
 - question: for Codex task 22, the web reads `{rules, lessons}` as markdown strings (null or missing means an
   empty file; `rules_md` and `lessons_md` are also accepted). A 404 with "Mission not found" shows the not-found
   page; any other 404 or 405 shows "not shared yet". If the body differs, only toRulesInfo needs to change.
-- status: open.
+- status: resolved (2026-11-17). The documented body matches; the 404 for a missing integration branch now reads 'notes start once work has begun'. Live test added (24e771e).
