@@ -5,6 +5,7 @@ import type { ModelCall } from "./general";
 import { registerBriefings } from "./routes/briefings";
 import { registerConfig, type ConfigSource } from "./routes/config";
 import { registerMissionApproval, type MissionPricing, type MissionStarter } from "./routes/mission-approval";
+import { registerMissionDecisions } from "./routes/mission-decisions";
 import { registerMissionPlanning } from "./routes/mission-planning";
 import { registerMissionRoutes } from "./routes/missions";
 import { registerQuestionRoutes } from "./routes/questions";
@@ -67,6 +68,7 @@ export function buildServer(events: EventLog = new MemoryEventLog(), options: Se
   const pricing = options.pricing ?? (options.config && { prices: options.config.prices, tiers: options.config.models.tiers });
   registerBriefings(app, briefings, options.interviewerCall);
   registerMissionRoutes(app, events);
+  registerMissionDecisions(app, events);
   registerMissionPlanning(app, events, briefings, options.modelCall);
   registerMissionApproval(app, events, options.startMission, pricing);
   registerQuestionRoutes(app, events, options.questionStore, options.answererCall);

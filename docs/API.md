@@ -64,8 +64,8 @@ Error responses include an `error` string. Planning and budget errors can
 include the additional fields shown on those endpoints.
 
 - `400 Bad Request`. `Invalid request` for malformed JSON, parameters, or fields. `Invalid event cursor` for malformed SSE cursors.
-- `404 Not Found`. `Route not found`, `Mission not found`, `Briefing not found`, or `Question not found`.
-- `409 Conflict`. `Briefing is incomplete`, `Briefing is not awaiting this answer`, `Mission already approved`, `Mission has no plan to approve`, `Plan exceeds mission budget`, `Mission is not running`, `Question already answered`, `Auto-answer already in progress`, or `Mission has no completed Briefing`.
+- `404 Not Found`. `Route not found`, `Mission not found`, `Briefing not found`, `Question not found`, or `Open decision not found`.
+- `409 Conflict`. `Briefing is incomplete`, `Briefing is not awaiting this answer`, `Mission already approved`, `Mission has no plan to approve`, `Plan exceeds mission budget`, `Mission is not running`, `Decision resolution in progress`, `Question already answered`, `Auto-answer already in progress`, or `Mission has no completed Briefing`.
 - `413 Payload Too Large`. `Payload Too Large` when the body exceeds the server's request limit.
 - `415 Unsupported Media Type`. `Unsupported Media Type` when the server cannot parse the requested content type.
 - `422 Unprocessable Entity`. `Repository unavailable`, `Mission planning failed`, or `Plan cannot be priced`.
@@ -324,6 +324,26 @@ Follow the stream for the engine's `mission.finished` event with
 `payload.stopped: true`. The mission detail stays `running` until that event.
 A mission without an active run returns `409 Conflict` with
 `{"error":"Mission is not running"}`.
+
+## `GET /missions/:id/decisions`
+
+Returns `200 OK` with `{"decisions":[...]}`. Each item is the full
+`decision.opened` `BulletinEvent` without a matching resolution. The list is
+ordered from oldest to newest. For unit holds, `unit_id` identifies the unit
+and `payload.kind` and `payload.branch` describe the hold.
+
+## `POST /missions/:id/decisions/:unit/resolve`
+
+Send `{"choice":"approve"}` or `{"choice":"reject"}`. Returns `200 OK` with the
+new `decision.resolved` event. Its payload records `opened_event_id`, `choice`,
+and `kind` when present. The endpoint records the oldest open approval decision
+for the unit. Send question answers through `POST /questions/:id/answer`.
+
+This endpoint records the choice in the mission log. Resuming held work after
+approval requires a separate engine change. An unavailable decision returns
+`404 Not Found` with `{"error":"Open decision not found"}`. A concurrent
+resolution of the same decision returns `409 Conflict` with
+`{"error":"Decision resolution in progress"}`.
 
 ## `GET /questions`
 
