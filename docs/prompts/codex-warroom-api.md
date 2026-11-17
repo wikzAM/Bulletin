@@ -11,3 +11,5 @@ Do, in order, committing after each step on branch codex/warroom-api:
 4. Run `pnpm run verify` until green. Never weaken or skip tests.
 
 Rules: commits authored as wikzAM only, NO Co-Authored-By or tool attribution lines. Do not merge or push to main. If you hit a decision that is not yours, append it to BULLETIN.md and continue with what you can. Same failure twice: stop and note it there. When done, write a 5-line summary at the end of docs/WORKBOARD.md status for warroom-api.
+
+LONG-RUNNING MODE: after you finish, do not stop. Read docs/board/README.md and follow the Worker loop using docs/board/codex.md as your queue (git merge main first; the queue lives there). Keep going until 11:00 local time. Commit authored as wikzAM only, no co-author lines.
