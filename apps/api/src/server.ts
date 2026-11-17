@@ -1,6 +1,7 @@
 import { MemoryEventLog } from "@bulletin/core";
 import Fastify, { type FastifyInstance } from "fastify";
 import type { ModelCall } from "./general";
+import { registerMissionApproval, type MissionStarter } from "./routes/mission-approval";
 import { registerMissionPlanning } from "./routes/mission-planning";
 import { registerMissionRoutes } from "./routes/missions";
 import { registerQuestionRoutes } from "./routes/questions";
@@ -9,6 +10,7 @@ import type { QuestionStore } from "./routes/questions-store";
 export interface ServerOptions {
   modelCall?: ModelCall;
   questionStore?: QuestionStore;
+  startMission?: MissionStarter;
 }
 
 /** Pass the same event log to the server and engine when they run together. */
@@ -18,6 +20,7 @@ export function buildServer(events = new MemoryEventLog(), options: ServerOption
   app.get("/health", async () => ({ status: "ok", service: "api" }));
   registerMissionRoutes(app, events);
   registerMissionPlanning(app, events, options.modelCall);
+  registerMissionApproval(app, events, options.startMission);
   registerQuestionRoutes(app, events, options.questionStore);
 
   return app;

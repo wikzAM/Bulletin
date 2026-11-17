@@ -2,7 +2,7 @@ import { LaneSchema, type BulletinEvent, type EventType, type Lane, type MemoryE
 import type { FastifyInstance } from "fastify";
 import { registerMissionEventStream } from "./mission-events";
 
-type MissionStatus = "interview" | "planning" | "running" | "finished";
+type MissionStatus = "interview" | "planning" | "running" | "finished" | "failed";
 
 interface MissionSummary {
   id: string;
@@ -61,7 +61,7 @@ function listMissions(events: readonly BulletinEvent[]): MissionSummary[] {
       });
     }
     const status = missionStatuses[type];
-    if (mission && status) mission.status = status;
+    if (mission && status) mission.status = type === "mission.finished" && payload.status === "failed" ? "failed" : status;
   }
   return [...missions.values()];
 }

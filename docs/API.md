@@ -27,7 +27,8 @@ An empty log returns `{"missions":[]}`.
 `repo` and `base` come from `mission.created` and are `null` when absent.
 Status starts at `interview`, advances to `planning` on `briefing.versioned` or
 `plan.proposed`, advances to `running` on `plan.approved`, and becomes `finished`
-on `mission.finished`.
+on `mission.finished`. A `mission.finished` event with `payload.status` set to
+`failed` sets the mission status to `failed`.
 
 ## `POST /missions`
 
@@ -154,6 +155,21 @@ available event names.
 
 Mission-specific endpoints return `404 Not Found` with
 `{"error":"Mission not found"}` for an unknown mission ID.
+
+## `POST /missions/:id/approve`
+
+Approves the current proposal and starts the configured mission runner in the
+background. Send an empty request body. Returns `202 Accepted` with
+`{"mission_id":"demo","status":"running"}`. Follow the mission stream for
+execution progress. The API publishes `plan.approved` once and the runner
+publishes execution events to the same log.
+
+- `409 Conflict` with `{"error":"Mission has no plan to approve"}` if the mission has no full proposal or lacks repository metadata.
+- `409 Conflict` with `{"error":"Mission already approved"}` if execution has already been approved or has finished.
+- `503 Service Unavailable` with `{"error":"Mission runner not configured"}` if the API has no runner. The mission stays in planning.
+
+If the runner throws before finishing, `mission.finished` carries
+`{"status":"failed","error":"Mission execution failed"}` in its payload.
 
 ## `GET /questions`
 
