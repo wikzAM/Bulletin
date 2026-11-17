@@ -116,3 +116,46 @@ available event names.
 
 Mission-specific endpoints return `404 Not Found` with
 `{"error":"Mission not found"}` for an unknown mission ID.
+
+## `GET /questions`
+
+Returns `200 OK` with `{"questions":[...]}`, ordered from oldest to newest.
+Use `?mission_id=demo` to filter to one mission. A filter with no matches
+returns an empty array.
+
+## `POST /questions`
+
+Send `{"mission_id":"demo","unit_id":"seed-data","body":"Which seed should I use?"}`.
+Omit `unit_id` or send `null` for a mission-level question. The mission must
+already exist. Returns `201 Created` with the question.
+
+```json
+{
+  "id": "4f92d548-5474-468c-9270-2b1c0448fcb7",
+  "mission_id": "demo",
+  "unit_id": "seed-data",
+  "body": "Which seed should I use?",
+  "status": "open",
+  "created_at": "2026-11-17T14:00:00.000Z",
+  "answer": null,
+  "answered_at": null
+}
+```
+
+The mission stream receives `dispatch.asked` with `question_id` and `body`,
+then `decision.opened` with `kind: "question"` and `question_id`.
+
+## `POST /questions/:id/answer`
+
+Send `{"answer":"Use seed 17."}`. Returns `200 OK` with the full question,
+`status` set to `answered`, the answer text, and the `answered_at` timestamp.
+An unknown question returns `404 Not Found` with `{"error":"Question not found"}`.
+A question with an answer returns `409 Conflict` with
+`{"error":"Question already answered"}`.
+
+The mission stream receives `dispatch.answered` with `question_id` and `answer`,
+then `decision.resolved` with `kind: "question"` and `question_id`.
+
+Question and answer text is trimmed and must contain a non-whitespace character.
+Invalid inputs return `400 Bad Request` with `{"error":"Invalid request"}`.
+The default question store lives in memory for the lifetime of the API process.
