@@ -95,8 +95,7 @@ export class ClaudeCodeRunner implements Runner {
       input.model,
       "--permission-mode",
       "acceptEdits",
-      "--max-budget-usd",
-      (input.allowanceCents / 100).toFixed(2),
+      ...(input.allowanceCents > 0 ? ["--max-budget-usd", (input.allowanceCents / 100).toFixed(2)] : []),
     ];
     const child = spawn(this.claudeBin, args, { cwd: handle.workdir, windowsHide: true, shell: false });
     entry.child = child;

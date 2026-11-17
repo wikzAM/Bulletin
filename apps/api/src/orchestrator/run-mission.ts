@@ -53,6 +53,8 @@ export interface MissionOptions {
   briefing?: string;
   parallel?: number;
   maxAttempts?: number;
+  /** Spend cap handed to each station attempt, in cents. 0 means no per-attempt cap. */
+  unitAllowanceCents?: number;
   events?: EventSink;
 }
 
@@ -202,7 +204,7 @@ export async function runMission(options: MissionOptions): Promise<MissionReport
         rules,
         sendBack: packet,
         model,
-        allowanceCents: 0,
+        allowanceCents: options.unitAllowanceCents ?? 0,
       });
 
       let stationError: string | undefined;

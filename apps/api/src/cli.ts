@@ -25,7 +25,9 @@ async function main(): Promise<void> {
   const missionId = `m${Date.now().toString(36)}`;
   const scratchDir = resolve(repo, "..", ".bulletin-scratch", missionId);
   const events = {
-    emit: async (e: { type: string; unit_id?: string | null }) => {
+    emit: async (e: { type: string; unit_id?: string | null; payload?: Record<string, unknown> }) => {
+      if (e.type === "pass.red") console.log(`[pass.red] ${e.unit_id} ${JSON.stringify(e.payload).slice(0, 400)}`);
+      else
       console.log(`[${e.type}]${e.unit_id ? ` ${e.unit_id}` : ""}`);
     },
   };
@@ -39,6 +41,7 @@ async function main(): Promise<void> {
     prices,
     tiers: models.tiers,
     testCommand: flag("test"),
+    unitAllowanceCents: Number(flag("allowance", "200")),
     allowedCommands: ["pnpm *", "npm *", "node *"],
     events: events as never,
   });
