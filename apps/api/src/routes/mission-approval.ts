@@ -60,9 +60,11 @@ export function registerMissionApproval(app: FastifyInstance, log: EventLog, sta
       approvalsInFlight.delete(id);
     }
     const { repo, base, goal } = metadata.data;
+    const markdown = events.findLast(({ type }) => type === "briefing.versioned")?.payload.markdown;
+    const briefing = typeof markdown === "string" ? markdown : goal;
     const sink = runnerEventSink(log, id, [created, proposed, approved]);
     void Promise.resolve()
-      .then(() => startMission({ missionId: id, repo, baseBranch: base, briefing: goal, plan: plan.data, events: sink }))
+      .then(() => startMission({ missionId: id, repo, baseBranch: base, briefing, plan: plan.data, events: sink }))
       .catch(async (error: unknown) => {
         request.log.error({ err: error }, "Mission execution failed");
         if (log.events.some((event) => event.mission_id === id && event.type === "mission.finished")) return;

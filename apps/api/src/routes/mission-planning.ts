@@ -4,9 +4,11 @@ import { git, tryGit } from "@bulletin/runners/git";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { runGeneral, type ModelCall } from "../general";
+import type { BriefingStore } from "../store/briefing-store";
 import type { EventLog } from "../store/event-log";
+import { identifier } from "./request-validation";
 
-const missionBody = z.strictObject({ goal: z.string().trim().min(1), repo: z.string().trim().min(1) });
+const missionBody = z.strictObject({ goal: z.string().trim().min(1), repo: z.string().trim().min(1), briefing_id: identifier.optional() });
 export const allowedLocalCommands = ["pnpm *", "npm *", "node *"] as const;
 
 const unconfiguredModel: ModelCall = async () => {
@@ -40,12 +42,15 @@ async function readPlanningContext(path: string) {
   };
 }
 
-export function registerMissionPlanning(app: FastifyInstance, log: EventLog, modelCall?: ModelCall): void {
+export function registerMissionPlanning(app: FastifyInstance, log: EventLog, briefings: BriefingStore, modelCall?: ModelCall): void {
   app.post("/missions", async (request, reply) => {
     const parsed = missionBody.safeParse(request.body);
     if (!parsed.success) return reply.code(400).send({ error: "Invalid request" });
 
-    const { goal, repo: path } = parsed.data;
+    const { goal, repo: path, briefing_id } = parsed.data;
+    const briefing = briefing_id === undefined ? undefined : briefings.get(briefing_id);
+    if (briefing_id !== undefined && !briefing) return reply.code(404).send({ error: "Briefing not found" });
+    if (briefing?.markdown === null) return reply.code(409).send({ error: "Briefing is incomplete" });
     let context;
     try {
       context = await readPlanningContext(path);
@@ -54,7 +59,7 @@ export function registerMissionPlanning(app: FastifyInstance, log: EventLog, mod
     }
 
     const { repo, base, ...input } = context;
-    const result = await runGeneral({ ...input, briefing: goal }, modelCall ?? unconfiguredModel);
+    const result = await runGeneral({ ...input, briefing: briefing?.markdown ?? goal }, modelCall ?? unconfiguredModel);
     if (!result.ok) {
       return reply.code(modelCall ? 422 : 503).send({
         error: "Mission planning failed",
@@ -64,8 +69,12 @@ export function registerMissionPlanning(app: FastifyInstance, log: EventLog, mod
     }
 
     const mission_id = randomUUID();
-    const { plan, attempts } = result;
+    const { attempts } = result;
+    const plan = briefing ? { ...result.plan, briefing_version: 1 } : result.plan;
     await log.emit({ mission_id, type: "mission.created", payload: { goal, repo, base } });
+    if (briefing) {
+      await log.emit({ mission_id, type: "briefing.versioned", payload: { briefing_id, version: 1, markdown: briefing.markdown } });
+    }
     await log.emit({ mission_id, type: "plan.proposed", payload: { plan, units: plan.units.length } });
     return reply.code(201).send({ mission_id, plan, attempts });
   });
