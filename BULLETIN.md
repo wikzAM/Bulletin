@@ -172,4 +172,4 @@
 - options: (a) keep web core, add a thin desktop shell later (Tauri or Electron) that starts the API and web locally and opens a window, shipped as a Windows installer; (b) web only, hosted; (c) desktop-first, rebuild the shell now
 - recommendation: (a). The engine, API and UI are the same either way, and a local shell fits the local Claude Code runner, which needs the user's own machine and login. It also keeps the phone-browser decision inbox the spec wants. Docker is not needed for this path.
 - working default: web core continues; nothing desktop started
-- status: open
+- status: resolved. Founder chose the desktop app; docs/SPEC.md now has the Tauri 2 platform section (see docs/DECISIONS.md).

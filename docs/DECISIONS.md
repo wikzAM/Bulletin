@@ -138,3 +138,5 @@ Needed for the Managed Agents runner adapter (apps/api/src/managed-client.ts). I
   for when Codex task 20 lands. "failed" now reads "Failed" instead of "Stopped".
 - Stop is now shown (POST /missions/:id/stop is documented), behind a confirm step. This supersedes
   "Stop hidden" above.
+## 2026-11-17: ship as a Tauri 2 desktop app (Windows first)
+Founder decision, recorded in docs/SPEC.md (Platform section, which wins over sections 0, 5, 6, 7, 14, 15). UI becomes React + Vite + Tailwind + React Flow in Tauri; a Rust core supervises processes, worktrees, SQLite and credentials; the existing TypeScript engine, General, runners and Anthropic SDK code become the bundled sidecar, spoken to over JSON-RPC on stdio. Why: the user wants an installable app; the local runner needs the user's own machine and login anyway. The Fastify API and Next.js web app stay as a headless/dev surface until the desktop app replaces them.

@@ -13,6 +13,40 @@ This tab is the source of truth for building the Bulletin MVP. It's written for 
 5. **Never commit secrets.** Keys come from environment variables, listed in `.env.example`.
 6. **Use the cost ladder on yourself.** Strongest model for planning and review, cheaper models for routine code, and set spend limits on the API key used for development.
 
+### Platform: a downloadable desktop app, Windows first
+
+Bulletin ships as an installable desktop app, not a website. Where this section conflicts with sections 0, 5, 6, 7, 14, or 15, this section wins.
+
+**Decision: Tauri 2.** A Rust core with a web-technology UI rendered in the system WebView (WebView2 on Windows), plus a bundled TypeScript sidecar for model work.
+
+| Part | Choice | Replaces |
+|------|--------|----------|
+| UI | React + Vite + Tailwind + React Flow inside Tauri | Next.js web app |
+| Desktop core (Rust, `src-tauri/`) | Process supervision for stations, git worktrees, file watching, the local event store, the pass runner, credential storage in Windows Credential Manager, auto-updates | Fastify api and pass-worker |
+| Agent sidecar (TypeScript, bundled as a Tauri sidecar) | Model calls through the official Anthropic SDKs (Bedrock and first-party), the Interviewer, General, answerer, and bulletin-mcp | Model code inside the api |
+| Storage | SQLite in the app data folder, same tables as section 7 (UUIDs as text, JSON as text); `events` stays append-only | Postgres |
+| Internal messaging | Tauri commands and events between UI and core; JSON-RPC over stdio between core and sidecar | REST and SSE |
+
+Why split Rust and TypeScript: Anthropic publishes official SDKs for TypeScript, Python, Go, Java, C#, PHP, and Ruby, not Rust, so model and MCP code stays in TypeScript. Rust handles the parts where a small, fast, reliable native core pays off.
+
+**Windows specifics**
+- Checks without Docker by default. Docker Desktop on Windows needs WSL2, which breaks zero setup. The pass runs in a clean worktree as a supervised subprocess, still reading its configuration from the integration branch. Docker becomes an optional stricter mode.
+- Stations without a separate install. The default station runs an agent loop inside the bundled sidecar (via the Claude Agent SDK or a Messages API tool loop; confirm the SDK's packaging terms and Bedrock support). Claude Code stays supported as a bring-your-own runner.
+- Installer and updates. Build MSI or NSIS installers with the Tauri bundler, sign them with a code-signing certificate so Windows SmartScreen doesn't warn users, and ship updates through the Tauri updater.
+- Local first. Missions run entirely on the user's machine except model calls. Team features (invites, a shared Bulletin across machines, the phone inbox) come later through a small sync service.
+- macOS and Linux later from the same codebase.
+
+macOS is a planned target, not part of the MVP build. Windows ships first, but every choice must keep a Mac build cheap later:
+- Use cross-platform crates and Node APIs for paths, processes, and file watching; never hardcode Windows paths, shells, or drive letters.
+- Store credentials through a keychain abstraction that maps to Windows Credential Manager now and the macOS Keychain later.
+- Run every station and check command through one process layer that handles shell differences (PowerShell or cmd on Windows, zsh on macOS).
+- Keep platform-specific code behind small modules (`platform/windows`, `platform/macos`), with the macOS one stubbed for now.
+- CI builds and tests on Windows now; add a macOS job when the Mac build starts.
+
+The Mac build itself (a universal binary for Apple Silicon and Intel, Apple Developer signing, and notarization) is a post-MVP milestone.
+
+**Milestone changes:** M0 becomes a Tauri scaffold with the sidecar, SQLite, and a signed Windows installer build in CI. M3 becomes "desktop app v0" instead of "web app v0"; the phone inbox moves to M5 with the sync service.
+
 ## 1. What we're building
 
 Bulletin turns a goal into a plan, splits the plan into units that agents build in parallel, lets those agents ask the plan questions instead of interrupting people, checks every unit with deterministic tests, and shows it all on a live map. The MVP proves this core loop for one team building one software project.
