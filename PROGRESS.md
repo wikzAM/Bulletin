@@ -16,18 +16,14 @@ Every acceptance box of the milestone in flight is proven by an automated test o
   exist (verified); examples/todo-app with passing tests (verified); CI workflow written (not yet seen running);
   `docker compose up` + `/health` (see BULLETIN.md if not verified).
 - Graph stations start without node_modules, so the check installs first.
-- The six M1 logic units (validate-plan, waves, send-back, merge-policy, judge, treasury) are implemented on
-  branch `m1/integration`, then the engine loop (`apps/api/src/orchestrator/run-mission.ts`), the pass runner and a stub runner, 159 tests green. `main` still has the stubs until that branch is merged.
-- `graph.py --dry-run` accepts the plan, but `claude -p` is logged out on this machine, so stations ran as
-  in-session subagents in isolated worktrees. Agent worktrees live in `.claude/worktrees/` (ignored by git and lint).
+- M1 engine is on main (validate-plan, waves, send-back, merge-policy, judge, treasury, runMission, pass runner), plus the General (`bulletin plan --goal`, falls back to Opus when Fable has no credits), the local Claude Code runner and the Managed Agents runner (`bulletin run --runner managed`). Verified live: a local 3-unit mission (3/3 green) and a cloud mission on Managed Agents (2/2 green, $0.0485).
+- War table API (Codex) and web shell (Cursor) are merged; main verify is 301 tests. Overnight coordination runs from `docs/board/`.
+- `graph.py` runs stations end to end now that `claude` is logged in (verified on a scratch repo). It needs `.workbench/` in `.gitignore`.
 - GitHub rejects `.github/workflows/*` until gh has the `workflow` scope; the CI commit waits on branch `ci-workflow`.
 - Docker Desktop will not start: stale socket entries in `%LOCALAPPDATA%\Docker\run` give access denied when removed (see BULLETIN.md). `docker compose up` is unverified.
 
 ## Next
-Not yet built for M1: the General call (plan from a Briefing), the real LocalClaudeCodeRunner (headless Claude Code,
-needs `claude auth login`), the `bulletin run` command, and real ledger rows from a live model. The engine boxes
-(concurrency, RED packet and only-that-unit rerun, out of scope, lanes, lessons, report) are proven against a
-stub runner in `apps/api/test/run-mission.test.ts`. Then M2.
+Wire the API entry (`serve.ts`) and finish the web shell against the real API; add the Treasury hard stop to the managed path; Docker and the CI workflow (needs `gh auth refresh -s workflow`); open founder decisions on BULLETIN.md.
 
 ## Never
 - Never put prices or model ids in code (config/ only).
