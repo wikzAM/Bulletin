@@ -24,21 +24,34 @@ export interface SendBackInput {
  *
  * Stub: implemented by a graph unit.
  */
-export function formatSendBack(_input: SendBackInput): string {
-  throw new Error("not implemented: formatSendBack");
+export function formatSendBack(input: SendBackInput): string {
+  // Pinned choice: no trailing newline after the last line.
+  const pad = (label: string): string => label.padEnd(10);
+  const { verdict } = input;
+  const evidenceLines = verdict.evidence.trim() === "" ? ["-"] : verdict.evidence.split(/\r?\n/);
+  const lines = [
+    `${pad("UNIT")}${input.unitId}`,
+    `${pad("VERDICT")}${verdict.verdict.toUpperCase()} (attempt ${input.attempt} of ${input.maxAttempts})`,
+    `${pad("REASON")}${verdict.reason}`,
+    ...evidenceLines.map((line, i) => (i === 0 ? pad("EVIDENCE") : " ".repeat(10)) + line),
+    `${pad("SCOPE")}fix this unit only. Touch only: ${input.files.join(", ")}`,
+  ];
+  return lines.join("\n");
 }
 
 /**
  * One line for .bulletin/lessons.md, written on every send-back:
  * "- <reason> (<unitId>: <title>)". Newlines in any part are collapsed to spaces.
  */
-export function lessonLine(_unitId: string, _title: string, _reason: string): string {
-  throw new Error("not implemented: lessonLine");
+export function lessonLine(unitId: string, title: string, reason: string): string {
+  const clean = (part: string): string => part.replace(/[\r\n]+/g, " ").trim();
+  return `- ${clean(reason)} (${clean(unitId)}: ${clean(title)})`;
 }
 
 /** Append one lesson line to the current contents of lessons.md, ending with exactly one newline. */
-export function appendLesson(_lessons: string, _line: string): string {
-  throw new Error("not implemented: appendLesson");
+export function appendLesson(lessons: string, line: string): string {
+  const base = lessons !== "" && !lessons.endsWith("\n") ? `${lessons}\n` : lessons;
+  return `${base}${line.replace(/[\r\n]+$/, "")}\n`;
 }
 
 /**
@@ -47,6 +60,24 @@ export function appendLesson(_lessons: string, _line: string): string {
  * is not added again. Returns the new contents of rules.md (unchanged if nothing was promoted).
  * The reason is the text between "- " and the trailing " (<unitId>: <title>)".
  */
-export function promoteLessons(_lessons: string, _rules: string): string {
-  throw new Error("not implemented: promoteLessons");
+export function promoteLessons(lessons: string, rules: string): string {
+  // Pinned choices: reasons are counted after trim; "already in rules" is an exact
+  // line match (not substring); new rules appear in order of first appearance.
+  const counts = new Map<string, number>();
+  for (const line of lessons.split(/\r?\n/)) {
+    const m = /^- (.*) \(([^\s:()]+): (.*)\)$/.exec(line);
+    if (!m) continue;
+    const reason = (m[1] ?? "").trim();
+    counts.set(reason, (counts.get(reason) ?? 0) + 1);
+  }
+  const existing = new Set(rules.split(/\r?\n/));
+  let result = rules;
+  for (const [reason, count] of counts) {
+    if (count < 2) continue;
+    const line = `- Cut units so this cannot recur: ${reason}`;
+    if (existing.has(line)) continue;
+    existing.add(line);
+    result = appendLesson(result, line);
+  }
+  return result;
 }
