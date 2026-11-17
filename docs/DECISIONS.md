@@ -27,3 +27,24 @@ One line for the decision, one for why. Newest last.
   That is the published multiplier; the Haiku 5.5 cache-read price is assumed at 0.1x input (see QUESTIONS).
 - **Lesson promotion is deterministic text for now** (`- Cut units so this cannot recur: <reason>`).
   The graph engine has no model calls; the General can rewrite rules in its own words later.
+
+## M1 logic units (2026-11-16)
+
+- **validatePlan collects every error** rather than stopping at the first; a schema failure returns early.
+  The General gets one complete list to revise against instead of one error per round trip.
+- **Overlap and locked-path checks expand globs against the repository's files**, as well as comparing patterns.
+  Two patterns that look unrelated can still own the same file, and a broad glob can swallow a locked one.
+- **Acceptance commands use their own matcher where `*` matches anything**, not the path glob matcher.
+  Path globs stop at `/`, so `pnpm --filter @bulletin/api test` would never match `pnpm *`.
+- **A custom `lockedPaths` replaces the default list.**
+  The caller owns the list; extending silently would hide what is actually locked.
+- **buildWaves throws on an unknown need (`unknown unit`) and on a self-need (`cycle`).**
+  Plans are validated first, so reaching either means a caller skipped validation.
+- **Escalation holds from the third attempt onward, and a null last reason does not block it.**
+  If attempts are ever raised above three, later attempts should not drop back to the cheaper tier.
+- **The pass fails a diff only when it is strictly over the limit; evidence paths are normalised to forward slashes.**
+  "Under the size limit" in the spec is read as at-or-under, and evidence should look the same on every OS.
+- **Fare: per-unit costs keep 4 decimals; only the low and high totals round up to whole cents, after removing float noise.**
+  `115 * 1.8` is `207.00000000000003` in floating point, and a bare ceiling would charge a cent that is not owed.
+- **The budget cap passes when the total exactly equals the budget; cache-read share ignores output tokens.**
+  "Fits the budget" includes spending all of it, and the share is about input caching only.
