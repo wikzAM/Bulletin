@@ -5,4 +5,4 @@
 - [x] 4. POST /missions {goal, repo}: calls runGeneral from apps/api/src/general.ts with an INJECTED ModelCall (default throws "not configured"), returns the validated plan or the errors. Do not edit general.ts or cli.ts.
 - [x] 5. POST /missions/:id/approve: starts runMission via an injected starter function; tests use a fake. Emit events through the existing event log.
 - [x] 6. Hardening: zod validation of params/bodies, consistent error JSON, 404s, CORS for http://localhost:3000, tests for each.
-- [ ] 7. Update docs/API.md to match final shapes exactly; add a route-listing test that fails if docs and routes drift.
+- [x] 7. Update docs/API.md to match final shapes exactly; add a route-listing test that fails if docs and routes drift.
