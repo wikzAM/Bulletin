@@ -6,16 +6,16 @@ export type MergeDecision = "merge" | "hold";
  * What happens to a GREEN unit (spec section 11, lanes table):
  * open merges; gated merges only when green on the first attempt, otherwise it is held
  * for the decision inbox; closed is always held.
- *
- * Stub: implemented by a graph unit.
  */
-export function mergeDecision(_lane: Lane, _attempt: number): MergeDecision {
-  throw new Error("not implemented: mergeDecision");
+export function mergeDecision(lane: Lane, attempt: number): MergeDecision {
+  if (lane === "open") return "merge";
+  if (lane === "gated") return attempt === 1 ? "merge" : "hold";
+  return "hold";
 }
 
 /** What happens to a RED unit: "retry" while attempts remain, "fail" once `attempt` reaches `maxAttempts`. */
-export function afterRed(_attempt: number, _maxAttempts: number): "retry" | "fail" {
-  throw new Error("not implemented: afterRed");
+export function afterRed(attempt: number, maxAttempts: number): "retry" | "fail" {
+  return attempt < maxAttempts ? "retry" : "fail";
 }
 
 export interface TierOptions {
@@ -31,12 +31,21 @@ export interface TierOptions {
  * The model tier for an attempt (spec section 12): the unit's own tier, except that on the
  * third attempt it moves to the escalated tier, and only if the previous RED reason was not
  * a scope violation. `lastReason` is null on the first attempt.
+ *
+ * Pinned choices: an attempt beyond escalateOnAttempt stays escalated; scope reasons are
+ * matched exactly; a null lastReason does not block escalation.
  */
 export function attemptTier(
-  _unitTier: string,
-  _attempt: number,
-  _lastReason: string | null,
-  _options?: TierOptions,
+  unitTier: string,
+  attempt: number,
+  lastReason: string | null,
+  options?: TierOptions,
 ): string {
-  throw new Error("not implemented: attemptTier");
+  const escalateOnAttempt = options?.escalateOnAttempt ?? 3;
+  const escalatedTier = options?.escalatedTier ?? "escalated";
+  const scopeReasons = options?.scopeReasons ?? ["out of scope", "locked path"];
+  if (attempt >= escalateOnAttempt && (lastReason === null || !scopeReasons.includes(lastReason))) {
+    return escalatedTier;
+  }
+  return unitTier;
 }
