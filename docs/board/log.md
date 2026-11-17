@@ -33,3 +33,4 @@
 05:22 | cursor | 10 light and dark themes | cursor/web-shell@10a8f14 | verify green, web build green
 05:23 | cursor | 11 apps/web/README.md | cursor/web-shell@d948ee6 | verify green (317 tests)
 05:55 | coordinator | tick 2: merged codex (JSONL store, serve.ts) and cursor (squashed: real-API tests, attempt history, themes); main verify 324 tests green; queues refilled (codex 11-14, cursor 12-15)
+2026-11-17 06:02 EST | Codex | 11. JSONL-backed Briefing interview | codex/warroom-api@a92ce08 | verify green (327 tests)
