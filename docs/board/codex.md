@@ -20,4 +20,4 @@
 - [x] 19. (tick 4) serve.ts General call should use withFallback like apps/api/src/cli.ts does (Fable needs credits, Opus fallback); extract nothing from cli.ts, import withFallback/claudeModelCall from ../general. Test the wiring with fake calls.
 - [x] 20. Restart recovery: on boot, any mission whose log has no mission.finished is marked interrupted (append mission.finished with payload {interrupted:true}); GET /missions shows it as interrupted. Tests with a temp store dir.
 - [x] 21. Decisions: GET /missions/:id/decisions (decision.opened without a matching decision.resolved) and POST /missions/:id/decisions/:unit/resolve {choice: "approve"|"reject"} recording decision.resolved. Recording only: the engine does not resume held units yet (say so in docs/API.md).
-- [ ] 22. Rules and lessons: GET /missions/:id/rules returns .bulletin/rules.md and lessons.md from the mission's integration branch via git show (read-only, injected git function in tests).
+- [x] 22. Rules and lessons: GET /missions/:id/rules returns .bulletin/rules.md and lessons.md from the mission's integration branch via git show (read-only, injected git function in tests).

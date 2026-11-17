@@ -69,3 +69,4 @@
 2026-11-17 07:56 EST | Codex | 19. General fallback wiring | codex/warroom-api@e5e7950 | verify green (424 tests)
 2026-11-17 07:59 EST | Codex | 20. Interrupted mission recovery | codex/warroom-api@4a12bff | verify green (424 tests)
 2026-11-17 08:02 EST | Codex | 21. Mission decision listing and resolution | codex/warroom-api@da31ddf | verify green (428 tests)
+2026-11-17 08:04 EST | Codex | 22. Rules and lessons from Git | codex/warroom-api@cd99e43 | verify green (431 tests)
