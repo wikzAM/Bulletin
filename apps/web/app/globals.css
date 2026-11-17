@@ -13,6 +13,33 @@
   --merged: #166534;
   --failed: #b91c1c;
   --blocked: #6b21a8;
+  --on-accent: #ffffff;
+  --error-bg: #fdf0ef;
+  --success-bg: #e8f5ec;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #16171a;
+    --fg: #e8e8e3;
+    --muted: #a3a39b;
+    --card: #1f2024;
+    --border: #3a3c42;
+    --accent: #8fb0ff;
+    --pending: #9a9a93;
+    --running: #8fb0ff;
+    --green: #4ade80;
+    --red: #fb923c;
+    --held: #facc15;
+    --merged: #22c55e;
+    --failed: #f87171;
+    --blocked: #c084fc;
+    --on-accent: #0b1020;
+    --error-bg: #3a1d1d;
+    --success-bg: #16301f;
+    color-scheme: dark;
+  }
 }
 
 * {
@@ -239,7 +266,7 @@ button {
   border-radius: 6px;
   border: 1px solid var(--accent);
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   cursor: pointer;
 }
 
@@ -291,7 +318,7 @@ button:disabled {
 }
 
 .plan-errors {
-  background: #fdf0ef;
+  background: var(--error-bg);
   border: 1px solid var(--failed);
   border-radius: 6px;
   padding: 0.75rem 1rem;
@@ -302,7 +329,7 @@ button:disabled {
 }
 
 .notice {
-  background: #e8f5ec;
+  background: var(--success-bg);
   border: 1px solid var(--green);
   border-radius: 6px;
   padding: 0.5rem 0.75rem;
@@ -391,6 +418,36 @@ table.missions td {
 
 .card dd {
   margin: 0;
+}
+
+.history {
+  margin-top: 0.5rem;
+  font-size: 0.8rem;
+}
+
+.history summary {
+  cursor: pointer;
+  color: var(--accent);
+}
+
+.history ol {
+  margin: 0.4rem 0 0;
+  padding-left: 1.1rem;
+}
+
+.history li {
+  margin-bottom: 0.4rem;
+}
+
+.history pre {
+  margin: 0.2rem 0 0;
+  padding: 0.4rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 0.75rem;
 }
 
 .card.dim {

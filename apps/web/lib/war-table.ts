@@ -16,6 +16,23 @@ export interface UnitCard {
   spent_cents: number;
   last_reason: string | null;
   started: boolean;
+  /** One entry per try, oldest first. */
+  history: AttemptRecord[];
+}
+
+export type AttemptResult = "green" | "red" | "error" | "cancelled";
+
+export interface AttemptRecord {
+  attempt: number;
+  /** Null when the verdict arrived without an attempt.started in the stream. */
+  started_at: string | null;
+  result: AttemptResult | null;
+  reason: string | null;
+  evidence: string | null;
+  /** The send-back packet text, when the event carries it. */
+  packet: string | null;
+  sent_back: boolean;
+  spent_cents: number;
 }
 
 export interface FeedItem {
@@ -50,8 +67,58 @@ const STATUS_ON: Partial<Record<EventType, UnitStatus>> = {
   "unit.blocked": "blocked",
 };
 
+const UNIT_EVENTS = new Set<EventType>([...(Object.keys(STATUS_ON) as EventType[]), "ledger.charged", "attempt.ended"]);
+
+const ENDED_RESULTS = new Set<unknown>(["green", "red", "error", "cancelled"]);
+
 function card(unit: Pick<PlannedUnit, "id" | "title" | "lane" | "wave">): UnitCard {
-  return { ...unit, status: "pending", attempts: 0, spent_cents: 0, last_reason: null, started: false };
+  return { ...unit, status: "pending", attempts: 0, spent_cents: 0, last_reason: null, started: false, history: [] };
+}
+
+function newAttempt(attempt: number, startedAt: string | null): AttemptRecord {
+  return { attempt, started_at: startedAt, result: null, reason: null, evidence: null, packet: null, sent_back: false, spent_cents: 0 };
+}
+
+/**
+ * Apply a change to the try an event belongs to: payload.attempt when given, else the latest try.
+ * A verdict for a try the stream never started creates it.
+ */
+function updateAttempt(history: AttemptRecord[], attempt: number | null, change: (a: AttemptRecord) => AttemptRecord): AttemptRecord[] {
+  const index = attempt === null ? history.length - 1 : history.findIndex((a) => a.attempt === attempt);
+  if (index >= 0) return history.map((a, i) => (i === index ? change(a) : a));
+  return [...history, change(newAttempt(attempt ?? history.length + 1, null))];
+}
+
+function updateHistory(history: AttemptRecord[], event: BulletinEvent): AttemptRecord[] {
+  const p = event.payload;
+  const n = num(p.attempt);
+  switch (event.type) {
+    case "attempt.started":
+      return [...history, newAttempt(n ?? history.length + 1, event.ts)];
+    case "ledger.charged":
+      if (history.length === 0) return history;
+      return updateAttempt(history, n, (a) => ({ ...a, spent_cents: a.spent_cents + (num(p.cost_cents) ?? 0) }));
+    case "pass.green":
+    case "pass.red":
+      return updateAttempt(history, n, (a) => ({
+        ...a,
+        result: event.type === "pass.green" ? "green" : "red",
+        reason: str(p.reason) ?? a.reason,
+        evidence: str(p.evidence) ?? a.evidence,
+      }));
+    case "attempt.ended":
+      if (!ENDED_RESULTS.has(p.result)) return history;
+      return updateAttempt(history, n, (a) => ({ ...a, result: a.result ?? (p.result as AttemptResult) }));
+    case "unit.sent_back":
+      return updateAttempt(history, n, (a) => ({
+        ...a,
+        sent_back: true,
+        reason: a.reason ?? str(p.reason),
+        packet: str(p.packet) ?? a.packet,
+      }));
+    default:
+      return history;
+  }
 }
 
 export function initialState(units: PlannedUnit[]): WarTableState {
@@ -99,6 +166,7 @@ function updateUnit(prev: UnitCard, event: BulletinEvent): UnitCard {
     default:
       break;
   }
+  next.history = updateHistory(prev.history, event);
   return next;
 }
 
@@ -129,7 +197,7 @@ export function applyEvent(state: WarTableState, event: BulletinEvent): WarTable
   if (event.type === "plan.proposed") ({ order, units } = applyPlan(order, units, event.payload.plan));
 
   const unitId = event.unit_id;
-  if (unitId && (event.type in STATUS_ON || event.type === "ledger.charged")) {
+  if (unitId && UNIT_EVENTS.has(event.type)) {
     const prev = units[unitId];
     if (!prev) order = [...order, unitId];
     units = { ...units, [unitId]: updateUnit(prev ?? card({ id: unitId, title: unitId, lane: "open", wave: 0 }), event) };

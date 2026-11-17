@@ -152,6 +152,63 @@ describe("applyEvent", () => {
   });
 });
 
+describe("attempt history", () => {
+  it("records each try with its result, reason, evidence and spend", () => {
+    const s = reduceEvents(units, [
+      ev("attempt.started", "u1", { attempt: 1 }),
+      ev("ledger.charged", "u1", { attempt: 1, cost_cents: 3 }),
+      ev("pass.red", "u1", { attempt: 1, reason: "tests failed", evidence: "expected 429, got 200" }),
+      ev("unit.sent_back", "u1", { attempt: 1, reason: "tests failed" }),
+      ev("attempt.started", "u1", { attempt: 2 }),
+      ev("ledger.charged", "u1", { attempt: 2, cost_cents: 2 }),
+      ev("pass.green", "u1", { attempt: 2, reason: "all checks passed" }),
+    ]);
+    expect(s.units.u1?.history).toEqual([
+      { attempt: 1, started_at: expect.any(String), result: "red", reason: "tests failed", evidence: "expected 429, got 200", packet: null, sent_back: true, spent_cents: 3 },
+      { attempt: 2, started_at: expect.any(String), result: "green", reason: "all checks passed", evidence: null, packet: null, sent_back: false, spent_cents: 2 },
+    ]);
+  });
+
+  it("keeps a full send-back packet when the event carries one", () => {
+    const packet = "UNIT      u1\nVERDICT   RED (attempt 1 of 3)\nREASON    out of scope";
+    const s = reduceEvents(units, [
+      ev("attempt.started", "u1", { attempt: 1 }),
+      ev("pass.red", "u1", { attempt: 1, reason: "out of scope" }),
+      ev("unit.sent_back", "u1", { attempt: 1, reason: "out of scope", packet }),
+    ]);
+    expect(s.units.u1?.history[0]).toMatchObject({ sent_back: true, packet });
+  });
+
+  it("matches events without an attempt number to the latest try", () => {
+    const s = reduceEvents(units, [
+      ev("attempt.started", "u2"),
+      ev("ledger.charged", "u2", { cost_cents: 1 }),
+      ev("pass.red", "u2", { reason: "lint failed" }),
+    ]);
+    expect(s.units.u2?.history).toEqual([expect.objectContaining({ attempt: 1, result: "red", reason: "lint failed", spent_cents: 1 })]);
+  });
+
+  it("takes an error or cancel from attempt.ended when the pass gave no verdict", () => {
+    const s = reduceEvents(units, [
+      ev("attempt.started", "u1", { attempt: 1 }),
+      ev("attempt.ended", "u1", { attempt: 1, result: "error" }),
+      ev("attempt.started", "u1", { attempt: 2 }),
+      ev("pass.green", "u1", { attempt: 2 }),
+      ev("attempt.ended", "u1", { attempt: 2, result: "red" }),
+    ]);
+    expect(s.units.u1?.history.map((h) => h.result)).toEqual(["error", "green"]);
+  });
+
+  it("creates a try for a verdict whose attempt never started in the stream", () => {
+    const s = reduceEvents(units, [ev("pass.red", "u3", { attempt: 2, reason: "tests failed" })]);
+    expect(s.units.u3?.history).toEqual([expect.objectContaining({ attempt: 2, result: "red", started_at: null })]);
+  });
+
+  it("starts empty", () => {
+    expect(initialState(units).units.u1?.history).toEqual([]);
+  });
+});
+
 describe("describeEvent", () => {
   const titles = { u1: "Store" };
 

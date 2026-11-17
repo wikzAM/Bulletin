@@ -4,9 +4,9 @@
 - [x] 3. Treasury panel on the war table: spend per unit, total vs budget, warning state when over 80% (mock now; GET /missions/:id/treasury per docs/API.md once Codex lands it).
 - [x] 4. Question board page "/questions": list, answer form, status chips (mock now; POST /questions/:id/answer later).
 - [x] 5. New mission page "/new": goal textarea, repo field, shows the returned plan as a unit graph/list with errors if invalid (mock now; POST /missions).
-- [ ] 6. Switch lib/api.ts from mock to real fetch/EventSource behind NEXT_PUBLIC_API_URL, keeping mock as fallback when unset. Only after docs/API.md exists on main (git merge main).
+- [x] 6. Switch lib/api.ts from mock to real fetch/EventSource behind NEXT_PUBLIC_API_URL, keeping mock as fallback when unset. Only after docs/API.md exists on main (git merge main).
 - [x] 7. Accessibility and responsive pass, empty/error/loading states for every page, tests for the pure logic.
-- [ ] 8. (added by coordinator) Once docs/API.md is on main (it is now): finish task 6 end to end. Run the real API (`pnpm --filter @bulletin/api exec tsx src/serve.ts` once Codex lands it; until then boot the Fastify server from apps/api/src/server.ts in a test) and test lib/api.ts adapters against real responses. Tick task 6 only when that passes.
-- [ ] 9. Mission page: per-unit attempt history and send-back packets (what the pass rejected and why), using events already in the stream (pass.red payloads).
-- [ ] 10. Light and dark themes through CSS variables, respecting prefers-color-scheme; no new dependencies.
-- [ ] 11. apps/web/README.md: how to run against mock data and against the real API.
+- [x] 8. (added by coordinator) Once docs/API.md is on main (it is now): finish task 6 end to end. Run the real API (`pnpm --filter @bulletin/api exec tsx src/serve.ts` once Codex lands it; until then boot the Fastify server from apps/api/src/server.ts in a test) and test lib/api.ts adapters against real responses. Tick task 6 only when that passes.
+- [x] 9. Mission page: per-unit attempt history and send-back packets (what the pass rejected and why), using events already in the stream (pass.red payloads).
+- [x] 10. Light and dark themes through CSS variables, respecting prefers-color-scheme; no new dependencies.
+- [x] 11. apps/web/README.md: how to run against mock data and against the real API.

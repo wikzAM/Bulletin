@@ -159,9 +159,22 @@ export const mockEvents: Record<string, BulletinEvent[]> = {
     ["attempt.ended", "u2", { attempt: 1, result: "green" }],
     ["unit.merged", "u2", { attempt: 1 }],
     ["ledger.charged", "u1", { attempt: 1, model: "claude-sonnet-5-5", cost_cents: 6.1 }],
-    ["pass.red", "u1", { attempt: 1, reason: "tests failed" }],
+    [
+      "pass.red",
+      "u1",
+      { attempt: 1, reason: "tests failed", evidence: "todos.test.ts > due date > keeps the date\n  expected '2026-11-20', got undefined\n  src/todos.ts:41" },
+    ],
     ["attempt.ended", "u1", { attempt: 1, result: "red" }],
-    ["unit.sent_back", "u1", { attempt: 1, reason: "tests failed" }],
+    [
+      "unit.sent_back",
+      "u1",
+      {
+        attempt: 1,
+        reason: "tests failed",
+        packet:
+          "UNIT      u1\nVERDICT   RED (attempt 1 of 3)\nREASON    tests failed\nEVIDENCE  expected '2026-11-20', got undefined\n          src/todos.ts:41\nSCOPE     fix this unit only. Touch only: src/todos.ts, test/todos.test.ts",
+      },
+    ],
     ["attempt.started", "u1", { attempt: 2, tier: "station", model: "claude-sonnet-5-5" }],
     ["ledger.charged", "u1", { attempt: 2, model: "claude-sonnet-5-5", cost_cents: 3.5 }],
     ["pass.green", "u1", { attempt: 2, reason: "all checks passed" }],

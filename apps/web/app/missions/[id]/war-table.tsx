@@ -7,7 +7,7 @@ import { copy, LANE_LABELS, STATUS_LABELS } from "../../../lib/copy";
 import { formatCents, formatPercent } from "../../../lib/format";
 import { summarizeTreasury, type TreasurySummary } from "../../../lib/treasury";
 import type { PlannedUnit, TreasuryInfo } from "../../../lib/types";
-import { applyEvent, describeEvent, initialState, type UnitCard } from "../../../lib/war-table";
+import { applyEvent, describeEvent, initialState, type AttemptRecord, type UnitCard } from "../../../lib/war-table";
 
 const t = copy.missionPage;
 const tt = copy.treasury;
@@ -59,6 +59,37 @@ function TreasuryPanel({ summary }: { summary: TreasurySummary }) {
   );
 }
 
+function History({ history }: { history: AttemptRecord[] }) {
+  const h = t.history;
+  return (
+    <details className="history">
+      <summary>{h.summary(history.length)}</summary>
+      <ol>
+        {history.map((a) => (
+          <li key={a.attempt}>
+            <strong>{h.tryLabel(a.attempt)}</strong>: {h.results[a.result ?? "none"]}
+            {a.reason && a.result !== "green" && ` (${a.reason})`}
+            {a.spent_cents > 0 && ` · ${formatCents(a.spent_cents)}`}
+            {a.sent_back && <div className="muted">{h.sentBack}</div>}
+            {a.evidence && (
+              <>
+                <div className="muted">{h.evidence}</div>
+                <pre>{a.evidence}</pre>
+              </>
+            )}
+            {a.packet && (
+              <>
+                <div className="muted">{h.packet}</div>
+                <pre>{a.packet}</pre>
+              </>
+            )}
+          </li>
+        ))}
+      </ol>
+    </details>
+  );
+}
+
 function TaskCard({ unit }: { unit: UnitCard }) {
   const status = STATUS_LABELS[unit.status];
   return (
@@ -81,6 +112,7 @@ function TaskCard({ unit }: { unit: UnitCard }) {
           </>
         )}
       </dl>
+      {unit.history.length > 0 && <History history={unit.history} />}
     </article>
   );
 }
