@@ -7,3 +7,4 @@ node_modules
 .bulletin-scratch
 .env
 .env.*
+.claude

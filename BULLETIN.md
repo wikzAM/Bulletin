@@ -28,7 +28,7 @@
 - status: open
 
 ## [2026-11-16] Merge the M1 logic units
-- question: Merge `m1/integration` into `main`? Six units (plan validation, waves, send-back, merge policy, pass rules, treasury), 131 tests green after every merge.
+- question: Merge `m1/integration` into `main`? Six units (plan validation, waves, send-back, merge policy, pass rules, treasury), 159 tests green with the engine loop, after two checker findings were fixed.
 - options: (a) review `git diff main...m1/integration`, then `git merge m1/integration`; (b) ask for changes first
 - recommendation: (a)
 - status: open
@@ -44,6 +44,6 @@
 - status: open
 
 ## [2026-11-16] Docker daemon would not start
-- question: Docker Desktop did not bring up its engine in this session, so `docker compose up` is unverified. Start Docker Desktop and run `docker compose up`, then `curl localhost:4000/health`?
+- question: Docker Desktop crashes on start ("remove ...dockerInference: The file cannot be accessed by the system"). Windows refuses to delete the three stale socket files in `%LOCALAPPDATA%\Dockerun` (dockerInference, dockerEthernetVfkit, userAnalyticsOtlpHttp.sock) even from Node: access denied. Reboot, or delete them from an administrator terminal, then start Docker and run `docker compose up` and `curl localhost:4000/health`?
 - note: the api and pass-worker `/health` endpoints were verified by running them directly with tsx.
 - status: open
