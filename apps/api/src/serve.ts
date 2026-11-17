@@ -10,6 +10,7 @@ import { createRunnerFactory } from "./routes/runner-selection";
 import { buildServer } from "./server";
 import { JsonlBriefingStore } from "./store/briefing-store";
 import { JsonlEventLog } from "./store/jsonl-event-log";
+import { recoverInterruptedMissions } from "./store/mission-recovery";
 
 async function main(): Promise<void> {
   const port = Number(process.env.PORT ?? 4000);
@@ -59,6 +60,7 @@ async function main(): Promise<void> {
   });
 
   try {
+    await recoverInterruptedMissions(log);
     const address = await app.listen({ port, host: "127.0.0.1" });
     console.log(`api listening on ${address}`);
   } catch (error) {

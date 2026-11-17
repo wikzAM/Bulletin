@@ -29,8 +29,9 @@ The server stores mission events in `.bulletin-scratch/api/events.jsonl` and
 restores them at startup. Set `BULLETIN_SCRATCH_DIR` to use a different data and
 worktree directory. Relative values are resolved from the repository root.
 Run one API process per log. Recovery discards an incomplete final line and
-reports a corrupt complete record with its line number. A mission interrupted
-by a process exit keeps its last recorded status.
+reports a corrupt complete record with its line number. At startup, every
+stored mission without a `mission.finished` event receives one with
+`payload.interrupted: true`. The mission's earlier events remain available.
 
 ## Server configuration
 
@@ -159,7 +160,8 @@ An empty log returns `{"missions":[]}`.
 Status starts at `interview`, advances to `planning` on `briefing.versioned` or
 `plan.proposed`, advances to `running` on `plan.approved`, and becomes `finished`
 on `mission.finished`. A `mission.finished` event with `payload.status` set to
-`failed` sets the mission status to `failed`.
+`failed` sets the mission status to `failed`. A `mission.finished` event with
+`payload.interrupted: true` sets it to `interrupted`.
 
 ## `POST /missions`
 

@@ -5,7 +5,7 @@ import { registerMissionEventStream } from "./mission-events";
 import { readLedgerCharge, readMissionBudget, roundCents } from "./mission-ledger";
 import { validateIdParams } from "./request-validation";
 
-type MissionStatus = "interview" | "planning" | "running" | "finished" | "failed";
+type MissionStatus = "interview" | "planning" | "running" | "finished" | "failed" | "interrupted";
 
 interface MissionSummary {
   id: string;
@@ -60,7 +60,11 @@ function listMissions(events: readonly BulletinEvent[]): MissionSummary[] {
       });
     }
     const status = missionStatuses[type];
-    if (mission && status) mission.status = type === "mission.finished" && payload.status === "failed" ? "failed" : status;
+    if (mission && status) {
+      mission.status = status;
+      if (type === "mission.finished" && payload.status === "failed") mission.status = "failed";
+      if (type === "mission.finished" && payload.interrupted === true) mission.status = "interrupted";
+    }
   }
   return [...missions.values()];
 }
