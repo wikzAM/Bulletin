@@ -47,6 +47,7 @@ the engine's `events` option.
 uses in-memory defaults. `serve.ts` uses JSONL for mission events and Briefing
 interviews. Question board entries reset with the in-memory store. Question
 dispatches and decisions remain available in the mission stream after a restart.
+The `readGit` option supplies the Git reader for mission rules and lessons.
 
 ## HTTP conventions
 
@@ -64,7 +65,7 @@ Error responses include an `error` string. Planning and budget errors can
 include the additional fields shown on those endpoints.
 
 - `400 Bad Request`. `Invalid request` for malformed JSON, parameters, or fields. `Invalid event cursor` for malformed SSE cursors.
-- `404 Not Found`. `Route not found`, `Mission not found`, `Briefing not found`, `Question not found`, or `Open decision not found`.
+- `404 Not Found`. `Route not found`, `Mission not found`, `Briefing not found`, `Question not found`, `Open decision not found`, or `Mission integration branch not found`.
 - `409 Conflict`. `Briefing is incomplete`, `Briefing is not awaiting this answer`, `Mission already approved`, `Mission has no plan to approve`, `Plan exceeds mission budget`, `Mission is not running`, `Decision resolution in progress`, `Question already answered`, `Auto-answer already in progress`, or `Mission has no completed Briefing`.
 - `413 Payload Too Large`. `Payload Too Large` when the body exceeds the server's request limit.
 - `415 Unsupported Media Type`. `Unsupported Media Type` when the server cannot parse the requested content type.
@@ -344,6 +345,22 @@ approval requires a separate engine change. An unavailable decision returns
 `404 Not Found` with `{"error":"Open decision not found"}`. A concurrent
 resolution of the same decision returns `409 Conflict` with
 `{"error":"Decision resolution in progress"}`.
+
+## `GET /missions/:id/rules`
+
+Returns `200 OK` with `.bulletin/rules.md` and `.bulletin/lessons.md` as raw
+Markdown from one snapshot of the mission's integration branch. A missing file
+has a `null` value. If the integration branch is unavailable, the response is
+`404 Not Found` with `{"error":"Mission integration branch not found"}`.
+
+```json
+{
+  "mission_id": "demo",
+  "branch": "bulletin/demo/integration",
+  "rules": "# Rules\n- Run the fixture tests.\n",
+  "lessons": null
+}
+```
 
 ## `GET /questions`
 
