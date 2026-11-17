@@ -22,3 +22,5 @@
 - [x] 21. Rules and lessons page for a project (GET /missions/:id/rules once documented): show what the system has learned, newest first.
 - [x] 22. Dependency graph view of the plan: SVG drawn from units and needs, no new dependencies, with tests for the layout function (columns by wave, no overlapping nodes).
 - [x] 23. Interrupted and stopped states on the project list and page (mission.finished payload stopped/interrupted), with fixtures and tests.
+- [ ] 24. (tick 5) A mission paused by its budget shows as "Paused: spending limit reached" with spent vs limit, and offers raising the limit as an explanation only (no API for that yet). Fixture + tests; the existing paused fixture may already cover part of this.
+- [ ] 25. Final review pass over the whole web app: unused code, copy, keyboard order, contrast in both themes; list anything you could not resolve on BULLETIN.md.

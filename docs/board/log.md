@@ -76,3 +76,4 @@
 08:03 | cursor | 22 plan dependency graph on the project page (SVG, layout tested: columns by batch, no overlaps, edges; text version) | cursor/web-shell@8e56928 | verify green (455 tests), web build green
 08:09 | cursor | 23 stopped/interrupted endings (reducer, list statuses, card labels, demo scenarios) + Stop button now that /stop is documented | cursor/web-shell@86fbf31 | verify green (467 tests), web build green; queue empty
 08:11 | cursor | 23 follow-up: unfinished try after a stop reads 'Did not finish' in the history | cursor/web-shell@f234ed9 | verify green (468 tests), web build green
+08:55 | coordinator | tick 5: merged codex (restart recovery, decisions, rules, fallback) and cursor (squashed: decisions panel, rules page, plan graph, stopped states); main 477 tests; claude: engine budget.paused hard cap + CLI --budget; queues refilled (codex 23-24, cursor 24-25)
