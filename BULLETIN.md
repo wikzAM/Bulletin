@@ -85,3 +85,10 @@
 - Which unit should connect engine runs to the API process? `buildServer(log)` can read the same `MemoryEventLog` as an in-process runner, while `bulletin run` currently creates its own log in a separate process.
 - Which unit should expose the full plan to the war table? The current `plan.proposed` payload carries counts. Unit IDs, lanes, and wave numbers become visible as the engine emits them. Rendering the complete planned graph before execution also requires titles and dependency edges.
 - status: open
+
+## [2026-11-17] Cursor adds "Co-authored-by: Cursor" trailers to commits
+- question: Your rule is wikzAM as the only author with no co-author lines. Cursor appends a Co-authored-by trailer to its commits.
+- options: (a) turn off Cursor's commit attribution in its settings; (b) keep squash-merging its branch so main never gets the trailer
+- recommendation: do (b) now (already doing it) and (a) when you can, so its own branch history is clean too.
+- working default: (b)
+- status: open

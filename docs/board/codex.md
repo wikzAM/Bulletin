@@ -6,3 +6,6 @@
 - [x] 5. POST /missions/:id/approve: starts runMission via an injected starter function; tests use a fake. Emit events through the existing event log.
 - [x] 6. Hardening: zod validation of params/bodies, consistent error JSON, 404s, CORS for http://localhost:3000, tests for each.
 - [x] 7. Update docs/API.md to match final shapes exactly; add a route-listing test that fails if docs and routes drift.
+- [ ] 8. (added by coordinator) Persistence: an append-only JSONL event store in apps/api/src/store/ behind the existing event-log interface, so missions survive a server restart. Tests with a temp dir. You now also own apps/api/src/store/** and apps/api/src/serve.ts.
+- [ ] 9. apps/api/src/serve.ts: a runnable entry (`pnpm --filter @bulletin/api exec tsx src/serve.ts`) that wires the Fastify server with the JSONL store, the question store, runGeneral with claudeModelCall (from ../general, read-only use), and a mission starter that calls runMission with ClaudeCodeRunner (see apps/api/src/cli.ts for how; do not edit cli.ts). PORT from env, default 4000. Smoke-test it with a script that boots it on a random port and hits /missions.
+- [ ] 10. Update docs/API.md and the route-listing test for everything new; add a short "Running the API" section.
