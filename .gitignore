@@ -9,3 +9,4 @@ dist/
 .bulletin-scratch/
 *.log
 coverage/
+.claude/worktrees/
