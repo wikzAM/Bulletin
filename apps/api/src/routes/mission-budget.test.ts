@@ -1,0 +1,71 @@
+import { MemoryEventLog, type PricesConfig } from "@bulletin/core";
+import { expect, it, vi } from "vitest";
+import { buildServer } from "../server";
+
+const prices: PricesConfig = {
+  currency: "USD", unit: "per_million_tokens", as_of: "test",
+  models: { "priced-model": { input: 10, output: 20, cache_write: 0, cache_read: 0 } },
+};
+const pricing = { prices, tiers: { station: "priced-model" } };
+
+async function missionWithBudget(budget_cents: number, tier = "station") {
+  const log = new MemoryEventLog();
+  const mission_id = "demo";
+  await log.emit({ mission_id, type: "mission.created", payload: { repo: "/repos/demo", base: "main", budget_cents } });
+  await log.emit({ mission_id, type: "plan.proposed", payload: { plan: { briefing_version: 1, units: [{
+    id: "seed", title: "Seed", task: "Seed data", files: ["src/seed.ts"], tier,
+    estimate: { input_tokens: 1_000_000, output_tokens: 0 },
+  }] } } });
+  await log.emit({ mission_id, type: "ledger.charged", payload: { cost_cents: 10 } });
+  await log.emit({ mission_id: "another", type: "ledger.charged", payload: { cost_cents: 500 } });
+  return log;
+}
+
+it("rejects a priced plan over budget before approval or runner startup", async () => {
+  const log = await missionWithBudget(500);
+  const startMission = vi.fn(async () => {});
+  const app = buildServer(log, { startMission, pricing });
+  try {
+    const res = await app.inject({ method: "POST", url: "/missions/demo/approve" });
+    expect(res.statusCode).toBe(409);
+    expect(res.json()).toEqual({
+      error: "Plan exceeds mission budget", budget_cents: 500, estimated_cents: 1150, spent_cents: 10, shortfall_cents: 660,
+    });
+    expect(startMission).not.toHaveBeenCalled();
+    expect(log.events.some(({ type }) => type === "plan.approved")).toBe(false);
+    expect((await app.inject("/missions/demo")).json()).toMatchObject({ status: "planning" });
+  } finally {
+    await app.close();
+  }
+});
+
+it("approves an exact fit including prior mission spend", async () => {
+  const log = await missionWithBudget(1160);
+  const startMission = vi.fn(async () => {});
+  const app = buildServer(log, { startMission, pricing });
+  try {
+    const res = await app.inject({ method: "POST", url: "/missions/demo/approve" });
+    expect(res.statusCode).toBe(202);
+    expect(startMission).toHaveBeenCalledTimes(1);
+    expect(log.events.at(-1)?.type).toBe("plan.approved");
+  } finally {
+    await app.close();
+  }
+});
+
+it.each([
+  { tier: "unpriced", configured: true, status: 422, error: "Plan cannot be priced" },
+  { tier: "station", configured: false, status: 503, error: "Mission pricing not configured" },
+])("fails closed when a budgeted plan cannot be priced ($status)", async ({ tier, configured, status, error }) => {
+  const log = await missionWithBudget(500, tier);
+  const startMission = vi.fn(async () => {});
+  const app = buildServer(log, { startMission, pricing: configured ? pricing : undefined });
+  try {
+    const res = await app.inject({ method: "POST", url: "/missions/demo/approve" });
+    expect(res.statusCode).toBe(status);
+    expect(res.json()).toEqual({ error });
+    expect(startMission).not.toHaveBeenCalled();
+  } finally {
+    await app.close();
+  }
+});

@@ -16,7 +16,7 @@ function listedOperations(routeTree: string): string[] {
     const depth = indent.length / 4;
     ancestors.splice(depth, ancestors.length, path);
     for (const method of methods.split(", ")) {
-      if (method && method !== "HEAD") operations.push(`${method} ${ancestors.join("")}`);
+      if (method) operations.push(`${method} ${ancestors.join("")}`);
     }
   }
   return operations.sort();
@@ -26,7 +26,11 @@ async function checkOperations(app: ReturnType<typeof buildServer>): Promise<str
   try {
     const docs = await readFile(new URL("../../../../docs/API.md", import.meta.url), "utf8");
     const headings = [...docs.matchAll(/^## `([A-Z]+) (\/[^`]+)`$/gm)];
-    const documented = headings.map(([, method, path]) => `${method} ${path?.split("?")[0]}`).sort();
+    const documented = headings.flatMap(([, method, path]) => {
+      const route = path?.split("?")[0];
+      const operation = `${method} ${route}`;
+      return method === "GET" && route !== "/missions/:id/events" ? [operation, `HEAD ${route}`] : [operation];
+    }).sort();
 
     await app.ready();
     expect(listedOperations(app.printRoutes({ commonPrefix: false }))).toEqual(documented);
@@ -37,7 +41,10 @@ async function checkOperations(app: ReturnType<typeof buildServer>): Promise<str
 }
 
 it("documents every registered API operation and lists only registered operations", async () => {
-  await checkOperations(buildServer());
+  const docs = await checkOperations(buildServer());
+  const errors = docs.split(/^## /m).find((section) => /^Errors\r?\n/.test(section));
+  const codes = [...(errors ?? "").matchAll(/^- `(\d{3}) [^`]+`/gm)].map(([, status]) => Number(status));
+  expect(codes).toEqual([400, 404, 409, 413, 415, 422, 500, 502, 503]);
 });
 
 it("covers the same operations with the JSONL log and documents the runnable API", async () => {

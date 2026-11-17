@@ -6,6 +6,7 @@ import { runMission } from "./orchestrator/run-mission";
 import { allowedLocalCommands } from "./routes/mission-planning";
 import { MemoryQuestionStore } from "./routes/questions-store";
 import { buildServer } from "./server";
+import { JsonlBriefingStore } from "./store/briefing-store";
 import { JsonlEventLog } from "./store/jsonl-event-log";
 
 async function main(): Promise<void> {
@@ -20,10 +21,20 @@ async function main(): Promise<void> {
   if (!general) throw new Error("The General model is missing from config/models.json");
   const primary = claudeModelCall(general.model);
   const modelCall = general.fallback ? withFallback(primary, claudeModelCall(general.fallback)) : primary;
+  const interviewer = models.roles.interviewer;
+  const answerer = models.roles.answerer;
 
   const log = await JsonlEventLog.open(join(dataDirectory, "events.jsonl"));
+  const briefingStore = await JsonlBriefingStore.open(join(dataDirectory, "briefings.jsonl")).catch(async (error: unknown) => {
+    await log.close();
+    throw error;
+  });
   const app = buildServer(log, {
+    answererCall: answerer ? claudeModelCall(answerer.model) : undefined,
+    briefingStore,
+    interviewerCall: interviewer ? claudeModelCall(interviewer.model) : undefined,
     modelCall,
+    pricing: { prices, tiers: models.tiers },
     questionStore: new MemoryQuestionStore(),
     startMission(mission) {
       const scratchDir = join(dataDirectory, mission.missionId);
@@ -38,7 +49,9 @@ async function main(): Promise<void> {
       });
     },
   });
-  app.addHook("onClose", () => log.close());
+  app.addHook("onClose", async () => {
+    await Promise.all([log.close(), briefingStore.close()]);
+  });
 
   try {
     const address = await app.listen({ port, host: "127.0.0.1" });

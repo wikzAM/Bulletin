@@ -2,15 +2,21 @@ import { STATUS_CODES } from "node:http";
 import { MemoryEventLog } from "@bulletin/core";
 import Fastify, { type FastifyError, type FastifyInstance, type FastifyReply, type FastifyRequest } from "fastify";
 import type { ModelCall } from "./general";
-import { registerMissionApproval, type MissionStarter } from "./routes/mission-approval";
+import { registerBriefings } from "./routes/briefings";
+import { registerMissionApproval, type MissionPricing, type MissionStarter } from "./routes/mission-approval";
 import { registerMissionPlanning } from "./routes/mission-planning";
 import { registerMissionRoutes } from "./routes/missions";
 import { registerQuestionRoutes } from "./routes/questions";
 import type { QuestionStore } from "./routes/questions-store";
+import { MemoryBriefingStore, type BriefingStore } from "./store/briefing-store";
 import type { EventLog } from "./store/event-log";
 
 export interface ServerOptions {
+  answererCall?: ModelCall;
+  briefingStore?: BriefingStore;
+  interviewerCall?: ModelCall;
   modelCall?: ModelCall;
+  pricing?: MissionPricing;
   questionStore?: QuestionStore;
   startMission?: MissionStarter;
 }
@@ -54,10 +60,12 @@ export function buildServer(events: EventLog = new MemoryEventLog(), options: Se
   });
 
   app.get("/health", async () => ({ status: "ok", service: "api" }));
+  const briefings = options.briefingStore ?? new MemoryBriefingStore();
+  registerBriefings(app, briefings, options.interviewerCall);
   registerMissionRoutes(app, events);
-  registerMissionPlanning(app, events, options.modelCall);
-  registerMissionApproval(app, events, options.startMission);
-  registerQuestionRoutes(app, events, options.questionStore);
+  registerMissionPlanning(app, events, briefings, options.modelCall);
+  registerMissionApproval(app, events, options.startMission, options.pricing);
+  registerQuestionRoutes(app, events, options.questionStore, options.answererCall);
 
   return app;
 }

@@ -92,3 +92,11 @@
 - recommendation: do (b) now (already doing it) and (a) when you can, so its own branch history is clean too.
 - working default: (b)
 - status: open
+
+## [2026-11-17] Shared Interviewer prompt and interview events
+
+- question: Should a shared-contract unit move `interviewer-v1` to `packages/prompts` and define events for draft turns and failed model calls? The shared package has no Interviewer template and the event list has `briefing.versioned` for a completed Briefing.
+- options: (a) move the template and add draft events in the next shared-contract unit, or (b) keep drafts and their template API-local.
+- recommendation: (a) once another client needs draft events or the prompt.
+- working default: API-local template and JSONL draft snapshots. Attaching a complete Briefing to a mission emits `briefing.versioned`.
+- status: open

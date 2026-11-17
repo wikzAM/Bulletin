@@ -75,6 +75,7 @@ describe("question board", () => {
     expect(answered).toEqual({
       ...question,
       status: "answered",
+      source: "human",
       answer: expect.stringMatching(/^Use seed (17|31)\.$/),
       answered_at: expect.any(String),
     });

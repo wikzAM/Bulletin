@@ -27,32 +27,86 @@ by a process exit keeps its last recorded status.
 
 ## Server configuration
 
-`buildServer(log, { modelCall, startMission, questionStore })` accepts optional
-dependencies for planning, execution, and question storage. `startMission`
-receives the validated plan, repository, base branch, goal as `briefing`, and
-an event sink backed by `log`. For engine runs started separately in the same
-process, pass the same log to the engine's `events` option. `buildServer()`
-uses an in-memory log and question store by default. `serve.ts` uses the JSONL
-log and an in-memory question store. Question dispatches and decisions remain
-available in the mission stream after a restart. Question board entries reset
-with the in-memory store.
+`buildServer(log, options)` accepts `modelCall`, `interviewerCall`, and
+`answererCall` for model calls. Pass `{ prices, tiers }` as `pricing` for plan
+approval. The `startMission` callback receives the validated plan, repository,
+base branch, Briefing Markdown or goal as `briefing`, and an event sink backed
+by `log`. For engine runs started in the same process, pass the same log to
+the engine's `events` option.
+
+`briefingStore` and `questionStore` override the state stores. `buildServer()`
+uses in-memory defaults. `serve.ts` uses JSONL for mission events and Briefing
+interviews. Question board entries reset with the in-memory store. Question
+dispatches and decisions remain available in the mission stream after a restart.
 
 ## HTTP conventions
 
-Send write bodies as `application/json`. Invalid input returns
-`400 Bad Request` with `{"error":"Invalid request"}` unless an endpoint
-documents a more specific error. Unknown routes return `404 Not Found` with
-`{"error":"Route not found"}`. An unknown mission ID returns `404 Not Found`
-with `{"error":"Mission not found"}`.
+Send write bodies as `application/json`. Question and answer text is trimmed
+and must contain a non-whitespace character.
 
 The API allows browser requests from `http://localhost:3000`. Preflight
 requests from that origin return `204 No Content` with `GET`, `HEAD`, `POST`,
 and `OPTIONS` allowed and `Content-Type` and `Last-Event-ID` accepted. JSON read
 routes also accept `HEAD` and return headers only.
 
+## Errors
+
+Error responses include an `error` string. Planning and budget errors can
+include the additional fields shown on those endpoints.
+
+- `400 Bad Request`. `Invalid request` for malformed JSON, parameters, or fields. `Invalid event cursor` for malformed SSE cursors.
+- `404 Not Found`. `Route not found`, `Mission not found`, `Briefing not found`, or `Question not found`.
+- `409 Conflict`. `Briefing is incomplete`, `Briefing is not awaiting this answer`, `Mission already approved`, `Mission has no plan to approve`, `Plan exceeds mission budget`, `Question already answered`, `Auto-answer already in progress`, or `Mission has no completed Briefing`.
+- `413 Payload Too Large`. `Payload Too Large` when the body exceeds the server's request limit.
+- `415 Unsupported Media Type`. `Unsupported Media Type` when the server cannot parse the requested content type.
+- `422 Unprocessable Entity`. `Repository unavailable`, `Mission planning failed`, or `Plan cannot be priced`.
+- `500 Internal Server Error`. `Internal server error` on an unexpected server failure.
+- `502 Bad Gateway`. `Interviewer failed` or `Answerer failed` when an injected model call fails or output remains invalid after a retry.
+- `503 Service Unavailable`. `Mission planning failed`, `Interviewer not configured`, `Answerer not configured`, `Mission pricing not configured`, or `Mission runner not configured`.
+
 ## `GET /health`
 
 Returns `200 OK` with `{"status":"ok","service":"api"}`.
+
+## `POST /briefings`
+
+Send `{"goal":"Seed the demo with test data"}` to start the interview. Returns
+`201 Created` with the current interview. The Interviewer asks one question at
+a time, up to ten questions, and may write the Briefing sooner.
+
+```json
+{
+  "id": "ef497d44-0aff-4230-9aa3-573b24efb979",
+  "goal": "Seed the demo with test data",
+  "status": "interview",
+  "question": "Who will use the seed data?",
+  "question_number": 1,
+  "version": null,
+  "markdown": null
+}
+```
+
+When complete, `status` is `complete`, `version` is `1`, and `markdown`
+contains the full Briefing. `question` and `question_number` become `null`.
+The runnable API stores interviews in `.bulletin-scratch/api/briefings.jsonl`.
+
+## `POST /briefings/:id/answers`
+
+Send `{"question_number":1,"answer":"Developers running the demo locally."}`.
+Send `"answer":null` to skip the question. Returns `200 OK` with the updated
+interview. A stale question number, an answer already being processed, or a
+completed interview returns `409 Conflict` with
+`{"error":"Briefing is not awaiting this answer"}`.
+
+## `GET /briefings/:id`
+
+Returns `200 OK` with the same interview shape, including the full Markdown
+when complete. Unknown IDs return `404 Not Found` with
+`{"error":"Briefing not found"}`. Starting or answering an interview returns
+`503 Service Unavailable` with `{"error":"Interviewer not configured"}` when
+the model is unavailable in server configuration. If a model call fails or
+invalid output persists after a retry, the response is `502 Bad Gateway` with
+`{"error":"Interviewer failed"}` and the previous interview state is retained.
 
 ## `GET /missions`
 
@@ -82,6 +136,11 @@ on `mission.finished`. A `mission.finished` event with `payload.status` set to
 ## `POST /missions`
 
 Send `{"goal":"Seed the demo with test data","repo":"D:/repos/todo-app"}`.
+Set `budget_cents` to a non-negative integer to choose a budget. The default
+for new API missions is `500` cents.
+Include `briefing_id` to plan against a completed interview. A missing
+Briefing returns `404` with `{"error":"Briefing not found"}`. A Briefing in
+progress returns `409` with `{"error":"Briefing is incomplete"}`.
 The API reads the current commit of the local Git repository and runs the
 General with the goal and repository map. It returns `201 Created` when the
 General produces a valid `@bulletin/core` `Plan`.
@@ -109,7 +168,10 @@ General produces a valid `@bulletin/core` `Plan`.
 ```
 
 Success emits `mission.created` with `goal`, `repo` (the local repository root),
-and `base`, then `plan.proposed` with the validated `plan` and the `units` count.
+`base`, and `budget_cents`, then `plan.proposed` with the validated `plan` and
+the `units` count.
+When `briefing_id` is supplied, the API also emits `briefing.versioned` with
+`briefing_id`, `version`, and `markdown` before proposing the plan.
 The new mission is visible in `GET /missions` with status `planning`.
 
 - `400 Bad Request` for invalid JSON fields, with `{"error":"Invalid request"}`.
@@ -213,6 +275,11 @@ publishes execution events to the same log.
 
 - `409 Conflict` with `{"error":"Mission has no plan to approve"}` if the mission has no full proposal or lacks repository metadata.
 - `409 Conflict` with `{"error":"Mission already approved"}` if execution has already been approved or has finished.
+- `409 Conflict` with `{"error":"Plan exceeds mission budget","budget_cents":500,"estimated_cents":1150,"spent_cents":10,"shortfall_cents":660}`
+  when the baseline Treasury fare estimate plus recorded spend exceeds the
+  mission budget. The mission stays in planning. An exact fit can run.
+- `422 Unprocessable Entity` with `{"error":"Plan cannot be priced"}` if a budgeted plan has an unknown tier or a missing model price.
+- `503 Service Unavailable` with `{"error":"Mission pricing not configured"}` if a budgeted mission has no configured pricing.
 - `503 Service Unavailable` with `{"error":"Mission runner not configured"}` if the API has no runner. The mission stays in planning.
 
 If the runner throws before finishing, `mission.finished` carries
@@ -250,6 +317,7 @@ then `decision.opened` with `kind: "question"` and `question_id`.
 
 Send `{"answer":"Use seed 17."}`. Returns `200 OK` with the full question,
 `status` set to `answered`, the answer text, and the `answered_at` timestamp.
+The response includes `source: "human"`.
 An unknown question returns `404 Not Found` with `{"error":"Question not found"}`.
 A question with an answer returns `409 Conflict` with
 `{"error":"Question already answered"}`.
@@ -257,5 +325,21 @@ A question with an answer returns `409 Conflict` with
 The mission stream receives `dispatch.answered` with `question_id` and `answer`,
 then `decision.resolved` with `kind: "question"` and `question_id`.
 
-Question and answer text is trimmed and must contain a non-whitespace character.
-The default question store lives in memory for the lifetime of the API process.
+## `POST /questions/:id/auto-answer`
+
+Omit the body or send `{}`. The Answerer uses the mission's latest completed
+Briefing. Returns `200 OK` with the full question. A cited answer has status
+`answered`, `source: "briefing"`, and a `briefing_ref` naming the section. The
+mission stream records `dispatch.answered` and `decision.resolved` with the
+Briefing source.
+
+When the Answerer returns `SILENT` or supplies no valid citation, the question
+stays `open` with `auto_answer_tried: true`. The mission stream gets
+`dispatch.escalated` with `question_id`, `outcome: "silent"`, and
+`prompt_version`. Both outcomes are visible through `GET /questions`.
+
+- `404 Not Found` with `{"error":"Question not found"}` for an unknown ID.
+- `409 Conflict` with `{"error":"Mission has no completed Briefing"}`,
+  `{"error":"Question already answered"}`, or `{"error":"Auto-answer already in progress"}`.
+- `502 Bad Gateway` with `{"error":"Answerer failed"}` on a model failure or invalid output after a retry.
+- `503 Service Unavailable` with `{"error":"Answerer not configured"}` when the role has no configured model.

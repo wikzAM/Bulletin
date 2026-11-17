@@ -6,24 +6,29 @@ export interface NewQuestion {
   body: string;
 }
 
-export type Question = NewQuestion & {
+export type AnswerSource = { source: "human" } | { source: "briefing"; briefing_ref: string };
+
+type StoredQuestion = NewQuestion & {
   id: string;
   created_at: string;
-} & (
-  | { status: "open"; answer: null; answered_at: null }
-  | { status: "answered"; answer: string; answered_at: string }
-);
+  auto_answer_tried?: true;
+};
+
+export type AnsweredQuestion = StoredQuestion & AnswerSource & { status: "answered"; answer: string; answered_at: string };
+export type Question = AnsweredQuestion | (StoredQuestion & { status: "open"; answer: null; answered_at: null });
 
 type AnswerResult =
   | { status: "missing" }
   | { status: "already_answered" }
-  | { status: "answered"; question: Question };
+  | { status: "answered"; question: AnsweredQuestion };
 
 export interface QuestionStore {
   list(missionId?: string): Promise<readonly Question[]>;
+  get(id: string): Promise<Question | undefined>;
   create(input: NewQuestion): Promise<Question>;
   /** Implementations must check and set the answer in one operation. */
-  answer(id: string, answer: string): Promise<AnswerResult>;
+  answer(id: string, answer: string, attribution?: AnswerSource): Promise<AnswerResult>;
+  markAutoAnswerTried(id: string): Promise<Question | undefined>;
 }
 
 export class MemoryQuestionStore implements QuestionStore {
@@ -31,6 +36,10 @@ export class MemoryQuestionStore implements QuestionStore {
 
   async list(missionId?: string): Promise<readonly Question[]> {
     return [...this.questions.values()].filter((question) => missionId === undefined || question.mission_id === missionId);
+  }
+
+  async get(id: string): Promise<Question | undefined> {
+    return this.questions.get(id);
   }
 
   async create(input: NewQuestion): Promise<Question> {
@@ -46,13 +55,21 @@ export class MemoryQuestionStore implements QuestionStore {
     return question;
   }
 
-  async answer(id: string, answer: string): Promise<AnswerResult> {
+  async answer(id: string, answer: string, attribution: AnswerSource = { source: "human" }): Promise<AnswerResult> {
     const question = this.questions.get(id);
     if (!question) return { status: "missing" };
     if (question.status === "answered") return { status: "already_answered" };
 
-    const answered: Question = { ...question, status: "answered", answer, answered_at: new Date().toISOString() };
+    const answered: AnsweredQuestion = { ...question, ...attribution, status: "answered", answer, answered_at: new Date().toISOString() };
     this.questions.set(id, answered);
     return { status: "answered", question: answered };
+  }
+
+  async markAutoAnswerTried(id: string): Promise<Question | undefined> {
+    const question = this.questions.get(id);
+    if (question?.status !== "open") return question;
+    const updated = { ...question, auto_answer_tried: true } as const;
+    this.questions.set(id, updated);
+    return updated;
   }
 }

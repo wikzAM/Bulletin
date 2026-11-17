@@ -50,6 +50,7 @@ it("boots the API on an assigned port and serves missions from disk", async () =
     }
   } finally {
     await rm(path, { force: true });
+    await rm(join(apiData, "briefings.jsonl"), { force: true });
     await rmdir(apiData);
     await rmdir(directory);
   }

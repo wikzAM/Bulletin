@@ -2,6 +2,7 @@ import { LaneSchema, type BulletinEvent, type EventType, type Lane, type UnitSta
 import type { FastifyInstance } from "fastify";
 import type { EventLog } from "../store/event-log";
 import { registerMissionEventStream } from "./mission-events";
+import { readLedgerCharge, readMissionBudget, roundCents } from "./mission-ledger";
 import { validateIdParams } from "./request-validation";
 
 type MissionStatus = "interview" | "planning" | "running" | "finished" | "failed";
@@ -24,10 +25,6 @@ interface MissionUnit {
 interface LedgerTotal {
   cost_cents: number;
   charges: number;
-}
-
-function roundCents(cents: number): number {
-  return Math.round(cents * 1e4) / 1e4;
 }
 
 const missionStatuses: Partial<Record<EventType, MissionStatus>> = {
@@ -81,7 +78,8 @@ function missionProgress(events: readonly BulletinEvent[]) {
     return unit;
   }
 
-  for (const { type, unit_id, payload } of events) {
+  for (const event of events) {
+    const { type, unit_id, payload } = event;
     if (type === "wave.started" && Array.isArray(payload.units)) {
       for (const id of payload.units) {
         if (typeof id !== "string") continue;
@@ -102,12 +100,13 @@ function missionProgress(events: readonly BulletinEvent[]) {
       }
     }
 
-    if (type === "ledger.charged" && typeof payload.cost_cents === "number" && Number.isFinite(payload.cost_cents)) {
-      ledger.cost_cents += payload.cost_cents;
+    const cost = readLedgerCharge(event);
+    if (cost !== undefined) {
+      ledger.cost_cents += cost;
       ledger.charges++;
       if (unit_id !== null) {
         const total = ledgerByUnit.get(unit_id) ?? { cost_cents: 0, charges: 0 };
-        total.cost_cents += payload.cost_cents;
+        total.cost_cents += cost;
         total.charges++;
         ledgerByUnit.set(unit_id, total);
       }
@@ -134,8 +133,7 @@ export function registerMissionRoutes(app: FastifyInstance, log: EventLog): void
     const created = events.find((event) => event.type === "mission.created");
     if (!created) return reply.code(404).send({ error: "Mission not found" });
 
-    const budget = created.payload.budget_cents;
-    const budgetCents = typeof budget === "number" && Number.isSafeInteger(budget) && budget >= 0 ? budget : null;
+    const budgetCents = readMissionBudget(created.payload.budget_cents);
     const { units, ledger, ledgerByUnit } = missionProgress(events);
     return {
       mission_id: id,
