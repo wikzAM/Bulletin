@@ -93,3 +93,4 @@
 2026-11-18 05:40 EST | Codex | Desktop 4. Tauri RPC, native credential commands and sidecar restart; Windows cargo check passed | codex/warroom-api@f248d83 | verify pending
 2026-11-18 05:56 EST | Codex | Desktop 5. Windows process-tree cancellation and Git worktree output; full cargo test green (3 tests, including sidecar restart) | codex/warroom-api@a284872 | verify pending
 2026-11-18 05:56 EST | Codex | Desktop 6. HTTP and sidecar docs aligned; new SQLite and transport contract checks passed; existing in-memory check timed out | codex/warroom-api@93ff598 | verify pending
+2026-11-18 06:23 EST | Codex | Desktop queue verification: install, lint, typecheck, and new desktop tests passed; 16 of 505 Vitest tests failed on Windows deadlines or fixture cleanup | codex/warroom-api@3364563 | verify red

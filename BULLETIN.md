@@ -198,3 +198,7 @@
 
 - `src-tauri/Cargo.lock` pins the new desktop crate's dependencies. Windows `cargo check` passed. The packaging unit needs to install the generated `bulletin-sidecar.exe` beside Bulletin and add its source path to Tauri's `bundle.externalBin` when the target-specific build artifact is available.
 - The supervisor adds native process APIs and the temporary-directory test fixture to the Rust lockfile. The pnpm lockfile is unchanged.
+
+## [2026-11-18] Desktop queue verification remains red
+
+- The last full run passed frozen install, lint, and typecheck. Vitest finished with 489 passed and 16 failed. It hit test and hook deadlines again in the existing engine and API suites, including the HTTP subprocess startup deadline, and reported a Windows Git fixture cleanup permission error. The new sidecar, SQLite, platform, and route-contract tests passed in the full run. Windows `cargo check` and all three `cargo test` cases passed. The queue boxes remain open for full verification.
