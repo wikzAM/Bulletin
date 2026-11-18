@@ -87,3 +87,4 @@
 2026-11-17 10:03 EST | Codex | 28. API and web running guide | codex/warroom-api@3b03c7f | verify green (496 tests)
 10:52 | coordinator | tick 7 (last): merged codex (bearer auth, mission report, list filters, RUNNING.md); main 496 tests green. Cursor idle since 08:54 with uncommitted edits (question on BULLETIN.md); nothing new from it to merge
 23:13 | claude | toolchain installed: Rust 1.100 (msvc) + VS 2022 Build Tools C++; hello-world builds and links. Open a NEW terminal so cargo is on PATH.
+06:18 | coordinator | tick 8: NO MERGE. Machine overloaded (even Get-Process took >120s): verify in D:\wt-codex failed only on 5s/10s timeouts (29 tests, no assertion errors). Branches with new work: codex (sidecar, SQLite, platform), claude/general (bulletin-mcp, SdkStationRunner, resolveHeld), cursor (apps/desktop in progress, uncommitted). Will re-verify next tick. Also fixed ~/.claude/workbench/gate.py to read subprocess output as utf-8 (cp1252 decode crash).
