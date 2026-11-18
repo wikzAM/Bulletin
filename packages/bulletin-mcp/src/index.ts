@@ -48,3 +48,4 @@ export function normalizeQuestion(question: string): string {
 }
 
 export * from "./server";
+export * from "./pipeline";
