@@ -290,3 +290,7 @@ RED touched a locked file: pnpm-lock.yaml
 ## [2026-11-18] Bedrock keychain value at sidecar launch
 
 - The shared API application now honors `BULLETIN_PROVIDER` for the General, Interviewer, and Answerer. The first-run screen stores a Bedrock bearer as `AWS_BEARER_TOKEN_BEDROCK`. Include that variable in the native sidecar launch allowlist during the builder's keychain task so the saved value reaches the provider SDK at spawn time.
+
+## [2026-11-18] Integrated desktop verification on Windows
+
+- After syncing the desktop and provider integrations, full verification with the thread pool passed frozen install, lint, and typecheck. Vitest reported 905 passed, 12 failed, and 2 skipped by the existing suite. The failures were deadlines in the Git-backed engine and API fixtures, including cleanup errors after some timeouts. The new application provider test passed.

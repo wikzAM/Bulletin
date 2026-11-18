@@ -143,3 +143,4 @@
 15:41 | coordinator | tick 19: cursor idle ~4h, so I squash-merged cursor/web-shell and fixed its 2 lint errors myself (dead HeldPanel + imports, AboutPage assignment); lint+typecheck clean, 235 desktop tests, build ok. Desktop app now on main: first-run setup, plan review (fare range, one revision), inbox drawer, battle replay, about/diagnostics. Codex and builder idle.
 2026-11-18 16:14 EST | Codex | Held decision approved and rejected through the SQLite-backed app, including a real Git merge approval | codex/warroom-api@eeb7123 | verify red (528 of 550 passed, deadlines and fixture cleanup)
 2026-11-18 16:14 EST | Codex | Provider factory wired into all three API model roles, targeted 11 tests and typecheck green | codex/warroom-api@5200f07 | verify pending
+2026-11-18 16:24 EST | Codex | Integrated desktop verification: provider test passed; 905 passed, 12 deadline or cleanup failures, 2 existing skips | codex/warroom-api@5200f07 | verify red
