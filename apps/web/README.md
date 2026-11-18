@@ -1,5 +1,7 @@
 # @bulletin/web
 
+**Legacy.** Bulletin’s product UI is now `@bulletin/desktop` (Vite + React + Tailwind + React Flow, destined for Tauri). Keep this Next.js app for headless/dev and until the coordinator retires it; do not add new product features here. Prefer `apps/desktop`.
+
 The Bulletin web app (Next.js App Router). Pages:
 
 - `/` lists projects (missions).

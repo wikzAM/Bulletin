@@ -141,6 +141,21 @@ Needed for the Managed Agents runner adapter (apps/api/src/managed-client.ts). I
 ## 2026-11-17: ship as a Tauri 2 desktop app (Windows first)
 Founder decision, recorded in docs/SPEC.md (Platform section, which wins over sections 0, 5, 6, 7, 14, 15). UI becomes React + Vite + Tailwind + React Flow in Tauri; a Rust core supervises processes, worktrees, SQLite and credentials; the existing TypeScript engine, General, runners and Anthropic SDK code become the bundled sidecar, spoken to over JSON-RPC on stdio. Why: the user wants an installable app; the local runner needs the user's own machine and login anyway. The Fastify API and Next.js web app stay as a headless/dev surface until the desktop app replaces them.
 
+## 2026-11-18: apps/desktop (Vite + React + Tailwind + React Router)
+New UI package `@bulletin/desktop` replaces the Next.js shell over time. Dependencies added: `vite`, `@vitejs/plugin-react`, `tailwindcss`, `@tailwindcss/vite`, `react-router-dom` (React 19 already in the workspace via web). Pure logic lives in `apps/desktop/src/lib` (ported from `apps/web/lib`); `VITE_API_URL` replaces `NEXT_PUBLIC_API_URL`. Lockfile updated by `pnpm install` — flagged on BULLETIN.md. The live API adapter test stays only under `apps/web` for now so the suite does not boot two in-process servers.
+
+## 2026-11-18: desktop transport (HTTP + Tauri)
+`apps/desktop/src/lib/transport.ts` is the only place that knows how the UI reaches the engine. `request` + `subscribe` have HTTP (fetch/EventSource via `VITE_API_URL`) and Tauri (`invoke("rpc")` / `listen("bulletin://event")`) implementations; runtime pick is `window.__TAURI_INTERNALS__`. `@tauri-apps/api` is a dependency, loaded with dynamic `import()` so the browser Vite build still works before the Rust host exists.
+
+## 2026-11-18: React Flow war table (`@xyflow/react`)
+Spec section 13 war table v0 uses React Flow. Added `@xyflow/react` to `@bulletin/desktop`. `toFlowGraph` reuses `layoutGraph` (wave columns); unit nodes show status icon+label+colour with fog until `unit.started`. SVG `PlanGraph` remains as a non-Flow fallback component but the project page renders `PlanFlow`.
+
+## 2026-11-18: war table chrome (drawer, feed, receipt, couriers)
+Desktop project page layout: spending meter top-right, decisions in a sticky right drawer, activity feed along the bottom, receipt after `mission.finished`, and question/answer courier markers that skip CSS animation when `prefers-reduced-motion` is set. Pure helpers live in `lib/war-extras.ts`.
+
+## 2026-11-18: desktop window feel
+`lib/window-settings.ts` stores width/height/position behind a small `SettingsStore` (localStorage mock in the browser; Tauri settings command later). Shortcuts: Ctrl/⌘N new project, Ctrl/⌘/ jump field, Esc dismiss. Title bar is a drag-region-ready strip; shell `min-width: 960px` so the UI stays desktop-first.
+
 ## 2026-11-18: native desktop bridge dependencies
 
 - Tauri 2 and `tauri-build` provide the Windows desktop shell and IPC bridge.
@@ -178,3 +193,4 @@ Founder decision, recorded in docs/SPEC.md (Platform section, which wins over se
 - `.github/workflows/ci.yml` replaces the parked Ubuntu workflow on branch `ci-workflow`: it runs on `windows-latest` (the spec's first target) and calls `pnpm run verify`, the one check for the whole repo, so CI cannot drift from what stations and the gate run. A second job runs `cargo check` on `src-tauri/` and does nothing until that folder exists. Only first-party actions plus `pnpm/action-setup`, `dtolnay/rust-toolchain`, `Swatinem/rust-cache` and `tauri-apps/tauri-action`, referenced by major tag.
 - `.github/workflows/release.yml` builds MSI and NSIS installers on version tags (or by hand), attaches them to a draft release, and is unsigned; it skips with a warning until `src-tauri/tauri.conf.json` exists. It builds the sidecar with `node scripts/build-sidecar.mjs` (queue task 5), which also does not exist yet.
 - No new dependencies; secrets (signing) are only mentioned in comments, never written.
+

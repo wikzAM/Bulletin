@@ -174,6 +174,20 @@
 - working default: web core continues; nothing desktop started
 - status: resolved. Founder chose the desktop app; docs/SPEC.md now has the Tauri 2 platform section (see docs/DECISIONS.md).
 
+## [2026-11-18] Lockfile change for apps/desktop
+- note: Cursor task 1 adds Vite, Tailwind, React Router (and later React Flow / Tauri) under `apps/desktop`. `pnpm-lock.yaml` will change; coordinator should accept the lockfile with the desktop commits. AGENTS.md still says agents must not hand-edit the lockfile.
+- status: open for coordinator merge
+
+## [2026-11-18] API serve.test hangs on this worktree (twice)
+- question: `apps/api/src/store/serve.test.ts` fails alone: spawned `serve.ts` prints nothing and never reaches `api listening on …` within its 5s kill; the managed-env warning case gets `status: null` (spawn timeout). Same with desktop changes reverted from the equation (config inject alone can take ~7s). Full `pnpm test` then cascades timeouts. Desktop lint/typecheck/`vitest apps/desktop`/`pnpm --filter @bulletin/desktop build` are green.
+- options: (a) Codex investigates serve boot hang / raise the hardcoded 5s in serve.test; (b) Cursor keeps shipping desktop against package-level green and leaves verify red until (a)
+- recommendation: (a). Working default: (b) so the desktop queue is not blocked.
+- status: open
+
+## [2026-11-18] Unfinished web pause work stashed
+- note: Pre-direction-change pause UI (old queue task 24) is in `git stash` on `cursor/web-shell` (`wip: pause spending-limit UI (task 24)`). Old tasks 24–26 were cancelled; desktop will cover paused state when porting pages.
+- status: info
+
 ## [2026-11-18] Sidecar workspace importer
 
 - Please add the `@bulletin/sidecar` workspace manifest and regenerate `pnpm-lock.yaml` in the coordinator checkout. A new workspace needs an importer for frozen verification, and AGENTS.md reserves the lockfile. The Node sidecar runs from the repository root with `pnpm exec tsx apps/sidecar/src/main.ts` in the meantime.
@@ -226,3 +240,4 @@
 - recommendation: (b) for the shipped app, (a) in the meantime
 - working default: (a)
 - status: open
+

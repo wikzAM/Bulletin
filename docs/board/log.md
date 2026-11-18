@@ -105,3 +105,10 @@
 07:34 | coordinator | tick 9: merged codex (sidecar bridge, SQLite store, platform layer, src-tauri scaffold). lint+typecheck green; 503/505 tests green; the 2 failures are 60s timeouts of the 3-attempt engine test (took 69s) because python.exe PID 62816 is still pinning the CPU; engine files untouched by the merge. Builder branch not merged yet (waiting for a calmer machine).
 08:00 | coordinator | tick 10: merged claude/general (bulletin-mcp, SdkStationRunner, resolveHeld, Docker-free pass with kill-tree, .cmd shim fix). Verified: lint+typecheck on main clean; 41 targeted tests green on the branch. CI workflows parked in docs/ci-drafts/ (push of .github/workflows needs gh workflow scope). Machine still pinned by python.exe PID 62816. Cursor apps/desktop (94 commits) not merged yet: needs desktop test+build check.
 2026-11-18 08:15 EST | Codex | Held-unit engine handoff: approval and rejection route wiring, conflict/retry tests, SQLite-backed rejection smoke test green | codex/warroom-api@eeb7123 | verify pending
+06:49 | cursor | 1. apps/desktop Vite+React+Tailwind+Router; ported web lib+tests (VITE_API_URL); live api test stays on web; lockfile+DECISIONS; full pnpm test red on serve.test hang (BULLETIN) | cursor/web-shell@ca258f8 | desktop lint/typecheck/test/build green (19 files)
+07:00 | cursor | 2. transport.ts HTTP+SSE and Tauri invoke/listen; detect via __TAURI_INTERNALS__; @tauri-apps/api dynamic import | cursor/web-shell@ae46f51 | desktop tests+build+typecheck green
+07:20 | cursor | 3. port pages to desktop + React Flow war table (@xyflow/react, fog, status labels) | cursor/web-shell@da21c34 | desktop typecheck/build/tests green
+07:53 | cursor | 4. war table extras: couriers, treasury top-right, decision drawer, bottom feed, receipt; prefers-reduced-motion | cursor/web-shell@5039587 | desktop typecheck/build/tests green (22 files)
+08:00 | cursor | 5. window feel: title bar, shortcuts, window settings store (localStorage mock) | cursor/web-shell@e5dffc6 | desktop tests+typecheck+build green
+08:02 | cursor | 6. mark apps/web README as legacy; desktop is the product UI | cursor/web-shell@59ef483 | docs only
+
