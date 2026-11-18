@@ -12,6 +12,7 @@
     "./sdk-station-runner": "./src/sdk-station-runner.ts"
   },
   "dependencies": {
-    "@bulletin/core": "workspace:*"
+    "@bulletin/core": "workspace:*",
+    "@bulletin/models": "workspace:*"
   }
 }

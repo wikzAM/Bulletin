@@ -23,8 +23,9 @@ function scripted(turns: ModelResponse[]): ModelClient & { requests: ModelReques
   const requests: ModelRequest[] = [];
   let i = 0;
   return {
+    provider: "anthropic",
     requests,
-    async create(req) {
+    async complete(req) {
       requests.push({ ...req, messages: structuredClone(req.messages) });
       const turn = turns[i++];
       if (!turn) throw new Error("script ran out");
@@ -231,7 +232,8 @@ describe("SdkStationRunner", () => {
 
   it("fails the attempt when the model errors, and does not commit", async () => {
     const model: ModelClient = {
-      async create() {
+      provider: "anthropic",
+      async complete() {
         throw new Error("overloaded");
       },
     };
@@ -264,7 +266,8 @@ describe("SdkStationRunner", () => {
   it("cancel stops the loop and the attempt does not succeed", async () => {
     const ctx: { runner?: SdkStationRunner; handle?: AttemptHandle } = {};
     const model: ModelClient = {
-      async create(req) {
+      provider: "anthropic",
+      async complete(req) {
         await ctx.runner!.cancel(ctx.handle!);
         expect(req.signal?.aborted).toBe(true);
         return toolTurn("write_file", { path: "late.txt", content: "x" });

@@ -247,3 +247,10 @@
 - options: (a) Cursor changes the script to run from the repo root or adds a package-level vitest config; (b) leave it and rely on the root run
 - recommendation: (a), a one-line fix in apps/desktop/package.json (Cursor owns it). Added to Cursor's queue.
 - status: open
+
+## [2026-11-18] Bedrock model ids: prefix rule or explicit map in config/models.json
+- question: `packages/models` sends Bedrock `anthropic.<configured id>` (the documented Mantle rule, e.g. `anthropic.claude-opus-5-5`). Real Bedrock ids can carry version suffixes or region prefixes. config/ is locked to me, so I added an optional `providers.bedrock.models` map to the models.json schema (core) but did not touch the file.
+- options: (a) keep the prefix rule only; (b) the coordinator adds `"providers": {"bedrock": {"models": {...}}}` to config/models.json once the exact Bedrock ids are confirmed for the account's region
+- recommendation: (b) before the first Bedrock run. Until then a wrong id fails loudly at the first call, not silently.
+- working default: (a)
+- status: open

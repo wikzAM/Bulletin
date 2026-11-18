@@ -11,6 +11,10 @@ const RoleModelSchema = z.object({
 export const ModelsConfigSchema = z.object({
   roles: z.record(z.string(), RoleModelSchema),
   tiers: z.record(z.string(), z.string().min(1)),
+  /** Optional per-provider details. Today: the exact Bedrock id for a model whose id is not simply `anthropic.<id>`. */
+  providers: z
+    .object({ bedrock: z.object({ models: z.record(z.string(), z.string().min(1)).default({}) }).optional() })
+    .optional(),
 });
 export type ModelsConfig = z.infer<typeof ModelsConfigSchema>;
 

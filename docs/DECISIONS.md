@@ -203,3 +203,11 @@ Desktop project page layout: spending meter top-right, decisions in a sticky rig
 - The build fails on any esbuild warning, and the tests run the real executable, so a bundle that loads but misbehaves is caught.
 - `packages/packaging` exists only so the repo's vitest include pattern runs the build test; it has no dependencies.
 - The test that builds and runs the real 90 MB executable is skipped unless `BULLETIN_SIDECAR_EXE_TEST=1` (30-100 s here), because `pnpm run verify` must stay fast for every station and graph run. The esbuild bundle is still built and run with plain node in the default run, and the release workflow draft sets the variable. This is a new test of mine, not a weakened old one.
+
+## 2026-11-18, claude/general: provider layer (queue task 7)
+
+- `packages/models` owns the `ModelClient` seam (`complete`, plus a `provider` name) and its Messages-API-shaped request and response types. `SdkStationRunner` takes that type, so the station loop no longer defines its own and the old `create` method is now `complete` (the fakes in its tests were renamed, assertions unchanged). The runners package imports types only, never an SDK.
+- Two implementations behind it: first-party `@anthropic-ai/sdk` and Amazon Bedrock through `@anthropic-ai/bedrock-sdk` (new dependency; Messages-API Mantle client, `AnthropicBedrockMantle`). Only `packages/models/src/real.ts` imports either SDK, and bundling it with esbuild gives no warnings (about 2.9 MB), so the sidecar can include it.
+- Selection is `BULLETIN_PROVIDER` = `anthropic` (default) or `bedrock`. An unknown value throws an error that names the variable, never the value. No credential value is read by Bulletin: each SDK reads its own environment, and `missingCredentialNames` reports names only.
+- The abort signal is passed as the SDK's per-request option, never in the JSON body. Usage is mapped explicitly to core's `Usage`, with absent or null cache counts as 0. Block types the station loop does not model (thinking and others) are dropped.
+- Bedrock ids: `anthropic.<id from config>`, with an optional `providers.bedrock.models` map in `ModelsConfigSchema` for ids that differ. Open question on BULLETIN.md; config/models.json is untouched.

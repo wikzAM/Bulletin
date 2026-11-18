@@ -1,0 +1,15 @@
+{
+  "name": "@bulletin/models",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./real": "./src/real.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/bedrock-sdk": "^1.1.2",
+    "@anthropic-ai/sdk": "^1.9.0",
+    "@bulletin/core": "workspace:*"
+  }
+}
