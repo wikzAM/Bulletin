@@ -2,7 +2,7 @@ import type { Unit, Usage } from "@bulletin/core";
 
 /** All stations run through this one interface (spec section 14). */
 export interface Runner {
-  kind: "local-claude-code" | "managed-agents" | "byo" | "stub";
+  kind: "local-claude-code" | "managed-agents" | "sdk-station" | "byo" | "stub";
   startAttempt(input: AttemptInput): Promise<AttemptHandle>;
   /** Progress, tool use, usage, done. */
   events(handle: AttemptHandle): AsyncIterable<RunnerEvent>;

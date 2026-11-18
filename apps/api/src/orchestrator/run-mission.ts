@@ -29,7 +29,7 @@ import {
 } from "@bulletin/graph";
 import { runPass } from "@bulletin/pass-worker/run-pass";
 import { integrationBranch, type AttemptHandle, type Runner } from "@bulletin/runners";
-import { addWorktree, git, removeWorktree, tryGit } from "@bulletin/runners/git";
+import { addWorktree, checkoutWorktree, git, removeWorktree, tryGit } from "@bulletin/runners/git";
 import { costCents } from "../treasury/treasury";
 
 export interface MissionOptions {
@@ -60,6 +60,17 @@ export interface MissionOptions {
   /** Hard cap for the whole mission in cents. Reaching it pauses the mission (budget.paused). */
   budgetCents?: number;
   events?: EventSink;
+  /**
+   * Continue a mission that already finished with units held (see resolve-held.ts): start from
+   * these statuses on the existing integration branch, without re-announcing the mission or plan.
+   */
+  resume?: {
+    statuses: Readonly<Record<string, UnitStatus>>;
+    /** Cents already spent, so the budget covers the whole mission. */
+    spentCents: number;
+    /** Waves already started, so wave numbers keep counting. */
+    wave: number;
+  };
 }
 
 export interface LedgerRow {
@@ -136,7 +147,8 @@ export async function runMission(options: MissionOptions): Promise<MissionReport
   const emit = (type: Parameters<EventSink["emit"]>[0]["type"], unitId?: string, payload: Record<string, unknown> = {}) =>
     events.emit({ mission_id: missionId, type, unit_id: unitId ?? null, payload });
 
-  await emit("mission.created", undefined, { repo, base: options.baseBranch });
+  const { resume } = options;
+  if (!resume) await emit("mission.created", undefined, { repo, base: options.baseBranch });
 
   const repoFiles = (await git(repo, "ls-tree", "-r", "--name-only", options.baseBranch)).split("\n").filter(Boolean);
   const lanes = await readLanes(repo, options.baseBranch);
@@ -144,15 +156,18 @@ export async function runMission(options: MissionOptions): Promise<MissionReport
   if (!validation.ok) throw new Error(`plan rejected:\n- ${validation.errors.join("\n- ")}`);
   const plan: Plan = validation.plan;
   const waves = buildWaves(plan);
-  await emit("plan.proposed", undefined, { units: plan.units.length, waves: waves.length });
-  await emit("plan.approved");
+  if (!resume) {
+    await emit("plan.proposed", undefined, { units: plan.units.length, waves: waves.length });
+    await emit("plan.approved");
+  }
 
   const integ = integrationBranch(missionId);
   const integDir = join(options.scratchDir, "integration");
-  await addWorktree(repo, integDir, integ, options.baseBranch);
+  if (resume) await checkoutWorktree(repo, integDir, integ);
+  else await addWorktree(repo, integDir, integ, options.baseBranch);
   const exclusive = mutex();
   const budgetStop = new AbortController();
-  let spent = 0;
+  let spent = resume?.spentCents ?? 0;
   const stopped = () => options.signal?.aborted === true || budgetStop.signal.aborted;
   const active = new Set<AttemptHandle>();
   const cancelActive = () => {
@@ -161,7 +176,9 @@ export async function runMission(options: MissionOptions): Promise<MissionReport
   options.signal?.addEventListener("abort", cancelActive);
   budgetStop.signal.addEventListener("abort", cancelActive);
 
-  const statuses: Record<string, UnitStatus> = Object.fromEntries(plan.units.map((u) => [u.id, "pending"]));
+  const statuses: Record<string, UnitStatus> = Object.fromEntries(
+    plan.units.map((u) => [u.id, resume?.statuses[u.id] ?? "pending"]),
+  );
   const attempts: AttemptRecord[] = [];
   const ledger: LedgerRow[] = [];
   const greens = new Set<string>();
@@ -311,7 +328,7 @@ export async function runMission(options: MissionOptions): Promise<MissionReport
   };
 
   const running = new Map<string, Promise<void>>();
-  let wave = 0;
+  let wave = resume?.wave ?? 0;
   for (;;) {
     const ready = readyUnits(plan, statuses);
     if (ready.length > 0 && running.size === 0) {
@@ -362,6 +379,7 @@ export async function runMission(options: MissionOptions): Promise<MissionReport
   await emit("mission.finished", undefined, {
     stopped: options.signal?.aborted === true,
     paused: budgetStop.signal.aborted,
+    ...(resume ? { resumed: true } : {}),
     shipped: shipped.length,
     held: held.length,
     failed: report.failed.length,

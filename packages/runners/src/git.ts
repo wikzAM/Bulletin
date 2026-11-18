@@ -51,6 +51,14 @@ export function addWorktree(repo: string, path: string, branch: string, base: st
   });
 }
 
+/** Add a worktree at `path` that checks out the existing `branch` (which must not be checked out elsewhere). */
+export function checkoutWorktree(repo: string, path: string, branch: string): Promise<void> {
+  return oneAtATime(async () => {
+    await mkdir(dirname(path), { recursive: true });
+    await git(repo, "worktree", "add", "-q", path, branch);
+  });
+}
+
 /** Add a detached worktree at `path` checked out at `ref`: a clean checkout nothing else writes to. */
 export function addDetachedWorktree(repo: string, path: string, ref: string): Promise<void> {
   return oneAtATime(async () => {

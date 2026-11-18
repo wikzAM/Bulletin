@@ -206,3 +206,23 @@
 ## [2026-11-18] Coordinator log append conflicted during refresh
 
 - Merging `main` at `02e111b` into `codex/warroom-api` conflicted in `docs/board/log.md` because both branches appended records. I aborted the merge per the Worker loop. The coordinator can preserve both sets of entries during integration. The queue on `main` contains the same six desktop tasks.
+## [2026-11-18] pnpm-lock.yaml changed for @modelcontextprotocol/sdk
+- question: Queue task 1 adds @modelcontextprotocol/sdk to packages/bulletin-mcp. `pnpm add` rewrote pnpm-lock.yaml (needed, because verify installs with --frozen-lockfile). OK to merge that lockfile diff?
+- options: (a) merge as is; (b) regenerate the lockfile on main after merging
+- recommendation: (a). It is a machine-written, additive change (77 packages).
+- working default: (a), committed on claude/general
+- status: open
+
+## [2026-11-18] apps/api tests time out on this machine (not a code failure)
+- question: `pnpm run verify` in D:\wt-claude: lint and typecheck pass, but 12 to 17 apps/api tests (serve.test.ts, run-mission.test.ts, mission-flow.test.ts, and others) time out. Cold `tsx` startup takes about 6s here, and serve.test.ts spawns it with a 5s timeout; git-heavy tests hit 10s default timeouts. claude/general touches only apps/api/src/orchestrator (run-mission.ts, resolve-held.ts), which these tests exercise, but the timeouts are in the host: the same tests time out on main. Should the timeouts be raised, or is the host slow (antivirus scanning the new worktree)?
+- options: (a) Codex raises the spawnSync/test timeouts; (b) exclude D:\wt-* from Windows Defender and retry; (c) ignore
+- recommendation: (b), then (a) if it persists
+- working default: carry on; judge verify by lint, typecheck and the tests of packages I touch, and log the apps/api timeouts
+- status: open
+
+## [2026-11-18] Pass tree-kill on Windows depends on taskkill, which goes through WMI
+- question: runCommand kills a hung check with `taskkill /T /F`. Under heavy load (several sessions running tests at once) taskkill failed with "ERROR: Quota violation" and "ERROR: Call cancelled", leaving orphans. It is retried 3 times and the pass never hangs, but containment is not guaranteed. Who owns real containment?
+- options: (a) accept taskkill plus retries and re-verify on a quiet machine or the Windows CI runner (queue task 6); (b) the Rust core runs checks inside a Windows Job Object with kill-on-close (spec Platform section gives process supervision to the Rust core)
+- recommendation: (b) for the shipped app, (a) in the meantime
+- working default: (a)
+- status: open

@@ -8,7 +8,8 @@
     "./git": "./src/git.ts",
     "./stub-runner": "./src/stub-runner.ts",
     "./claude-code-runner": "./src/claude-code-runner.ts",
-    "./managed-agents-runner": "./src/managed-agents-runner.ts"
+    "./managed-agents-runner": "./src/managed-agents-runner.ts",
+    "./sdk-station-runner": "./src/sdk-station-runner.ts"
   },
   "dependencies": {
     "@bulletin/core": "workspace:*"

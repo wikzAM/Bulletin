@@ -147,3 +147,34 @@ Founder decision, recorded in docs/SPEC.md (Platform section, which wins over se
 - Serde and `serde_json` encode JSON-RPC frames and serializable command errors.
 - `keyring` 3.6 provides native credential storage on Windows and macOS behind a local trait.
 - `windows-sys` provides Windows Job Objects for native process-tree cancellation. `libc` supplies the Unix process-group signal, and `tempfile` makes Git fixtures disposable.
+## bulletin-mcp: MCP server (2026-11-18)
+
+- New dependency `@modelcontextprotocol/sdk` (^1.32.2) in packages/bulletin-mcp: the official MCP server/client with stdio and in-memory transports. Why: spec section 10 makes the Bulletin an MCP server; hand-rolling the protocol would be worse. pnpm-lock.yaml changed by `pnpm add`, not by hand.
+- The server takes an injected `store` (dispatches, Briefing) and `answerer` (cache, model, human pipeline), so it needs no model in tests. One server instance serves one attempt and holds that attempt's question count (default cap 10). The first question over the cap posts one `blocker` dispatch so the General sees it; later ones only get an error.
+- Dispatch text is returned as a `<dispatch>` block with every line prefixed `> ` and `<` escaped, so it cannot forge the closing tag.
+## sdk-station-runner: default station agent loop (2026-11-18)
+
+- `packages/runners/src/sdk-station-runner.ts` runs a Messages API tool loop against an injected `ModelClient` (request/response shapes follow the Messages API, so the sidecar adapter over `@anthropic-ai/sdk` or Bedrock is a thin wrapper). No new dependency. New runner kind `"sdk-station"`.
+- Tools: read_file, write_file, list_files, run_command. Paths must be relative, stay inside the attempt worktree (lexical check plus a realpath check on the nearest existing ancestor, so links that leave it are refused), and never touch `.git`.
+- run_command is allowed only for patterns passed in `allowedCommands` plus the unit's own acceptance commands (glob-style, same metacharacter ban as plan validation). It runs without a shell, except pnpm/npm/npx/yarn on Windows, which are `.cmd` shims. Path-like arguments that are absolute or contain `..` are refused. This is a policy gate, not an OS sandbox; the pass decides what is accepted.
+- Cost: the runner does not read config/. An optional injected `costOf(model, usage)` prices each call, and with it the loop stops when the unit's `allowanceCents` is spent. Without it, usage events carry no cost and the engine prices them from config as it does today.
+- Failures the model can fix (refused path, refused command, non-zero exit) go back to it as tool results; model errors, cancel, max turns (default 40) and allowance end the attempt with `done ok:false` and no commit.
+## resolveHeld: resuming held units (2026-11-18)
+
+- `apps/api/src/orchestrator/resolve-held.ts` exports `resolveHeld({...missionOptions, unitId, resolution, history, events})`. It acts after the mission has finished (held units are left unmerged and their dependents blocked), so it needs the mission's event history: statuses are rebuilt from unit.* events (`statusesFromEvents`) and the branch comes from the unit.held event. It does not emit decision.resolved; the route that takes the human's answer does.
+- Outcomes: `merged` (with `unblocked` and a `report` when dependents ran), `rejected`, `conflict` (branch no longer merges; nothing changes, unit stays held), `not_held` (never held or already resolved, so a double click is harmless), `mission_running` (no mission.finished yet; the engine still owns the integration branch, so the route should answer 409 and retry later).
+- Approve merges `--no-ff` in a temporary checkout of the integration branch, emits `unit.merged`, then continues the mission through `runMission({ resume })`: same integration branch, no new mission.created or plan events, wave numbers and spend carried over (so `budgetCents` covers the whole mission), and a second `mission.finished` with `resumed: true`. No new event types, so existing readers keep working.
+- Dependents revived are the blocked ones downstream of the approved unit, unless they also sit downstream of a unit that failed or is still held. A mission that ended stopped or budget-paused only gets the merge, no new work.
+- Reject emits `unit.failed` with reason `rejected`; dependents stay blocked.
+- Open for Codex when wiring the route: approving while the mission is still running returns `mission_running`; the engine does not yet pick up a decision mid-run.
+## Pass without Docker: supervised subprocess with kill-tree (2026-11-18)
+
+- The pass already ran the checks in a clean detached worktree of the unit branch, with check configuration (locked paths) read from the integration branch. What was missing was a real timeout: `child.kill()` on Windows only killed the cmd.exe wrapper, so a hung check and its children lived on and held the pipes, which could hang the pass forever.
+- `runCommand` now kills the whole tree on timeout (`taskkill /T /F` on Windows, retried because it goes through WMI and can fail under load; the process group on POSIX), returns exit code 124 with "timed out after Ns and was killed", and always settles. `PassInput.commandTimeoutMs` sets the limit (default 10 minutes).
+- Programs start directly so a kill reaches the real program. On Windows, `.cmd` shims (pnpm, tsc, vitest, eslint...) cannot start that way, so a direct start that fails with ENOENT is retried through cmd.exe (same in the SdkStationRunner command runner). Argument rules (no shell characters) are unchanged.
+- Known limit: a process that starts a grandchild at the instant of the kill, or a taskkill that keeps failing, can leave an orphan. Real containment on Windows is a Job Object with kill-on-close, which belongs in the Rust core (see BULLETIN.md).
+## GitHub Actions: Windows CI and unsigned release (2026-11-18)
+
+- `.github/workflows/ci.yml` replaces the parked Ubuntu workflow on branch `ci-workflow`: it runs on `windows-latest` (the spec's first target) and calls `pnpm run verify`, the one check for the whole repo, so CI cannot drift from what stations and the gate run. A second job runs `cargo check` on `src-tauri/` and does nothing until that folder exists. Only first-party actions plus `pnpm/action-setup`, `dtolnay/rust-toolchain`, `Swatinem/rust-cache` and `tauri-apps/tauri-action`, referenced by major tag.
+- `.github/workflows/release.yml` builds MSI and NSIS installers on version tags (or by hand), attaches them to a draft release, and is unsigned; it skips with a warning until `src-tauri/tauri.conf.json` exists. It builds the sidecar with `node scripts/build-sidecar.mjs` (queue task 5), which also does not exist yet.
+- No new dependencies; secrets (signing) are only mentioned in comments, never written.
