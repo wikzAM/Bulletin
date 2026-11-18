@@ -33,7 +33,7 @@ it("proxies Fastify requests and replays and follows mission events over stdio",
       windowsHide: true,
     });
     const exited = once(child, "close");
-    const timeout = setTimeout(() => child.kill(), 60_000);
+    const timeout = setTimeout(() => child.kill(), 120_000);
     const output = createInterface({ input: child.stdout });
     const frames = output[Symbol.asyncIterator]();
     let stderr = "";
@@ -88,4 +88,4 @@ it("proxies Fastify requests and replays and follows mission events over stdio",
     await rmdir(data);
     await rmdir(directory);
   }
-}, 65_000);
+}, 125_000);

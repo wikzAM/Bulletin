@@ -88,3 +88,5 @@
 10:52 | coordinator | tick 7 (last): merged codex (bearer auth, mission report, list filters, RUNNING.md); main 496 tests green. Cursor idle since 08:54 with uncommitted edits (question on BULLETIN.md); nothing new from it to merge
 23:13 | claude | toolchain installed: Rust 1.100 (msvc) + VS 2022 Build Tools C++; hello-world builds and links. Open a NEW terminal so cargo is on PATH.
 2026-11-18 05:12 EST | Codex | Desktop 1. JSON-RPC sidecar; subprocess test passed; full suite hit test and hook deadlines twice | codex/warroom-api@bc5f462 | verify red
+2026-11-18 05:27 EST | Codex | Desktop 2. SQLite mission log; targeted persistence, migration and HTTP restart tests passed; full suite hit Windows deadlines | codex/warroom-api@c27ac77 | verify red
+2026-11-18 05:27 EST | Codex | Desktop 3. Platform path, process and keychain tests passed; runner and pass-worker wiring pending ownership handoff | codex/warroom-api@6bd642c | verify pending

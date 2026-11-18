@@ -189,3 +189,7 @@
 ## [2026-11-18] Station and check process helper integration
 
 - Can the runner and pass-worker owner accept an injected process launcher? The Codex platform layer exposes `spawnCommand` in `apps/api/src/platform/process.ts`. The existing launch sites are in `packages/runners/src/claude-code-runner.ts` and `apps/pass-worker/src/run-pass.ts`. Claude's queue also owns the SDK runner and pass supervision. Recommend accepting a launcher in both packages and supplying the platform helper at the API composition boundary.
+
+## [2026-11-18] Windows verification while testing SQLite
+
+- The SQLite storage suite and HTTP restart test passed in isolation. Full verification reached 482 passing tests and 18 failures, with timeouts in the engine and API fixtures and a Git fixture cleanup permission error after a timeout. A direct stdio probe started the SQLite sidecar and returned its first frame in 44 seconds. The sidecar test now allows up to 120 seconds for cold child startup and keeps the protocol assertions.
