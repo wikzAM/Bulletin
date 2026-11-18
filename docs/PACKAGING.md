@@ -95,3 +95,35 @@ executable's own folder. The packaged app always sets `BULLETIN_RESOURCE_DIR`, w
   the fix; until then, keep the installer unsigned warning in the release notes.
 - **Size.** About 90 MB per installer for the runtime. Shrinking it means a different runtime, not a
   different bundler.
+
+## Build log: the first debug build (2026-11-18, Windows 11, Node 24, Rust 1.100)
+
+Every result of getting `tauri build` to produce an installer, in the order it happened.
+
+| Step | Command | Result |
+| --- | --- | --- |
+| 1 | `cargo check --locked` in `src-tauri` | Passed, 6 min 27 s cold (about 400 crates). No Rust errors, no changes needed. |
+| 2 | `cargo test --locked` | First attempt failed: "Could not resolve host: static.crates.io" while downloading the dev-dependency `tempfile`, which `cargo check` does not need. A retry compiled it. A second retry under the shell's 280 s limit was killed (exit 143, only slow). Run to completion in the background it passed: 3 tests (two supervisor tests that reap a process tree, one sidecar restart test). |
+| 3 | `pnpm run lint` | Failed after the Rust build: eslint read generated `src-tauri/target/debug/build/**/__global-api-script.js`. Fixed by `--ignore-pattern "src-tauri/target/**"` in the root `lint` script. |
+| 4 | `pnpm run sidecar:prepare` | Passed. 97 MB `src-tauri/binaries/bulletin-sidecar-x86_64-pc-windows-msvc.exe`. Prints `warning: The signature seems corrupted!` (node.exe's own signature no longer matches; harmless). |
+| 5 | `pnpm run tauri:build -- --debug` | Failed after the frontend build: `error: unexpected argument '--debug' found`. pnpm forwards the `--` as well, so the Tauri CLI passes `--debug` on to `cargo build`. **Use `pnpm run tauri:build --debug`** (no `--`), or `pnpm exec tauri build --debug`. |
+| 6 | `pnpm run tauri:build --debug` | Passed, about 5 minutes including the 8 s frontend build and 2 min 5 s of Rust. Tauri downloaded NSIS 3.13, its `nsis_tauri_utils` plugin and WiX 3.14 from github.com on first use (hash-checked), so the first build needs internet. |
+
+### Result
+
+Unsigned installers (debug profile, so `debug_assertions` is on):
+
+- `src-tauri/target/debug/bundle/nsis/Bulletin_0.1.0_x64-setup.exe` (25.0 MiB)
+- `src-tauri/target/debug/bundle/msi/Bulletin_0.1.0_x64_en-US.msi` (37.4 MiB)
+
+The release profile (`pnpm run tauri:build`) has not been run. I did not install either installer.
+
+### Running the built app headlessly
+
+I ran `src-tauri/target/debug/bulletin-desktop.exe` itself (not an installed copy) with `BULLETIN_SIDECAR_PATH` pointing at the prepared executable, `BULLETIN_RESOURCE_DIR` at the repository and `BULLETIN_DATA_DIR` at an empty scratch folder. After 25 seconds there was one `bulletin-desktop` process and, started 6 seconds after it, one `bulletin-sidecar` child. The data folder contained `events.sqlite` and `scratch`, written by the sidecar. I stopped the app by its process id; both processes were gone 6 seconds later (the Job Object took the sidecar with it). A window did open briefly.
+
+What this does not show: a debug build with `debug_assertions` starts the sidecar from source (`node --import tsx apps/sidecar/src/main.ts`) unless `BULLETIN_SIDECAR_PATH` is set, because `apps/sidecar` has no `package.json`; the bundled `bulletin-sidecar.exe` next to the app is only used by the release profile. The packaged path (release build, installer, bundled sidecar finding `config/` through the resource directory) is untested.
+
+### Signing
+
+None of this is signed. Windows SmartScreen will warn when the installers are run. Signing needs a code-signing certificate, which does not exist yet; when it does, keep it in repository secrets, never in a file, and sign both `bulletin-sidecar.exe` and the installers in the release workflow (draft: `docs/ci-drafts/release.yml`).

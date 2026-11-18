@@ -270,3 +270,12 @@
 - recommendation: (a). Same situation as the earlier entries for esbuild, postject and the provider SDKs, which were merged as is.
 - working default: (a); carrying on with the parts of task 16-19 that do not depend on the answer
 - status: open
+
+## [2026-11-18 12:28] GATE: same failure came back twice
+- check: `pnpm run verify`
+- last output:
+```
+RED touched a locked file: pnpm-lock.yaml
+```
+- status: open
+- note (claude, 2026-11-18): this is the pnpm-lock.yaml change for @tauri-apps/cli, logged above. The coordinator accepted the generated lockfile diff (message to this session) and will resolve the entry on merge. Nothing to do on the branch.

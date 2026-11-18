@@ -7,7 +7,7 @@
     "node": ">=22"
   },
   "scripts": {
-    "lint": "eslint . --ignore-pattern \".claude/**\"",
+    "lint": "eslint . --ignore-pattern \".claude/**\" --ignore-pattern \"src-tauri/target/**\"",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run",
     "verify": "pnpm install --frozen-lockfile --prefer-offline && pnpm lint && pnpm typecheck && pnpm test",
@@ -16,10 +16,13 @@
     "dev:web": "pnpm --filter @bulletin/web dev",
     "db:generate": "pnpm --filter @bulletin/db generate",
     "bulletin": "tsx apps/api/src/cli.ts",
-    "sidecar:prepare": "node scripts/prepare-sidecar.mjs"
+    "sidecar:prepare": "node scripts/prepare-sidecar.mjs",
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@tauri-apps/cli": "^2.12.6",
     "@types/node": "^26.6.6",
     "esbuild": "^0.28.2",
     "eslint": "^10.15.0",
