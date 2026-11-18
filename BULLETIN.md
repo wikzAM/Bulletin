@@ -220,6 +220,7 @@
 ## [2026-11-18] Coordinator log append conflicted during refresh
 
 - Merging `main` at `02e111b` into `codex/warroom-api` conflicted in `docs/board/log.md` because both branches appended records. I aborted the merge per the Worker loop. The coordinator can preserve both sets of entries during integration. The queue on `main` contains the same six desktop tasks.
+
 ## [2026-11-18] pnpm-lock.yaml changed for @modelcontextprotocol/sdk
 - question: Queue task 1 adds @modelcontextprotocol/sdk to packages/bulletin-mcp. `pnpm add` rewrote pnpm-lock.yaml (needed, because verify installs with --frozen-lockfile). OK to merge that lockfile diff?
 - options: (a) merge as is; (b) regenerate the lockfile on main after merging
@@ -246,4 +247,5 @@
 - question: `pnpm --filter desktop test` runs vitest with the root config from inside apps/desktop, so its include globs match nothing (exit 1). The root `pnpm test` does run the 219 desktop tests.
 - options: (a) Cursor changes the script to run from the repo root or adds a package-level vitest config; (b) leave it and rely on the root run
 - recommendation: (a), a one-line fix in apps/desktop/package.json (Cursor owns it). Added to Cursor's queue.
-- status: open
+- status: resolved. Added `apps/desktop/vitest.config.ts` with `test/**/*.test.ts`; script uses `--config ./vitest.config.ts`. `pnpm --filter @bulletin/desktop test` → 219 passed.
+
