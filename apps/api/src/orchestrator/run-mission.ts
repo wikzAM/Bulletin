@@ -232,7 +232,8 @@ export async function runMission(options: MissionOptions): Promise<MissionReport
 
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       if (stopped()) {
-        lastReason = "stopped";
+        // A preflight pause is not a failure: the unit waits for the budget decision (see below).
+        lastReason = preflightPaused && options.signal?.aborted !== true && !budgetStop.signal.aborted ? "budget paused" : "stopped";
         break;
       }
       const tier = attemptTier(unit.tier, attempt, lastReason);
@@ -241,7 +242,8 @@ export async function runMission(options: MissionOptions): Promise<MissionReport
       // Treasury preflight (spec section 12): spent + reserved + this attempt's estimate must fit the budget.
       // Checked and reserved in one synchronous step, so attempts starting together cannot all slip under it.
       const attemptKey = `${unit.id}#${attempt}`;
-      const estimate = attemptEstimateCents({ tier, estimate: unit.estimate }, model, options.prices, options.calibration);
+      // Without a budget there is nothing to check, so nothing is priced (an unpriced model must not stop a free-running mission).
+      const estimate = options.budgetCents === undefined ? 0 : attemptEstimateCents({ tier, estimate: unit.estimate }, model, options.prices, options.calibration);
       if (options.budgetCents !== undefined) {
         const reserved = reservations.total();
         const cap = capCheck({ budgetCents: options.budgetCents, spentCents: spent, reservedCents: reserved, nextEstimateCents: estimate });
@@ -362,10 +364,11 @@ export async function runMission(options: MissionOptions): Promise<MissionReport
       if (afterRed(attempt, maxAttempts) === "fail") break;
     }
 
-    if (lastReason === "budget paused" && !attempts.some((a) => a.unitId === unit.id)) {
-      // Nothing of this unit ever ran: it waits for the budget decision instead of counting as failed.
+    if (lastReason === "budget paused") {
+      // The budget, not the work, stopped this unit (before its first attempt or before a send-back retry):
+      // it waits for the budget decision instead of counting as failed for good.
       statuses[unit.id] = "blocked";
-      await emit("unit.blocked", unit.id, { reason: "budget_paused" });
+      await emit("unit.blocked", unit.id, { reason: "budget_paused", attempts: attempts.filter((a) => a.unitId === unit.id).length });
       await block(unit.id);
       return;
     }
