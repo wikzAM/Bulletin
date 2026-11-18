@@ -340,9 +340,12 @@ approval is absent. Unusable timestamps yield `null`.
 ## `GET /missions/:id/events?after=<event id>`
 
 Returns `200 OK` with `Content-Type: text/event-stream; charset=utf-8`.
-The stream replays the mission's events in ascending ID order, then follows new
-events until the client disconnects or the server closes. Event IDs are global
-to the log, so gaps are expected within a single mission.
+The stream replays the mission's events in ascending ID order and follows a
+running mission until it finishes or the connection closes. A finished mission
+replays its available history and closes the stream. When a finished mission has
+no events after the cursor, the route returns `204 No Content`. This ends browser
+reconnection once the client has received the final event. Event IDs are global to the log,
+so gaps are expected within a single mission.
 
 The cursor is exclusive. Omit `after` to replay from the beginning. On browser
 reconnect, a nonempty `Last-Event-ID` header takes precedence over the query

@@ -2,6 +2,7 @@ import { LaneSchema, type BulletinEvent, type EventType, type Lane, type UnitSta
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import type { EventLog } from "../store/event-log";
+import type { MissionEventFeed } from "./mission-event-feed";
 import { registerMissionEventStream } from "./mission-events";
 import { readLedgerCharge, readMissionBudget, roundCents } from "./mission-ledger";
 import { validateIdParams } from "./request-validation";
@@ -215,7 +216,7 @@ function finishedReport(events: readonly BulletinEvent[], created: BulletinEvent
   };
 }
 
-export function registerMissionRoutes(app: FastifyInstance, log: EventLog): void {
+export function registerMissionRoutes(app: FastifyInstance, log: EventLog, feed?: MissionEventFeed): void {
   app.get("/missions", async (request, reply) => {
     const filters = missionListQuery.safeParse(request.query);
     if (!filters.success) return reply.code(400).send({ error: "Invalid request" });
@@ -262,5 +263,5 @@ export function registerMissionRoutes(app: FastifyInstance, log: EventLog): void
     return finishedReport(events, created, finished);
   });
 
-  registerMissionEventStream(app, log);
+  registerMissionEventStream(app, log, feed);
 }
