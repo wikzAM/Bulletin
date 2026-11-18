@@ -211,3 +211,9 @@ Desktop project page layout: spending meter top-right, decisions in a sticky rig
 - Selection is `BULLETIN_PROVIDER` = `anthropic` (default) or `bedrock`. An unknown value throws an error that names the variable, never the value. No credential value is read by Bulletin: each SDK reads its own environment, and `missingCredentialNames` reports names only.
 - The abort signal is passed as the SDK's per-request option, never in the JSON body. Usage is mapped explicitly to core's `Usage`, with absent or null cache counts as 0. Block types the station loop does not model (thinking and others) are dropped.
 - Bedrock ids: `anthropic.<id from config>`, with an optional `providers.bedrock.models` map in `ModelsConfigSchema` for ids that differ. Open question on BULLETIN.md; config/models.json is untouched.
+
+## 2026-11-18, claude/general: provider on the ledger, fare calibration (queue task 8)
+
+- Usage events from runners carry an optional `provider`. `runMission` copies it onto the `LedgerRow` and into the `ledger.charged` payload (`LedgerChargedPayload` in core). A runner that does not say gets `"unknown"` (`PROVIDER_UNKNOWN`), not a guess: the Claude Code runner is left unset because the CLI can be pointed at any provider. The stub reports `"stub"`, Managed Agents `"anthropic"`, the station runner its `ModelClient.provider`.
+- The existing payload fields are unchanged; `provider` is added beside them, so readers of `cost_cents` keep working.
+- `calibrate(estimates, actuals)` lives in `packages/graph/src/calibrate.ts`, not in `apps/api/src/treasury` (not mine). It returns actual/estimated per tier, adding up several ledger rows per unit, ignoring tiers with a zero estimate and units that never ran, and clamping to 0.25-4 so one odd mission cannot swing the next fare. `applyCalibration` scales a Fare's `perUnit`. Wiring it into `fareEstimate` and persisting the factors is for the treasury owner; nothing calls it yet.

@@ -12,6 +12,8 @@ export interface StubStep {
   delayMs?: number;
   /** Usage to report. Default: 1000 input and 100 output tokens. */
   usage?: Partial<Usage>;
+  /** Provider to report on the usage event. Default "stub". */
+  provider?: string;
   /** Fail the attempt with this error instead of finishing. */
   error?: string;
 }
@@ -63,6 +65,7 @@ export class StubRunner implements Runner {
     yield {
       type: "usage",
       model: input.model,
+      provider: step.provider ?? "stub",
       usage: { input_tokens: 1000, output_tokens: 100, cache_read_tokens: 0, cache_write_tokens: 0, ...step.usage },
     };
 

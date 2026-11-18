@@ -66,3 +66,15 @@ export class MemoryEventLog implements EventSink {
     return full;
   }
 }
+
+/** Provider recorded on a ledger row when the runner did not say who served the call. */
+export const PROVIDER_UNKNOWN = "unknown";
+
+/** Payload of a `ledger.charged` event: one model call charged to a unit. */
+export interface LedgerChargedPayload {
+  attempt: number;
+  model: string;
+  /** Who served the call: "anthropic", "bedrock", ... or "unknown". */
+  provider: string;
+  cost_cents: number;
+}

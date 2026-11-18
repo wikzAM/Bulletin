@@ -227,7 +227,7 @@ export class SdkStationRunner implements Runner {
       }
 
       const cost = costOf?.(input.model, response.usage);
-      yield { type: "usage", model: input.model, usage: response.usage, ...(cost === undefined ? {} : { costCents: cost }) };
+      yield { type: "usage", model: input.model, provider: model.provider, usage: response.usage, ...(cost === undefined ? {} : { costCents: cost }) };
       if (cost !== undefined) spentCents += cost;
 
       messages.push({ role: "assistant", content: response.content });

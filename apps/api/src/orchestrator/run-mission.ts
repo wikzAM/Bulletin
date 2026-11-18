@@ -5,9 +5,11 @@ import {
   DEFAULT_LIMITS,
   LanesConfigSchema,
   MemoryEventLog,
+  PROVIDER_UNKNOWN,
   validatePlan,
   type EventSink,
   type LanesConfig,
+  type LedgerChargedPayload,
   type PassVerdict,
   type Plan,
   type PricesConfig,
@@ -78,6 +80,8 @@ export interface LedgerRow {
   attempt: number;
   role: "station";
   model: string;
+  /** Who served the call (the runner reports it); "unknown" when it did not. */
+  provider: string;
   usage: Usage;
   costCents: number;
 }
@@ -250,11 +254,12 @@ export async function runMission(options: MissionOptions): Promise<MissionReport
             attempt,
             role: "station",
             model: event.model,
+            provider: event.provider ?? PROVIDER_UNKNOWN,
             usage: event.usage,
             costCents: event.costCents ?? costCents(event.model, event.usage, options.prices),
           };
           ledger.push(row);
-          await emit("ledger.charged", unit.id, { attempt, model: row.model, cost_cents: row.costCents });
+          await emit("ledger.charged", unit.id, { attempt, model: row.model, provider: row.provider, cost_cents: row.costCents } satisfies LedgerChargedPayload);
           spent += row.costCents;
           if (options.budgetCents !== undefined && spent >= options.budgetCents && !budgetStop.signal.aborted) {
             await emit("budget.paused", unit.id, { spent_cents: spent, budget_cents: options.budgetCents });
