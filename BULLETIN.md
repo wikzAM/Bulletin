@@ -286,3 +286,7 @@ RED touched a locked file: pnpm-lock.yaml
 - recommendation: (c) for a fully clean proof, otherwise (a) with the baseline comparison. It is user-level and reversible, but it is a change to the user's machine and not mine to decide.
 - working default: (b); everything else continues
 - status: open
+
+## [2026-11-18] Bedrock keychain value at sidecar launch
+
+- The shared API application now honors `BULLETIN_PROVIDER` for the General, Interviewer, and Answerer. The first-run screen stores a Bedrock bearer as `AWS_BEARER_TOKEN_BEDROCK`. Include that variable in the native sidecar launch allowlist during the builder's keychain task so the saved value reaches the provider SDK at spawn time.
