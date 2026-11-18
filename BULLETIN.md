@@ -241,3 +241,9 @@
 - working default: (a)
 - status: open
 
+
+## [2026-11-18] apps/desktop `test` script finds no test files
+- question: `pnpm --filter desktop test` runs vitest with the root config from inside apps/desktop, so its include globs match nothing (exit 1). The root `pnpm test` does run the 219 desktop tests.
+- options: (a) Cursor changes the script to run from the repo root or adds a package-level vitest config; (b) leave it and rely on the root run
+- recommendation: (a), a one-line fix in apps/desktop/package.json (Cursor owns it). Added to Cursor's queue.
+- status: open

@@ -112,3 +112,4 @@
 08:00 | cursor | 5. window feel: title bar, shortcuts, window settings store (localStorage mock) | cursor/web-shell@e5dffc6 | desktop tests+typecheck+build green
 08:02 | cursor | 6. mark apps/web README as legacy; desktop is the product UI | cursor/web-shell@59ef483 | docs only
 
+09:06 | coordinator | tick 11: merged codex (held-unit decisions through the engine) and cursor (squashed: apps/desktop with Vite+React+Tailwind+React Flow, HTTP and Tauri transports, war table, title bar). main: lint+typecheck clean, 570 tests (desktop, web, packages) green, desktop build ok. Note: apps/desktop's own 'test' script finds no files (root vitest config run from the package dir); root run covers it. Queues have 5-6 open tasks each.

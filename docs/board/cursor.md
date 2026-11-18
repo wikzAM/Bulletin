@@ -7,3 +7,4 @@ Commit what you have in apps/web first (tasks 24-26 of the old queue are cancell
 - [x] 4. War table extras from spec section 13: couriers animation on question/answer events, treasury meter top right, decision inbox as a right drawer, bulletin feed along the bottom, and the receipt on mission.finished. Respect prefers-reduced-motion.
 - [x] 5. Window feel: desktop layout first (no phone-only patterns), keyboard shortcuts, native-looking title area, remember window size via a settings store behind the transport (mock in browser).
 - [x] 6. When apps/desktop reaches parity, delete nothing: mark apps/web as legacy in apps/web/README.md. I will retire it.
+- [ ] 7. (coordinator) Fix `pnpm --filter desktop test` (finds no files from inside apps/desktop): add apps/desktop/vitest.config.ts or change the script so it runs the 219 desktop tests; do not edit the root vitest.config.ts.
