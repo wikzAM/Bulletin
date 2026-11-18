@@ -7,6 +7,17 @@ Multiple requests can be in flight. Close stdin to shut down the sidecar.
 
 From the repository root, launch it with `pnpm exec tsx apps/sidecar/src/main.ts`.
 
+## Desktop flow test
+
+Run `pnpm exec vitest run apps/sidecar/src/desktop-flow.test.ts` to drive the
+stdio bridge through a complete mission with a fake model and a `StubRunner`.
+The test creates a temporary Git repository and uses local subprocesses.
+
+On Windows, `pnpm exec tsx apps/sidecar/src/test-fixtures/build-desktop-flow.ts`
+builds an executable with the same fixture using the sidecar packaging code.
+Set `BULLETIN_SIDECAR_PATH` to the printed executable path and run the test
+again to check the packaged fixture.
+
 ## Tauri desktop bridge
 
 The desktop frontend can call `invoke("rpc", { method, params })` with the
