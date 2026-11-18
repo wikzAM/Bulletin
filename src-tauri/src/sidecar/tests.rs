@@ -49,3 +49,33 @@ fn available(sidecar: &Sidecar) -> Value {
         }
     }
 }
+
+#[test]
+fn restart_replaces_the_process_and_fails_calls_in_flight() {
+    let script = r#"
+        require('node:readline').createInterface({input: process.stdin}).on('line', line => {
+            const { id, method } = JSON.parse(line);
+            if (method === 'hang') return;
+            console.log(JSON.stringify({ jsonrpc: '2.0', id, result: process.pid }));
+        });
+    "#;
+    let build_command = move || {
+        let mut command = Command::new("node");
+        command.args(["-e", script]);
+        command
+    };
+    let sidecar = std::sync::Arc::new(Sidecar::start(build_command, |_| {}).unwrap());
+    let first = available(&sidecar);
+
+    let waiting = {
+        let sidecar = std::sync::Arc::clone(&sidecar);
+        thread::spawn(move || sidecar.call("hang".into(), None))
+    };
+    thread::sleep(Duration::from_millis(300));
+    sidecar.restart();
+    assert_eq!(waiting.join().unwrap().unwrap_err().code, -32000);
+
+    let second = available(&sidecar);
+    assert_ne!(first, second);
+    sidecar.shutdown();
+}
