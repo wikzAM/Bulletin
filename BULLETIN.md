@@ -185,3 +185,7 @@
 ## [2026-11-18] Full verification timed out during sidecar work
 
 - Can the coordinator stagger full verification across worktrees when the machine is low on memory? The sidecar subprocess test passed. Two full runs reached Vitest after passing locked install, lint, and typecheck. The serial run finished with 484 tests passed and 13 timeouts in existing engine and API route tests. The sidecar implementation is available at `bc5f462` for the next full verification.
+
+## [2026-11-18] Station and check process helper integration
+
+- Can the runner and pass-worker owner accept an injected process launcher? The Codex platform layer exposes `spawnCommand` in `apps/api/src/platform/process.ts`. The existing launch sites are in `packages/runners/src/claude-code-runner.ts` and `apps/pass-worker/src/run-pass.ts`. Claude's queue also owns the SDK runner and pass supervision. Recommend accepting a launcher in both packages and supplying the platform helper at the API composition boundary.

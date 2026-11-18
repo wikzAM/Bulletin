@@ -1,9 +1,11 @@
 import { createInterface } from "node:readline";
 import { createApplication } from "../../api/src/application";
+import { EnvKeychain } from "../../api/src/platform/keychain";
 
 type RpcId = string | number | null;
 type Application = Awaited<ReturnType<typeof createApplication>>;
 type Subscription = { missionId: string; after: number; index: number };
+const keychain = new EnvKeychain();
 
 class RpcError extends Error {
   constructor(readonly code: number, message: string) {
@@ -35,7 +37,7 @@ async function proxy(app: Application["app"], params: Record<string, unknown>) {
     typeof path !== "string" || !path.startsWith("/") || path.startsWith("//") || /[\r\n#]/.test(path)) {
     throw new RpcError(-32602, "Expected an HTTP method and a root-relative API path");
   }
-  const token = process.env.BULLETIN_API_TOKEN;
+  const token = await keychain.getSecret("BULLETIN_API_TOKEN");
   const response = await app.inject({
     method: method.toUpperCase(),
     url: path,
