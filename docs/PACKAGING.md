@@ -124,6 +124,32 @@ I ran `src-tauri/target/debug/bulletin-desktop.exe` itself (not an installed cop
 
 What this does not show: a debug build with `debug_assertions` starts the sidecar from source (`node --import tsx apps/sidecar/src/main.ts`) unless `BULLETIN_SIDECAR_PATH` is set, because `apps/sidecar` has no `package.json`; the bundled `bulletin-sidecar.exe` next to the app is only used by the release profile. The packaged path (release build, installer, bundled sidecar finding `config/` through the resource directory) is untested.
 
+### First-run methods through the packaged sidecar (2026-11-18, queue task 24)
+
+After `pnpm run sidecar:prepare` (so the executable includes `env.check`, `repo.inspect`, `settings.*` and `secret.*`), I
+checked it two ways. Both used a scratch data folder; nothing outside it was written, and no secret was set or printed.
+
+1. **The packaged executable alone, over stdio**, with the repository's own client (`packages/packaging/src/sidecar-client.ts`)
+   sending the same frames the Tauri `rpc` command forwards. Results, in shape: `health` ok; `env.check` returned
+   `git.found: true`, `claude.found: true`, `claude.logged_in: true`, `provider: { id: "claude-code", ready: true, env: {} }`;
+   `repo.inspect` of the repository reported it as a repository on its branch, and of an empty scratch folder reported
+   `is_repo: false` (with `root` naming the enclosing repository, because this machine's home folder is itself a repository);
+   `settings.set` then `settings.get` round-tripped; `secret.has` answered `present: false`; a name outside the allowlist
+   gave `-32602`, an unknown method `-32601`; closing stdin ended it with exit code 0.
+2. **The built desktop app, through its own webview.** I started `src-tauri/target/debug/bulletin-desktop.exe` (a debug build with
+   the frontend embedded, made with `cargo build --features tauri/custom-protocol`; not an installed copy, and not the
+   release profile) with `BULLETIN_SIDECAR_PATH` set to the packaged executable and WebView2's remote debugging port bound to
+   127.0.0.1. From the page (`http://tauri.localhost/`) I called `window.__TAURI_INTERNALS__.invoke("rpc", ...)`, which is
+   what the first-run screen's `probeEnvironment` does. `env.check` came back through Rust's `rpc` command and the packaged
+   sidecar with the same result as in (1); `health`, `request GET /health` and `settings.get` worked; an unknown method
+   rejected with `{ code: -32601, message: "Method not found" }`; `secret_has` (a read) returned `false`; `secret_set` with a
+   name outside the allowlist was refused with "Unknown secret name". I stopped the app by its process id; its sidecar was gone
+   8 seconds later.
+
+What this does not show: the first-run screen itself was not driven (the page's controls were not clicked), a real
+`secret_set` (which would write the user's Credential Manager and restart the sidecar) was not run, and the release profile
+with the installed layout still uses the earlier mirrored-layout test.
+
 ### Signing
 
 None of this is signed. Windows SmartScreen will warn when the installers are run. Signing needs a code-signing certificate, which does not exist yet; when it does, keep it in repository secrets, never in a file, and sign both `bulletin-sidecar.exe` and the installers in the release workflow (draft: `docs/ci-drafts/release.yml`).
