@@ -460,8 +460,11 @@ already exist. Returns `201 Created` with the question.
 }
 ```
 
-The mission stream receives `dispatch.asked` with `question_id` and `body`,
-then `decision.opened` with `kind: "question"` and `question_id`.
+The mission stream receives `dispatch.asked` with `question_id` and `body`.
+A matching cached answer for the current Briefing version returns an answered
+question with `source: "cache"` and `briefing_ref`. It also publishes
+`dispatch.answered`. A question that needs a human answer publishes
+`decision.opened` with `kind: "question"` and `question_id`.
 
 ## `POST /questions/:id/answer`
 
@@ -474,6 +477,12 @@ A question with an answer returns `409 Conflict` with
 
 The mission stream receives `dispatch.answered` with `question_id` and `answer`,
 then `decision.resolved` with `kind: "question"` and `question_id`.
+
+For a mission with a completed Briefing, the answer also appends one line to
+the Decisions log and publishes a `briefing.versioned` event with the next
+version and its Markdown. That version caches the answer for the same
+normalized question. A station waiting on the question receives the answer
+through `bulletin_wait`.
 
 ## `POST /questions/:id/auto-answer`
 
