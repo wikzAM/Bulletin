@@ -20,7 +20,7 @@ Every acceptance box of the milestone in flight is proven by an automated test o
 - War table API (Codex) and web shell (Cursor) are merged; main verify is 496 tests. The API covers Briefing interview, plan, approve, stop, treasury, questions, decisions, rules, report, bearer auth, restart recovery. The engine enforces a hard mission budget and a stop signal. A full run through the HTTP API (General, station, merge) was verified live for $0.144. Overnight coordination runs from `docs/board/`.
 - `graph.py` runs stations end to end now that `claude` is logged in (verified on a scratch repo). It needs `.workbench/` in `.gitignore`.
 - GitHub rejects `.github/workflows/*` until gh has the `workflow` scope; the CI commit waits on branch `ci-workflow`.
-- Docker Desktop will not start: stale socket entries in `%LOCALAPPDATA%\Docker\run` give access denied when removed (see BULLETIN.md). `docker compose up` is unverified.
+- Docker is no longer needed (spec: checks run without it). Rust + VS Build Tools are installed and verified (hello-world links).
 
 ## Next
 Nudge Cursor (tasks 24-26 undone, edits uncommitted in D:\wt-cursor); revoke the exposed API key; CI workflow (`gh auth refresh -s workflow`); Docker; engine resume for held units; open founder decisions on BULLETIN.md.
