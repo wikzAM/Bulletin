@@ -294,3 +294,7 @@ RED touched a locked file: pnpm-lock.yaml
 ## [2026-11-18] Integrated desktop verification on Windows
 
 - After syncing the desktop and provider integrations, full verification with the thread pool passed frozen install, lint, and typecheck. Vitest reported 905 passed, 12 failed, and 2 skipped by the existing suite. The failures were deadlines in the Git-backed engine and API fixtures, including cleanup errors after some timeouts. The new application provider test passed.
+
+## [2026-11-18] Tick 20 board append conflicts
+
+- Merging `main` at `7ff360d` into `codex/warroom-api` conflicted in `BULLETIN.md` and `docs/board/log.md`. I aborted the merge per the Worker loop. The provider test import fix is committed at `091428e`, with full lint and typecheck passing. The coordinator can preserve both branches' board records when integrating it.
