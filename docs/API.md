@@ -3,6 +3,9 @@
 Mission reads project the event log. A mission becomes visible after its
 `mission.created` event.
 
+The desktop sidecar uses the same JSON routes through `request` and delivers
+mission events through `subscribe`. See [Sidecar protocol](SIDECAR.md).
+
 ## Running the API
 
 From the repository root, run this command.
@@ -56,8 +59,8 @@ started in the same process, pass the same log to
 the engine's `events` option.
 
 `briefingStore` and `questionStore` override the state stores. `buildServer()`
-uses in-memory defaults. `serve.ts` uses JSONL for mission events and Briefing
-interviews. Question board entries reset with the in-memory store. Question
+uses in-memory defaults. The runnable API uses SQLite for mission events by
+default and JSONL for Briefing interviews. Question board entries reset with the in-memory store. Question
 dispatches and decisions remain available in the mission stream after a restart.
 The `readGit` option supplies the Git reader for mission rules and lessons.
 

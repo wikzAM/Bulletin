@@ -60,7 +60,8 @@ headless service. See [API reference](API.md).
 ```
 
 The sidecar relays the configured bearer token over its in-process connection
-to Fastify. Use `subscribe` for the mission event stream.
+to Fastify. Use `subscribe` for the stream provided by `GET /missions/:id/events`
+on the HTTP interface.
 
 ## `subscribe`
 
@@ -91,5 +92,5 @@ sent can still arrive before the response.
 - `-32700` for invalid JSON.
 - `-32600` for an invalid request envelope.
 - `-32601` for an unknown method.
-- `-32602` for invalid parameters or an SSE path sent through `request`.
+- `-32602` for invalid parameters or an event-stream response requested through `request`.
 - `-32603` for an internal failure.
