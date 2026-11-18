@@ -263,3 +263,10 @@
 - recommendation: (b) before the first Bedrock run. Until then a wrong id fails loudly at the first call, not silently.
 - working default: (a)
 - status: open
+
+## [2026-11-18] pnpm-lock.yaml changes again: @tauri-apps/cli (queue task 17)
+- question: Task 17 asks for `@tauri-apps/cli` as a root devDependency. `pnpm add -Dw` rewrote pnpm-lock.yaml (126 added lines, machine-written, additive), which the workbench gate reports as "touched a locked file". Reverting the lockfile would make package.json and the lockfile disagree, so `pnpm install --frozen-lockfile` (the first step of verify) would fail. I did not edit the file by hand.
+- options: (a) accept the generated lockfile diff with this branch; (b) drop the dependency and have the coordinator add it and regenerate the lockfile on main
+- recommendation: (a). Same situation as the earlier entries for esbuild, postject and the provider SDKs, which were merged as is.
+- working default: (a); carrying on with the parts of task 16-19 that do not depend on the answer
+- status: open
