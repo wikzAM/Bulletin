@@ -29,7 +29,8 @@ export interface BulletinStore {
  * `ask` returns an answer or a pending dispatch; `wait` blocks up to `timeout_s` for a pending one.
  */
 export interface Answerer {
-  ask(input: { unit_id: string; question: string; paths?: string[] }): Promise<AskResult>;
+  /** `dispatch_id` is the id of the question dispatch the server just posted; a pending result carries it. */
+  ask(input: { unit_id: string; question: string; dispatch_id: string; paths?: string[] }): Promise<AskResult>;
   wait(input: { dispatch_id: string; timeout_s: number }): Promise<AskResult>;
 }
 
@@ -99,8 +100,8 @@ export function createBulletinServer(options: BulletinServerOptions): McpServer 
         );
       }
       asked += 1;
-      await store.postDispatch({ unit_id, kind: "question", text: question });
-      return ok(await answerer.ask({ unit_id, question, ...(paths ? { paths } : {}) }));
+      const asked_as = await store.postDispatch({ unit_id, kind: "question", text: question });
+      return ok(await answerer.ask({ unit_id, question, dispatch_id: asked_as.id, ...(paths ? { paths } : {}) }));
     },
   );
 

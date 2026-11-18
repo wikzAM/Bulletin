@@ -197,3 +197,35 @@ Desktop project page layout: spending meter top-right, decisions in a sticky rig
 - `.github/workflows/release.yml` builds MSI and NSIS installers on version tags (or by hand), attaches them to a draft release, and is unsigned; it skips with a warning until `src-tauri/tauri.conf.json` exists. It builds the sidecar with `node scripts/build-sidecar.mjs` (queue task 5), which also does not exist yet.
 - No new dependencies; secrets (signing) are only mentioned in comments, never written.
 
+
+## 2026-11-18, claude/general: sidecar packaging (queue task 5)
+
+- Two root dev dependencies, `esbuild` and `postject`. esbuild was already in the lockfile through tsx and vite; making it direct lets `scripts/build-sidecar.mjs` import it under pnpm's strict layout. `postject` is Node's documented injector for single executable applications and the only way to inject a blob on Node 24 (`--build-sea` arrives later).
+- The sidecar becomes one executable with Node SEA, not `pkg` or a bundled Node plus `node_modules`: SEA is Node's own mechanism, needs no extra runtime, and keeps one process for Tauri to supervise.
+- The bundle is CommonJS because a SEA main script cannot be an ES module. `import.meta.url` and `import.meta.dirname` are defined to the executable's location; the packaged app sets `BULLETIN_RESOURCE_DIR` first.
+- The build fails on any esbuild warning, and the tests run the real executable, so a bundle that loads but misbehaves is caught.
+- `packages/packaging` exists only so the repo's vitest include pattern runs the build test; it has no dependencies.
+- The test that builds and runs the real 90 MB executable is skipped unless `BULLETIN_SIDECAR_EXE_TEST=1` (30-100 s here), because `pnpm run verify` must stay fast for every station and graph run. The esbuild bundle is still built and run with plain node in the default run, and the release workflow draft sets the variable. This is a new test of mine, not a weakened old one.
+
+## 2026-11-18, claude/general: provider layer (queue task 7)
+
+- `packages/models` owns the `ModelClient` seam (`complete`, plus a `provider` name) and its Messages-API-shaped request and response types. `SdkStationRunner` takes that type, so the station loop no longer defines its own and the old `create` method is now `complete` (the fakes in its tests were renamed, assertions unchanged). The runners package imports types only, never an SDK.
+- Two implementations behind it: first-party `@anthropic-ai/sdk` and Amazon Bedrock through `@anthropic-ai/bedrock-sdk` (new dependency; Messages-API Mantle client, `AnthropicBedrockMantle`). Only `packages/models/src/real.ts` imports either SDK, and bundling it with esbuild gives no warnings (about 2.9 MB), so the sidecar can include it.
+- Selection is `BULLETIN_PROVIDER` = `anthropic` (default) or `bedrock`. An unknown value throws an error that names the variable, never the value. No credential value is read by Bulletin: each SDK reads its own environment, and `missingCredentialNames` reports names only.
+- The abort signal is passed as the SDK's per-request option, never in the JSON body. Usage is mapped explicitly to core's `Usage`, with absent or null cache counts as 0. Block types the station loop does not model (thinking and others) are dropped.
+- Bedrock ids: `anthropic.<id from config>`, with an optional `providers.bedrock.models` map in `ModelsConfigSchema` for ids that differ. Open question on BULLETIN.md; config/models.json is untouched.
+
+## 2026-11-18, claude/general: provider on the ledger, fare calibration (queue task 8)
+
+- Usage events from runners carry an optional `provider`. `runMission` copies it onto the `LedgerRow` and into the `ledger.charged` payload (`LedgerChargedPayload` in core). A runner that does not say gets `"unknown"` (`PROVIDER_UNKNOWN`), not a guess: the Claude Code runner is left unset because the CLI can be pointed at any provider. The stub reports `"stub"`, Managed Agents `"anthropic"`, the station runner its `ModelClient.provider`.
+- The existing payload fields are unchanged; `provider` is added beside them, so readers of `cost_cents` keep working.
+- `calibrate(estimates, actuals)` lives in `packages/graph/src/calibrate.ts`, not in `apps/api/src/treasury` (not mine). It returns actual/estimated per tier, adding up several ledger rows per unit, ignoring tiers with a zero estimate and units that never ran, and clamping to 0.25-4 so one odd mission cannot swing the next fare. `applyCalibration` scales a Fare's `perUnit`. Wiring it into `fareEstimate` and persisting the factors is for the treasury owner; nothing calls it yet.
+
+## 2026-11-18, claude/general: the Bulletin answer pipeline and the M2 loop tests (queue tasks 9 and 10)
+
+- The queue assumed the answer pipeline existed; only the pieces around it did (the API's Briefing answerer, the MCP server). `packages/bulletin-mcp/src/pipeline.ts` is now the spec section 10 pipeline as a class implementing the server's `Answerer`: cache keyed by the normalized question plus the Briefing version, then at most two answerer rungs, then a decision. Everything it depends on is injected (Briefing storage, the rungs, an `onDecision` callback), so it needs no model. A real rung can wrap `answerFromBriefing` in apps/api; wiring the pipeline to the event log and the decision routes (`decision.opened` is emitted from `onDecision`, `decision.resolved` after `resolve`) is for whoever owns those routes.
+- An answer that cites a heading the Briefing does not have is treated as SILENT, as the spec says. The human answer is appended to `## Decisions log` as one flattened line, so it cannot start a new Briefing section; the new Briefing version is cached under the new version hash, and every dispatch waiting on the same question gets the answer.
+- A second identical unanswered question joins the first decision instead of opening another.
+- `Answerer.ask` now receives `dispatch_id`, the id of the question dispatch the server just posted, and a pending result carries it.
+- Two quoting layers protect dispatch text (a `> ` prefix on every line, and `<` escaped to `&lt;`). The injection test passes if either is intact and fails only when both are removed, which is deliberate defence in depth; each layer also has its own test.
+- New devDependencies of `packages/bulletin-mcp`: `@bulletin/core` (event log in tests) and `@bulletin/prompts` (the station prompt's rule is asserted).

@@ -2,48 +2,14 @@ import { spawn } from "node:child_process";
 import { mkdir, readdir, readFile, realpath, stat, writeFile } from "node:fs/promises";
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import type { Usage } from "@bulletin/core";
+import type { ContentBlock, ModelClient, ModelMessage, ModelResponse, ToolDefinition } from "@bulletin/models";
 import { buildPrompt } from "./claude-code-runner";
 import { addWorktree, git, type ExecResult } from "./git";
 import { attemptBranch, type AttemptHandle, type AttemptInput, type Runner, type RunnerEvent } from "./index";
 
-/* ---- The model seam. Shapes follow the Messages API, so the sidecar's adapter is a thin wrapper. ---- */
+/* ---- The model seam lives in @bulletin/models; re-exported so existing imports keep working. ---- */
 
-export type ContentBlock =
-  | { type: "text"; text: string }
-  | { type: "tool_use"; id: string; name: string; input: Record<string, unknown> }
-  | { type: "tool_result"; tool_use_id: string; content: string; is_error?: boolean };
-
-export interface ModelMessage {
-  role: "user" | "assistant";
-  content: string | ContentBlock[];
-}
-
-export interface ToolDefinition {
-  name: string;
-  description: string;
-  input_schema: Record<string, unknown>;
-}
-
-export interface ModelRequest {
-  model: string;
-  system: string;
-  messages: ModelMessage[];
-  tools: ToolDefinition[];
-  max_tokens: number;
-  /** Aborted when the attempt is cancelled. */
-  signal?: AbortSignal;
-}
-
-export interface ModelResponse {
-  content: ContentBlock[];
-  stop_reason: "end_turn" | "tool_use" | "max_tokens" | "stop_sequence" | "refusal" | string;
-  usage: Usage;
-}
-
-/** Injected. The sidecar wraps `@anthropic-ai/sdk` (or Bedrock); tests script it. */
-export interface ModelClient {
-  create(request: ModelRequest): Promise<ModelResponse>;
-}
+export type { ContentBlock, ModelClient, ModelMessage, ModelRequest, ModelResponse, ToolDefinition } from "@bulletin/models";
 
 /** Runs a program with an argument list, no shell chaining. Injected for tests. */
 export type CommandRunner = (argv: readonly string[], cwd: string, timeoutMs: number) => Promise<ExecResult>;
@@ -243,7 +209,7 @@ export class SdkStationRunner implements Runner {
       }
       let response: ModelResponse;
       try {
-        response = await model.create({
+        response = await model.complete({
           model: input.model,
           system,
           messages,
@@ -261,7 +227,7 @@ export class SdkStationRunner implements Runner {
       }
 
       const cost = costOf?.(input.model, response.usage);
-      yield { type: "usage", model: input.model, usage: response.usage, ...(cost === undefined ? {} : { costCents: cost }) };
+      yield { type: "usage", model: input.model, provider: model.provider, usage: response.usage, ...(cost === undefined ? {} : { costCents: cost }) };
       if (cost !== undefined) spentCents += cost;
 
       messages.push({ role: "assistant", content: response.content });

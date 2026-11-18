@@ -41,6 +41,11 @@ jobs:
       # Tauri bundles this as an external binary: bulletin-sidecar-x86_64-pc-windows-msvc.exe
       - if: steps.app.outputs.present == 'true'
         run: node scripts/build-sidecar.mjs
+      # The default test run skips building the 90 MB executable; the release proves it starts and answers health.
+      - if: steps.app.outputs.present == 'true'
+        run: pnpm exec vitest run packages/packaging
+        env:
+          BULLETIN_SIDECAR_EXE_TEST: "1"
       - if: steps.app.outputs.present == 'true'
         uses: tauri-apps/tauri-action@v0
         env:

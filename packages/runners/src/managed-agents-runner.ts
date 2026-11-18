@@ -72,7 +72,7 @@ export function mapManagedEvent(event: ManagedSessionEvent, model: string): Runn
         cache_read_tokens: Number(u.cache_read_input_tokens) || 0,
         cache_write_tokens: Number(u.cache_creation_input_tokens) || 0,
       };
-      return [{ type: "usage", model, usage }];
+      return [{ type: "usage", model, usage, provider: "anthropic" }];
     }
     default:
       return [];

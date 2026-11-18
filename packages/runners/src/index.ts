@@ -41,7 +41,7 @@ export interface AttemptHandle {
 export type RunnerEvent =
   | { type: "progress"; text: string }
   | { type: "tool_use"; tool: string; summary: string }
-  | { type: "usage"; model: string; usage: Usage; costCents?: number }
+  | { type: "usage"; model: string; usage: Usage; costCents?: number; /** Who served the model call ("anthropic", "bedrock"...). Recorded on the ledger; "unknown" when a runner does not say. */ provider?: string }
   | { type: "done"; ok: boolean; error?: string };
 
 /** Branch name for one attempt of one unit. */
