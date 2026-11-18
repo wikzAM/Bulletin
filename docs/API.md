@@ -26,17 +26,23 @@ Agents. The mission's local repository must be a clone of that sandbox
 repository. Startup warns by variable name when required configuration is
 missing. See [Managed Agents setup](MANAGED-AGENTS.md).
 
-The server stores mission events in `.bulletin-scratch/api/events.jsonl` and
-restores them at startup. Set `BULLETIN_SCRATCH_DIR` to use a different data and
-worktree directory. Relative values are resolved from the repository root.
-Each JSONL log rotates into numbered sibling files (`.1`, `.2`, and so on)
-when an append would take a nonempty segment past 16 MiB. Startup replays all
-segments in order and preserves previously written records. Run one API
-process per log. Recovery discards an incomplete final line in the active
-segment. Corruption in an archived segment stops startup with its location.
-At startup, every
-stored mission without a `mission.finished` event receives one with
-`payload.interrupted: true`. The mission's earlier events remain available.
+The API and sidecar store mission events in `events.sqlite` using Node 24's
+built-in SQLite driver. Set `BULLETIN_DATA_DIR` to override the directory.
+Defaults are `%LOCALAPPDATA%\Bulletin` on Windows,
+`~/Library/Application Support/Bulletin` on macOS, and
+`$XDG_DATA_HOME/Bulletin` or `~/.local/share/Bulletin` on Linux. Run one API
+or sidecar process per log.
+
+On first startup with an empty database, the server imports existing events
+from `.bulletin-scratch/api/events.jsonl` and its numbered segments. This
+preserves their IDs and timestamps. Set `BULLETIN_EVENT_STORE=jsonl` to use that
+legacy store. Set `BULLETIN_SCRATCH_DIR` to relocate JSONL logs and worktrees.
+Relative scratch paths resolve from the repository root. JSONL logs rotate at
+16 MiB into numbered sibling files. Recovery discards an incomplete final line
+in the active segment and reports the location of corruption in archived segments.
+
+At startup, every stored mission without a `mission.finished` event receives
+one with `payload.interrupted: true`. Its earlier events remain available.
 
 ## Server configuration
 

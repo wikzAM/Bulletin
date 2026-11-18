@@ -1,25 +1,34 @@
 import { spawn } from "node:child_process";
 import { once } from "node:events";
-import { mkdtemp, rm, rmdir } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, rmdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createInterface } from "node:readline";
 import { fileURLToPath } from "node:url";
 import { expect, it } from "vitest";
-import { JsonlEventLog } from "../../api/src/store/jsonl-event-log";
+import { SqliteEventLog } from "../../api/src/store/sqlite-event-log";
 
 it("proxies Fastify requests and replays and follows mission events over stdio", async () => {
   const directory = await mkdtemp(join(tmpdir(), "bulletin-sidecar-"));
   const data = join(directory, "api");
-  const path = join(data, "events.jsonl");
+  const path = join(directory, "events.sqlite");
   try {
-    const log = await JsonlEventLog.open(path);
-    await log.emit({ mission_id: "demo", type: "mission.created" });
-    const finished = await log.emit({ mission_id: "demo", type: "mission.finished" });
-    await log.close();
+    await mkdir(data);
+    const log = await SqliteEventLog.open(path);
+    const finished = await (async () => {
+      try {
+        await log.emit({ mission_id: "demo", type: "mission.created" });
+        return await log.emit({ mission_id: "demo", type: "mission.finished" });
+      } finally {
+        await log.close();
+      }
+    })();
 
     const child = spawn(process.execPath, ["--import", "tsx", fileURLToPath(new URL("main.ts", import.meta.url))], {
-      env: { ...process.env, BULLETIN_SCRATCH_DIR: directory, BULLETIN_RUNNER: "claude", BULLETIN_API_TOKEN: "fixture-token" },
+      env: {
+        ...process.env, BULLETIN_DATA_DIR: directory, BULLETIN_SCRATCH_DIR: directory,
+        BULLETIN_EVENT_STORE: "sqlite", BULLETIN_RUNNER: "claude", BULLETIN_API_TOKEN: "fixture-token",
+      },
       stdio: ["pipe", "pipe", "pipe"],
       windowsHide: true,
     });

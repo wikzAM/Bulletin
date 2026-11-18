@@ -2,7 +2,7 @@ import { existsSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { loadModelsConfig, loadPricesConfig } from "@bulletin/core";
 import { claudeModelCall } from "./general";
-import { runMission } from "./orchestrator/run-mission";
+import { appDataDirectory } from "./platform/paths";
 import { createGeneralCall } from "./routes/general-model";
 import { DEFAULT_UNIT_ALLOWANCE_CENTS } from "./routes/mission-ledger";
 import { allowedLocalCommands } from "./routes/mission-planning";
@@ -10,8 +10,8 @@ import { MemoryQuestionStore } from "./routes/questions-store";
 import { createRunnerFactory, missingManagedVariableNames } from "./routes/runner-selection";
 import { buildServer } from "./server";
 import { JsonlBriefingStore } from "./store/briefing-store";
-import { JsonlEventLog } from "./store/jsonl-event-log";
 import { recoverInterruptedMissions } from "./store/mission-recovery";
+import { openEventLog } from "./store/open-event-log";
 
 export async function createApplication() {
   const root = resolve(import.meta.dirname, "../../..");
@@ -35,7 +35,7 @@ export async function createApplication() {
   const interviewer = models.roles.interviewer;
   const answerer = models.roles.answerer;
 
-  const log = await JsonlEventLog.open(join(dataDirectory, "events.jsonl"));
+  const log = await openEventLog(appDataDirectory(), join(dataDirectory, "events.jsonl"), process.env.BULLETIN_EVENT_STORE);
   const briefingStore = await JsonlBriefingStore.open(join(dataDirectory, "briefings.jsonl")).catch(async (error: unknown) => {
     await log.close();
     throw error;
@@ -47,12 +47,16 @@ export async function createApplication() {
     interviewerCall: interviewer ? claudeModelCall(interviewer.model) : undefined,
     modelCall,
     questionStore: new MemoryQuestionStore(),
-    startMission(mission) {
+    async startMission(mission) {
       const scratchDir = join(dataDirectory, mission.missionId);
+      const [{ runMission }, runner] = await Promise.all([
+        import("./orchestrator/run-mission"),
+        createRunner(mission.repo, scratchDir),
+      ]);
       return runMission({
         ...mission,
         scratchDir,
-        runner: createRunner(mission.repo, scratchDir),
+        runner,
         prices,
         tiers: models.tiers,
         allowedCommands: allowedLocalCommands,

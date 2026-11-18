@@ -7,10 +7,14 @@ import { createInterface } from "node:readline";
 import { fileURLToPath } from "node:url";
 import { expect, it } from "vitest";
 import { JsonlEventLog } from "./jsonl-event-log";
+import { SqliteEventLog } from "./sqlite-event-log";
 
 async function listFromBoot(directory: string) {
   const child = spawn(process.execPath, ["--import", "tsx", fileURLToPath(new URL("../serve.ts", import.meta.url))], {
-    env: { ...process.env, PORT: "0", BULLETIN_SCRATCH_DIR: directory, BULLETIN_RUNNER: "claude" },
+    env: {
+      ...process.env, PORT: "0", BULLETIN_DATA_DIR: directory, BULLETIN_SCRATCH_DIR: directory,
+      BULLETIN_EVENT_STORE: "sqlite", BULLETIN_RUNNER: "claude",
+    },
     stdio: ["ignore", "pipe", "pipe"],
     windowsHide: true,
   });
@@ -41,6 +45,7 @@ it("boots on an assigned port and durably marks unfinished missions interrupted 
   const directory = await mkdtemp(join(tmpdir(), "bulletin-api-"));
   const apiData = join(directory, "api");
   const path = join(apiData, "events.jsonl");
+  const database = join(directory, "events.sqlite");
   try {
     const log = await JsonlEventLog.open(path);
     try {
@@ -63,7 +68,7 @@ it("boots on an assigned port and durably marks unfinished missions interrupted 
     ] });
     expect(await listFromBoot(directory)).toEqual(missions);
 
-    const recovered = await JsonlEventLog.open(path);
+    const recovered = await SqliteEventLog.open(database);
     try {
       expect(recovered.events.filter(({ type }) => type === "mission.finished").map(({ mission_id, payload }) => ({ mission_id, payload })))
         .toEqual([
@@ -75,6 +80,7 @@ it("boots on an assigned port and durably marks unfinished missions interrupted 
       await recovered.close();
     }
   } finally {
+    await rm(database, { force: true });
     await rm(path, { force: true });
     await rm(join(apiData, "briefings.jsonl"), { force: true });
     await rmdir(apiData);
