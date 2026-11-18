@@ -29,19 +29,30 @@ async fn rpc(
         .map_err(|_| RpcError::unavailable())?
 }
 
+/// Stores a secret in the system keychain. The sidecar only sees secrets in its environment at launch, so a
+/// changed value restarts it (calls in flight fail with -32000 and subscriptions end; docs/SIDECAR.md, "Secrets").
 #[tauri::command]
 fn secret_set(state: State<'_, Desktop>, name: String, value: String) -> Result<(), &'static str> {
-    state.secrets.set(&name, &value)
+    let unchanged = secrets::fetch(state.secrets.as_ref(), &name)
+        .ok()
+        .flatten()
+        .as_deref()
+        == Some(value.as_str());
+    secrets::save(state.secrets.as_ref(), &name, &value)?;
+    if !unchanged {
+        state.sidecar.restart();
+    }
+    Ok(())
 }
 
 #[tauri::command]
 fn secret_get(state: State<'_, Desktop>, name: String) -> Result<Option<String>, &'static str> {
-    state.secrets.get(&name)
+    secrets::fetch(state.secrets.as_ref(), &name)
 }
 
 #[tauri::command]
 fn secret_has(state: State<'_, Desktop>, name: String) -> Result<bool, &'static str> {
-    state.secrets.get(&name).map(|value| value.is_some())
+    secrets::fetch(state.secrets.as_ref(), &name).map(|value| value.is_some())
 }
 
 fn sidecar_command(resource_dir: &Path, bundled: &Path, secrets: &dyn SecretStore) -> Command {
@@ -79,13 +90,10 @@ fn sidecar_command(resource_dir: &Path, bundled: &Path, secrets: &dyn SecretStor
     {
         command.env("BULLETIN_RESOURCE_DIR", resource_dir);
     }
-    for name in ["ANTHROPIC_API_KEY", "BULLETIN_GITHUB_TOKEN"] {
-        if env::var_os(name).is_none()
-            && let Ok(Some(value)) = secrets.get(name)
-        {
-            command.env(name, value);
-        }
-    }
+    // Stored secrets reach the sidecar only as environment variables, and only when Bulletin's own environment
+    // does not already set them.
+    let provided = |name: &str| env::var_os(name).is_some_and(|value| !value.is_empty());
+    command.envs(secrets::launch_environment(secrets, provided));
     command
 }
 

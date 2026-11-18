@@ -1,17 +1,14 @@
 import { createInterface } from "node:readline";
 import { createApplication } from "../../api/src/application";
 import { EnvKeychain } from "../../api/src/platform/keychain";
+import { appDataDirectory } from "../../api/src/platform/paths";
+import { createDesktopMethods } from "./methods";
+import { RpcError } from "./rpc-error";
 
 type RpcId = string | number | null;
 type Application = Awaited<ReturnType<typeof createApplication>>;
 type Subscription = { missionId: string; after: number; index: number };
 const keychain = new EnvKeychain();
-
-class RpcError extends Error {
-  constructor(readonly code: number, message: string) {
-    super(message);
-  }
-}
 
 function record(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -63,6 +60,7 @@ async function proxy(app: Application["app"], params: Record<string, unknown>) {
 async function main() {
   const { app, log } = await createApplication();
   const input = createInterface({ input: process.stdin, crlfDelay: Infinity });
+  const desktop = createDesktopMethods({ dataDirectory: appDataDirectory(), keychain });
   const subscriptions = new Map<number, Subscription>();
   const pending = new Set<Promise<void>>();
   let nextSubscription = 1;
@@ -99,8 +97,11 @@ async function main() {
         if (!integer(subscription_id, 1)) throw new RpcError(-32602, "Expected a subscription ID");
         return { unsubscribed: subscriptions.delete(subscription_id) };
       }
-      default:
-        throw new RpcError(-32601, "Method not found");
+      default: {
+        const handler = Object.hasOwn(desktop, method) ? desktop[method] : undefined;
+        if (!handler) throw new RpcError(-32601, "Method not found");
+        return handler(params);
+      }
     }
   }
 

@@ -43,6 +43,7 @@ enum Message {
         line: String,
     },
     Disconnected(u64),
+    Restart,
     Shutdown,
 }
 
@@ -79,6 +80,12 @@ impl Sidecar {
         result
             .recv()
             .unwrap_or_else(|_| Err(RpcError::unavailable()))
+    }
+
+    /// Stops the running sidecar and starts a new one right away, which re-reads the launch environment.
+    /// Calls in flight fail with the "unavailable" error and subscriptions are gone.
+    pub(crate) fn restart(&self) {
+        let _ = self.messages.send(Message::Restart);
     }
 
     pub(crate) fn shutdown(&self) {
@@ -275,6 +282,10 @@ fn supervise(
                     running = None;
                     retry_at = Instant::now() + RESTART_DELAY;
                 }
+            }
+            Ok(Message::Restart) => {
+                running = None;
+                retry_at = Instant::now();
             }
             Ok(Message::Shutdown) | Err(mpsc::RecvTimeoutError::Disconnected) => return,
         }
