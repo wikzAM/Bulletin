@@ -109,3 +109,9 @@ it("documents every method the sidecar answers in docs/SIDECAR.md, each under it
     expect(headings.some((heading) => heading.includes(`\`${name}\``)), name).toBe(true);
   }
 });
+
+it("secret.set stores the value without surrounding whitespace", async () => {
+  const { table, env } = methods();
+  await table["secret.set"]!({ name: "ANTHROPIC_API_KEY", value: "  sk-ant-pasted\n" });
+  expect(env.ANTHROPIC_API_KEY).toBe("sk-ant-pasted");
+});

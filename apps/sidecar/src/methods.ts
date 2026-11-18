@@ -69,7 +69,7 @@ export function createDesktopMethods(deps: DesktopMethodDeps): Record<string, Me
       if (typeof value !== "string" || value.trim() === "" || value.length > MAX_SECRET_LENGTH || value.includes("\0")) {
         throw new RpcError(-32602, "Expected a non-empty value without a null character");
       }
-      await deps.keychain.setSecret(name, value);
+      await deps.keychain.setSecret(name, value.trim());
       return { name, stored: true };
     },
   };

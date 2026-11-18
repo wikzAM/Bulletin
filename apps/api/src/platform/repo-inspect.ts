@@ -1,6 +1,7 @@
 import { readFile, realpath, stat } from "node:fs/promises";
 import { isAbsolute, join, resolve } from "node:path";
 import { resolveExecutable, runTool } from "./executables";
+import { SECRET_NAMES } from "./keychain";
 
 export interface RepoInfo {
   path: string;
@@ -25,6 +26,19 @@ export const FILE_COUNT_CAP = 100_000;
 const GIT_TIMEOUT_MS = 20_000;
 const LISTING_BYTES = 16 * 1024 * 1024;
 const NUL = "\0";
+
+/**
+ * The environment git gets in an untrusted folder: no stored secret and nothing that looks like a credential. A
+ * repository can configure programs (filters, hooks of other commands) that git may start, and they inherit this.
+ */
+export function scrubSecrets(env: NodeJS.Dict<string>): NodeJS.Dict<string> {
+  const clean: NodeJS.Dict<string> = {};
+  for (const [name, value] of Object.entries(env)) {
+    if ((SECRET_NAMES as readonly string[]).includes(name) || /(TOKEN|SECRET|PASSWORD|KEY|CREDENTIALS?)$/i.test(name)) continue;
+    clean[name] = value;
+  }
+  return clean;
+}
 
 async function sameFolder(a: string, b: string): Promise<boolean> {
   const canonical = async (path: string) => {
@@ -72,7 +86,7 @@ export async function inspectRepo(path: string, options: InspectOptions = {}): P
   result.exists = true;
   result.test_command = await detectTestCommand(path);
 
-  const env = { ...(options.env ?? process.env), GIT_OPTIONAL_LOCKS: "0", GIT_TERMINAL_PROMPT: "0" };
+  const env = { ...scrubSecrets(options.env ?? process.env), GIT_OPTIONAL_LOCKS: "0", GIT_TERMINAL_PROMPT: "0" };
   const gitPath = resolveExecutable("git", env);
   if (!gitPath) return result;
   const git = (args: string[], maxBytes?: number) =>

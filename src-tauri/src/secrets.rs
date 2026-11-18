@@ -30,7 +30,8 @@ pub(crate) fn fetch(store: &dyn SecretStore, name: &str) -> Result<Option<String
 /// Stores one secret, after checking the name and the value. Error messages never contain the value.
 pub(crate) fn save(store: &dyn SecretStore, name: &str, value: &str) -> Result<(), &'static str> {
     check_name(name)?;
-    if value.trim().is_empty() {
+    let value = value.trim();
+    if value.is_empty() {
         return Err("A secret value cannot be empty");
     }
     if value.contains('\0') {

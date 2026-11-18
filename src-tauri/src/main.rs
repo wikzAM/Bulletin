@@ -37,17 +37,12 @@ fn secret_set(state: State<'_, Desktop>, name: String, value: String) -> Result<
         .ok()
         .flatten()
         .as_deref()
-        == Some(value.as_str());
+        == Some(value.trim());
     secrets::save(state.secrets.as_ref(), &name, &value)?;
     if !unchanged {
         state.sidecar.restart();
     }
     Ok(())
-}
-
-#[tauri::command]
-fn secret_get(state: State<'_, Desktop>, name: String) -> Result<Option<String>, &'static str> {
-    secrets::fetch(state.secrets.as_ref(), &name)
 }
 
 #[tauri::command]
@@ -122,9 +117,7 @@ fn main() {
             });
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![
-            rpc, secret_set, secret_get, secret_has
-        ])
+        .invoke_handler(tauri::generate_handler![rpc, secret_set, secret_has])
         .build(tauri::generate_context!())
         .expect("could not initialize Bulletin desktop");
     app.run(|handle, event| {
