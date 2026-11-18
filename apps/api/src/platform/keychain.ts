@@ -28,3 +28,14 @@ export function nativeKeychainStub(platform: string): Keychain {
   };
   return { getSecret: unavailable, setSecret: unavailable };
 }
+
+/**
+ * The secrets Bulletin stores for the desktop, in the system keychain on the Rust side (docs/SIDECAR.md, "Secrets").
+ * The same list is enforced by the Tauri commands; the sidecar sees these only as environment variables.
+ */
+export const SECRET_NAMES = ["ANTHROPIC_API_KEY", "AWS_BEARER_TOKEN_BEDROCK", "BULLETIN_GITHUB_TOKEN"] as const;
+export type SecretName = (typeof SECRET_NAMES)[number];
+
+export function isSecretName(name: unknown): name is SecretName {
+  return typeof name === "string" && (SECRET_NAMES as readonly string[]).includes(name);
+}

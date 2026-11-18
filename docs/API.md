@@ -5,6 +5,9 @@ Mission reads project the event log. A mission becomes visible after its
 
 The desktop sidecar uses the same JSON routes through `request` and delivers
 mission events through `subscribe`. See [Sidecar protocol](SIDECAR.md).
+The first-run methods `env.check`, `repo.inspect`, `settings.get`, `settings.set`,
+`secret.has` and `secret.set` exist only on the sidecar. They have no HTTP routes
+because they describe the machine the desktop app runs on.
 
 ## Running the API
 
