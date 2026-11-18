@@ -6,19 +6,19 @@ vi.mock("../runners", () => ({ managedRunner: vi.fn() }));
 
 afterEach(() => vi.clearAllMocks());
 
-it.each([undefined, "claude"])("selects Claude Code for %s", (BULLETIN_RUNNER) => {
+it.each([undefined, "claude"])("selects Claude Code for %s", async (BULLETIN_RUNNER) => {
   const createRunner = createRunnerFactory({ BULLETIN_RUNNER }, "/bulletin");
-  expect(createRunner("/repo", "/scratch").kind).toBe("local-claude-code");
+  expect((await createRunner("/repo", "/scratch")).kind).toBe("local-claude-code");
   expect(managedRunner).not.toHaveBeenCalled();
 });
 
-it("passes the sandbox repository to the shared managed runner when a mission starts", () => {
+it("passes the sandbox repository to the shared managed runner when a mission starts", async () => {
   const sandboxRepo = "https://github.com/example/sandbox";
   const expectedRunner = { kind: "managed-agents" } as ReturnType<typeof managedRunner>;
   vi.mocked(managedRunner).mockReturnValue(expectedRunner);
   const createRunner = createRunnerFactory({ BULLETIN_RUNNER: "managed", BULLETIN_SANDBOX_REPO: sandboxRepo }, "/bulletin");
   expect(managedRunner).not.toHaveBeenCalled();
-  expect(createRunner("/repo", "/scratch")).toBe(expectedRunner);
+  expect(await createRunner("/repo", "/scratch")).toBe(expectedRunner);
   expect(managedRunner).toHaveBeenCalledExactlyOnceWith("/repo", "/bulletin", sandboxRepo);
 });
 

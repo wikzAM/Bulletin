@@ -7,17 +7,21 @@ import { createInterface } from "node:readline";
 import { fileURLToPath } from "node:url";
 import { expect, it } from "vitest";
 import { JsonlEventLog } from "./jsonl-event-log";
+import { SqliteEventLog } from "./sqlite-event-log";
 
 async function listFromBoot(directory: string) {
   const child = spawn(process.execPath, ["--import", "tsx", fileURLToPath(new URL("../serve.ts", import.meta.url))], {
-    env: { ...process.env, PORT: "0", BULLETIN_SCRATCH_DIR: directory, BULLETIN_RUNNER: "claude" },
+    env: {
+      ...process.env, PORT: "0", BULLETIN_DATA_DIR: directory, BULLETIN_SCRATCH_DIR: directory,
+      BULLETIN_EVENT_STORE: "sqlite", BULLETIN_RUNNER: "claude",
+    },
     stdio: ["ignore", "pipe", "pipe"],
     windowsHide: true,
   });
   const exited = once(child, "close");
   let output = "";
   child.stderr.setEncoding("utf8").on("data", (chunk: string) => { output += chunk; });
-  const timeout = setTimeout(() => child.kill(), 5000);
+  const timeout = setTimeout(() => child.kill(), 60_000);
   try {
     let address: string | undefined;
     for await (const line of createInterface({ input: child.stdout })) {
@@ -41,6 +45,7 @@ it("boots on an assigned port and durably marks unfinished missions interrupted 
   const directory = await mkdtemp(join(tmpdir(), "bulletin-api-"));
   const apiData = join(directory, "api");
   const path = join(apiData, "events.jsonl");
+  const database = join(directory, "events.sqlite");
   try {
     const log = await JsonlEventLog.open(path);
     try {
@@ -63,7 +68,7 @@ it("boots on an assigned port and durably marks unfinished missions interrupted 
     ] });
     expect(await listFromBoot(directory)).toEqual(missions);
 
-    const recovered = await JsonlEventLog.open(path);
+    const recovered = await SqliteEventLog.open(database);
     try {
       expect(recovered.events.filter(({ type }) => type === "mission.finished").map(({ mission_id, payload }) => ({ mission_id, payload })))
         .toEqual([
@@ -75,12 +80,13 @@ it("boots on an assigned port and durably marks unfinished missions interrupted 
       await recovered.close();
     }
   } finally {
+    await rm(database, { force: true });
     await rm(path, { force: true });
     await rm(join(apiData, "briefings.jsonl"), { force: true });
     await rmdir(apiData);
     await rmdir(directory);
   }
-}, 15_000);
+}, 125_000);
 
 it("warns about missing managed environment variable names without printing configured values", () => {
   const entry = fileURLToPath(new URL("../serve.ts", import.meta.url));
@@ -91,9 +97,9 @@ it("warns about missing managed environment variable names without printing conf
       ANTHROPIC_API_KEY: configuredValue, BULLETIN_GITHUB_TOKEN: "",
       BULLETIN_MA_AGENT_ID: "configured", BULLETIN_MA_ENV_ID: "configured",
     },
-    encoding: "utf8", timeout: 5000, windowsHide: true,
+    encoding: "utf8", timeout: 60_000, windowsHide: true,
   });
   expect(result.status).toBe(1);
   expect(result.stderr).toContain("Managed runner is missing environment variables: BULLETIN_SANDBOX_REPO, BULLETIN_GITHUB_TOKEN");
   expect(`${result.stdout}${result.stderr}`).not.toContain(configuredValue);
-}, 8000);
+}, 65_000);

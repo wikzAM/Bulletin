@@ -173,3 +173,36 @@
 - recommendation: (a). The engine, API and UI are the same either way, and a local shell fits the local Claude Code runner, which needs the user's own machine and login. It also keeps the phone-browser decision inbox the spec wants. Docker is not needed for this path.
 - working default: web core continues; nothing desktop started
 - status: resolved. Founder chose the desktop app; docs/SPEC.md now has the Tauri 2 platform section (see docs/DECISIONS.md).
+
+## [2026-11-18] Sidecar workspace importer
+
+- Please add the `@bulletin/sidecar` workspace manifest and regenerate `pnpm-lock.yaml` in the coordinator checkout. A new workspace needs an importer for frozen verification, and AGENTS.md reserves the lockfile. The Node sidecar runs from the repository root with `pnpm exec tsx apps/sidecar/src/main.ts` in the meantime.
+
+## [2026-11-18] Windows process-test startup
+
+- The new sidecar and existing HTTP startup tests repeatedly expired before receiving a frame. A direct `node --import tsx` probe took 26 seconds to import the shared API application. Allow 60 seconds for cold child startup on this host while checking the same responses and process exits.
+
+## [2026-11-18] Full verification timed out during sidecar work
+
+- Can the coordinator stagger full verification across worktrees when the machine is low on memory? The sidecar subprocess test passed. Two full runs reached Vitest after passing locked install, lint, and typecheck. The serial run finished with 484 tests passed and 13 timeouts in existing engine and API route tests. The sidecar implementation is available at `bc5f462` for the next full verification.
+
+## [2026-11-18] Station and check process helper integration
+
+- Can the runner and pass-worker owner accept an injected process launcher? The Codex platform layer exposes `spawnCommand` in `apps/api/src/platform/process.ts`. The existing launch sites are in `packages/runners/src/claude-code-runner.ts` and `apps/pass-worker/src/run-pass.ts`. Claude's queue also owns the SDK runner and pass supervision. Recommend accepting a launcher in both packages and supplying the platform helper at the API composition boundary.
+
+## [2026-11-18] Windows verification while testing SQLite
+
+- The SQLite storage suite and HTTP restart test passed in isolation. Full verification reached 482 passing tests and 18 failures, with timeouts in the engine and API fixtures and a Git fixture cleanup permission error after a timeout. A direct stdio probe started the SQLite sidecar and returned its first frame in 44 seconds. The sidecar test now allows up to 120 seconds for cold child startup and keeps the protocol assertions.
+
+## [2026-11-18] Rust lockfile and installer sidecar
+
+- `src-tauri/Cargo.lock` pins the new desktop crate's dependencies. Windows `cargo check` passed. The packaging unit needs to install the generated `bulletin-sidecar.exe` beside Bulletin and add its source path to Tauri's `bundle.externalBin` when the target-specific build artifact is available.
+- The supervisor adds native process APIs and the temporary-directory test fixture to the Rust lockfile. The pnpm lockfile is unchanged.
+
+## [2026-11-18] Desktop queue verification remains red
+
+- The last full run passed frozen install, lint, and typecheck. Vitest finished with 489 passed and 16 failed. It hit test and hook deadlines again in the existing engine and API suites, including the HTTP subprocess startup deadline, and reported a Windows Git fixture cleanup permission error. The new sidecar, SQLite, platform, and route-contract tests passed in the full run. Windows `cargo check` and all three `cargo test` cases passed. The queue boxes remain open for full verification.
+
+## [2026-11-18] Coordinator log append conflicted during refresh
+
+- Merging `main` at `02e111b` into `codex/warroom-api` conflicted in `docs/board/log.md` because both branches appended records. I aborted the merge per the Worker loop. The coordinator can preserve both sets of entries during integration. The queue on `main` contains the same six desktop tasks.

@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { expect, it } from "vitest";
 import { buildServer } from "../server";
 import { JsonlEventLog } from "../store/jsonl-event-log";
+import { SqliteEventLog } from "../store/sqlite-event-log";
 
 function listedOperations(routeTree: string): string[] {
   const ancestors: string[] = [];
@@ -47,10 +48,13 @@ it("documents every registered API operation and lists only registered operation
   expect(codes).toEqual([400, 401, 404, 409, 413, 415, 422, 500, 502, 503]);
 });
 
-it("covers the same operations with the JSONL log and documents the runnable API", async () => {
+it.each([
+  { name: "SQLite", filename: "events.sqlite", open: SqliteEventLog.open },
+  { name: "JSONL", filename: "events.jsonl", open: JsonlEventLog.open },
+])("covers the same operations with the $name log and documents the runnable API", async ({ filename, open }) => {
   const directory = await mkdtemp(join(tmpdir(), "bulletin-api-contract-"));
-  const path = join(directory, "events.jsonl");
-  const log = await JsonlEventLog.open(path);
+  const path = join(directory, filename);
+  const log = await open(path);
   try {
     const docs = await checkOperations(buildServer(log));
     expect(docs).toMatch(/^## Running the API$/m);
@@ -60,4 +64,16 @@ it("covers the same operations with the JSONL log and documents the runnable API
     await rm(path, { force: true });
     await rmdir(directory);
   }
+});
+
+it("links the desktop and HTTP references and documents the mission stream on each transport", async () => {
+  const [api, sidecar] = await Promise.all([
+    readFile(new URL("../../../../docs/API.md", import.meta.url), "utf8"),
+    readFile(new URL("../../../../docs/SIDECAR.md", import.meta.url), "utf8"),
+  ]);
+  expect(api).toContain("[Sidecar protocol](SIDECAR.md)");
+  expect(sidecar).toContain("[API reference](API.md)");
+  expect(api).toMatch(/^## `GET \/missions\/:id\/events(?:\?[^`]*)?`$/m);
+  expect(sidecar).toContain("`GET /missions/:id/events`");
+  expect(sidecar).toMatch(/^## `subscribe`$/m);
 });

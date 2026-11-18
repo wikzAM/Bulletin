@@ -140,3 +140,10 @@ Needed for the Managed Agents runner adapter (apps/api/src/managed-client.ts). I
   "Stop hidden" above.
 ## 2026-11-17: ship as a Tauri 2 desktop app (Windows first)
 Founder decision, recorded in docs/SPEC.md (Platform section, which wins over sections 0, 5, 6, 7, 14, 15). UI becomes React + Vite + Tailwind + React Flow in Tauri; a Rust core supervises processes, worktrees, SQLite and credentials; the existing TypeScript engine, General, runners and Anthropic SDK code become the bundled sidecar, spoken to over JSON-RPC on stdio. Why: the user wants an installable app; the local runner needs the user's own machine and login anyway. The Fastify API and Next.js web app stay as a headless/dev surface until the desktop app replaces them.
+
+## 2026-11-18: native desktop bridge dependencies
+
+- Tauri 2 and `tauri-build` provide the Windows desktop shell and IPC bridge.
+- Serde and `serde_json` encode JSON-RPC frames and serializable command errors.
+- `keyring` 3.6 provides native credential storage on Windows and macOS behind a local trait.
+- `windows-sys` provides Windows Job Objects for native process-tree cancellation. `libc` supplies the Unix process-group signal, and `tempfile` makes Git fixtures disposable.
