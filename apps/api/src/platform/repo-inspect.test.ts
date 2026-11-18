@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, realpath, rm, stat, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { inspectRepo as inspect, type InspectOptions } from "./repo-inspect";
+import { inspectRepo as inspect, scrubSecrets, type InspectOptions } from "./repo-inspect";
 
 // git is slow to start on a loaded Windows host, and several tests start it a few times each.
 vi.setConfig({ testTimeout: 90_000, hookTimeout: 90_000 });
@@ -116,4 +116,19 @@ it("rejects a path that is not absolute", async () => {
   await expect(inspectRepo("relative/folder")).rejects.toThrow(/absolute/i);
   await expect(inspectRepo("")).rejects.toThrow(/absolute/i);
   await expect(inspectRepo(`${directory}\0x`)).rejects.toThrow(/absolute/i);
+});
+
+it("gives git an environment without stored secrets or anything that looks like a credential", () => {
+  const clean = scrubSecrets({
+    PATH: "p",
+    SystemRoot: "r",
+    ANTHROPIC_API_KEY: "a",
+    AWS_BEARER_TOKEN_BEDROCK: "b",
+    BULLETIN_GITHUB_TOKEN: "c",
+    BULLETIN_API_TOKEN: "d",
+    SOME_PASSWORD: "e",
+    aws_secret_access_key: "f",
+    GITHUB_TOKEN: "g",
+  });
+  expect(Object.keys(clean).sort()).toEqual(["PATH", "SystemRoot"]);
 });

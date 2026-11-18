@@ -33,12 +33,14 @@ config directory through `BULLETIN_RESOURCE_DIR` to the release sidecar.
 
 The secret store lives on the Rust side. Windows Credential Manager (service
 `app.bulletin.desktop`) and macOS Keychain back the Tauri commands `secret_set`
-with `{ name, value }`, `secret_get` with `{ name }`, and `secret_has` with
-`{ name }`. `secret_get` returns a string or `null`, and `secret_has` returns a
-boolean. Use `secret_has` for settings status. Only these names are accepted,
-anything else is refused: `ANTHROPIC_API_KEY`, `AWS_BEARER_TOKEN_BEDROCK` and
-`BULLETIN_GITHUB_TOKEN`. Values are never logged and never leave Rust except
-through `secret_get`.
+with `{ name, value }` and `secret_has` with `{ name }`. `secret_has` returns a
+boolean. There is deliberately no command that reads a value back to the page. Only
+these names are accepted, anything else is refused: `ANTHROPIC_API_KEY`,
+`AWS_BEARER_TOKEN_BEDROCK` and `BULLETIN_GITHUB_TOKEN`. A value is trimmed of
+surrounding whitespace (a pasted key often ends in a newline), must not be empty or
+contain a null character, and is at most 1280 characters (the Windows credential
+limit). Values are never logged; the only way out of Rust is the sidecar's
+environment at launch, below.
 
 The sidecar never reads the keychain. Whenever the Rust bridge launches the
 sidecar it copies each stored secret into the child's environment, unless that
@@ -135,8 +137,10 @@ these keys:
   `bedrock`; empty for `claude-code`.
 - `provider.ready` is true when the provider's credentials look usable:
   for `claude-code`, `claude.found && claude.logged_in`; for the others, no
-  credential name is missing (`ANTHROPIC_API_KEY`; `AWS_REGION` plus one of the
-  three AWS credentials). It is a hint, not a verdict: a profile or federation
+  credential name is missing (`ANTHROPIC_API_KEY` or `ANTHROPIC_AUTH_TOKEN`;
+  `AWS_REGION` plus one of the three AWS credentials). `env` lists only the names
+  above, so `ready` can be true through `ANTHROPIC_AUTH_TOKEN` while
+  `ANTHROPIC_API_KEY` shows `false`. It is a hint, not a verdict: a profile or federation
   setup the sidecar cannot see is not counted.
 
 ## `repo.inspect`
@@ -194,8 +198,8 @@ for the names listed under Secrets above; any other name is rejected with
 `-32602`. Neither method ever returns a value.
 
 - `secret.has` takes `name` and returns `{"name":"ANTHROPIC_API_KEY","present":true}`;
-  `present` is true when the variable is set and non-empty.
-- `secret.set` takes `name` and `value` and returns `{"name":"ANTHROPIC_API_KEY","stored":true}`.
+  `present` is true when the variable is set and not blank (whitespace only counts as blank).
+- `secret.set` takes `name` and `value` (trimmed; not empty, no null character, at most 8192 characters) and returns `{"name":"ANTHROPIC_API_KEY","stored":true}`.
   This changes the running sidecar only and is lost when it exits. Persistent
   storage is the Tauri `secret_set` command, which also restarts the sidecar.
 

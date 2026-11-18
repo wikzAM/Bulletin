@@ -113,3 +113,13 @@ fn the_secret_names_match_the_ones_the_sidecar_documents() {
         );
     }
 }
+
+#[test]
+fn saves_a_pasted_value_without_its_surrounding_whitespace() {
+    let store = MemoryStore::default();
+    save(&store, "ANTHROPIC_API_KEY", "  sk-ant-pasted\r\n").unwrap();
+    assert_eq!(
+        fetch(&store, "ANTHROPIC_API_KEY"),
+        Ok(Some("sk-ant-pasted".to_string()))
+    );
+}

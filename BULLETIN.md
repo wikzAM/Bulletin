@@ -300,3 +300,10 @@ RED touched a locked file: pnpm-lock.yaml
 - recommendation: (a), when the first mission is run from the desktop app. It is small (one extra emit in `src-tauri/src/sidecar.rs`) but it is a UI contract, so the UI owner should agree.
 - working default: (c); the transport retries a `subscribe` that fails with -32000
 - status: open
+
+## [2026-11-19] The provider chosen on first run does not yet reach the sidecar (queue tasks 23-24)
+- question: The first-run screen records a provider (`claude-code`, `anthropic-key`, `bedrock`) and can store `ANTHROPIC_API_KEY` or `AWS_BEARER_TOKEN_BEDROCK`, but the sidecar picks its provider only from the `BULLETIN_PROVIDER` environment variable, which nothing sets from the app. `SetupPage.tsx` also keeps its choice in `localStorage` (`createLocalSettingsStore`), not in the sidecar's `settings.set` (now available through `bridge.setSettings`). So today choosing "my own key" still runs through the Claude Code login, and Bedrock also needs `AWS_REGION`, which is not a stored secret.
+- options: (a) at start the sidecar reads `settings.json` and, when `BULLETIN_PROVIDER` is unset, maps `anthropic-key` to `anthropic` and `bedrock` to `bedrock` (small change in `apps/sidecar/src/main.ts`), the setup page saves through `bridge.setSettings`, and the region becomes a setting; (b) the Rust launcher sets `BULLETIN_PROVIDER` from the same file; (c) leave it until a person wants a non-login provider
+- recommendation: (a), together with the UI change; it needs the setup page owner (Cursor's files), so I did not do half of it.
+- working default: (c)
+- status: open
