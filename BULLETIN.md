@@ -249,3 +249,10 @@
 - recommendation: (a), a one-line fix in apps/desktop/package.json (Cursor owns it). Added to Cursor's queue.
 - status: resolved. Added `apps/desktop/vitest.config.ts` with `test/**/*.test.ts`; script uses `--config ./vitest.config.ts`. `pnpm --filter @bulletin/desktop test` → 219 passed.
 
+
+## [2026-11-18] Codex has been silent since 08:16 (over 2 hours)
+- question: codex/warroom-api has no commits since 08:16 and six open tasks (src-tauri supervisor, platform work, docs). The Codex app window on screen shows a thread working on web-shell, not the API thread.
+- options: (a) re-paste the Codex instruction into its API thread: "Run git merge main in D:\wt-codex, read docs/board/codex.md, follow the Worker loop"; (b) move the remaining Codex tasks to another worker
+- recommendation: (a). Its worktree is intact; nothing is lost.
+- working default: (a), waiting on you
+- status: open
