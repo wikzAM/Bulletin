@@ -116,6 +116,80 @@ describe("SdkStationRunner", () => {
     expect(model.requests[0]!.model).toBe("test-model");
   });
 
+  it("sends a turn's thinking blocks back unchanged with its tool call", async () => {
+    const thinking = { type: "thinking", thinking: "", signature: "sig-1" } as const;
+    const model = scripted([
+      {
+        stop_reason: "tool_use",
+        content: [thinking, { type: "tool_use", id: "t1", name: "list_files", input: { path: "." } }],
+        usage,
+      },
+      finishTurn(),
+    ]);
+    await run(model);
+    const assistant = model.requests[1]!.messages.find((m) => m.role === "assistant")!;
+    expect(assistant.content).toEqual([thinking, { type: "tool_use", id: "t1", name: "list_files", input: { path: "." } }]);
+  });
+
+  it("tags every usage event with the model client's provider", async () => {
+    const model = scripted([finishTurn()]);
+    (model as { provider: string }).provider = "bedrock";
+    const { events } = await run(model);
+    const usageEvents = events.filter((e) => e.type === "usage");
+    expect(usageEvents.length).toBeGreaterThan(0);
+    for (const e of usageEvents) expect(e).toMatchObject({ provider: "bedrock" });
+  });
+
+  it("offers host-supplied tools next to its own, built fresh for each attempt, and reports their errors as results", async () => {
+    let built = 0;
+    const calls: string[] = [];
+    const stationTools = () => {
+      built += 1;
+      return {
+        definitions: [{ name: "host_tool", description: "d", input_schema: { type: "object" } }],
+        async call(name: string, args: Record<string, unknown>) {
+          calls.push(`${name}:${JSON.stringify(args)}`);
+          if (args.fail) throw new Error("host says no");
+          return "host says yes";
+        },
+      };
+    };
+    const model = scripted([
+      toolTurn("host_tool", { n: 1 }, "a"),
+      toolTurn("host_tool", { fail: true }, "b"),
+      finishTurn(),
+    ]);
+    const { events } = await run(model, { stationTools });
+
+    expect(built).toBe(1);
+    expect(model.requests[0]!.tools.map((t) => t.name)).toEqual(expect.arrayContaining(["read_file", "write_file", "list_files", "run_command", "host_tool"]));
+    expect(calls).toEqual(['host_tool:{"n":1}', 'host_tool:{"fail":true}']);
+    expect(JSON.stringify(model.requests[1]!.messages.at(-1)!.content)).toContain("host says yes");
+    const errorResult = model.requests[2]!.messages.at(-1)!.content as Array<{ is_error?: boolean; content: string }>;
+    expect(errorResult[0]).toMatchObject({ is_error: true });
+    expect(errorResult[0]!.content).toContain("host says no");
+    expect(events.at(-1)).toEqual({ type: "done", ok: true });
+  });
+
+  it("cancel ends the attempt even while a host tool call is still pending", async () => {
+    const stationTools = () => ({
+      definitions: [{ name: "slow_tool", description: "d", input_schema: { type: "object" } }],
+      call: () => new Promise<string>(() => undefined), // never answers, like bulletin_wait with a long timeout
+    });
+    const model = scripted([toolTurn("slow_tool", {}, "a"), finishTurn()]);
+    const runner = new SdkStationRunner({ repo, scratchDir: scratch, model, stationTools });
+    const handle = await runner.startAttempt(input());
+    const started = Date.now();
+    const events: RunnerEvent[] = [];
+    for await (const e of runner.events(handle)) {
+      events.push(e);
+      if (e.type === "tool_use") setTimeout(() => void runner.cancel(handle), 50);
+    }
+    expect(Date.now() - started).toBeLessThan(20_000);
+    expect(events.at(-1)).toEqual({ type: "done", ok: false, error: "cancelled" });
+    expect(model.requests).toHaveLength(1); // it did not go back to the model
+  });
+
   it("lists files and does not list .git", async () => {
     const model = scripted([toolTurn("list_files", { path: "." }), finishTurn()]);
     await run(model);

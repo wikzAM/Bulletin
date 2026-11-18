@@ -32,7 +32,8 @@ import {
 import { runPass } from "@bulletin/pass-worker/run-pass";
 import { integrationBranch, type AttemptHandle, type Runner } from "@bulletin/runners";
 import { addWorktree, checkoutWorktree, git, removeWorktree, tryGit } from "@bulletin/runners/git";
-import { costCents } from "../treasury/treasury";
+import { capCheck, costCents } from "../treasury/treasury";
+import { attemptEstimateCents, Reservations } from "./preflight";
 
 export interface MissionOptions {
   missionId: string;
@@ -61,6 +62,11 @@ export interface MissionOptions {
   signal?: AbortSignal;
   /** Hard cap for the whole mission in cents. Reaching it pauses the mission (budget.paused). */
   budgetCents?: number;
+  /**
+   * Per-tier factors from `calibrate` (actual over estimated cost of earlier missions). The preflight scales
+   * each unit's token estimate by its tier's factor.
+   */
+  calibration?: Readonly<Record<string, number>>;
   events?: EventSink;
   /**
    * Continue a mission that already finished with units held (see resolve-held.ts): start from
@@ -172,7 +178,10 @@ export async function runMission(options: MissionOptions): Promise<MissionReport
   const exclusive = mutex();
   const budgetStop = new AbortController();
   let spent = resume?.spentCents ?? 0;
-  const stopped = () => options.signal?.aborted === true || budgetStop.signal.aborted;
+  // Set by the preflight: no new attempts start, but the ones already running are left to finish.
+  let preflightPaused = false;
+  const reservations = new Reservations();
+  const stopped = () => options.signal?.aborted === true || budgetStop.signal.aborted || preflightPaused;
   const active = new Set<AttemptHandle>();
   const cancelActive = () => {
     for (const h of active) void runner.cancel(h).catch(() => undefined);
@@ -229,6 +238,30 @@ export async function runMission(options: MissionOptions): Promise<MissionReport
       const tier = attemptTier(unit.tier, attempt, lastReason);
       const model = options.tiers[tier] ?? options.tiers[unit.tier];
       if (!model) throw new Error(`no model for tier: ${unit.tier}`);
+      // Treasury preflight (spec section 12): spent + reserved + this attempt's estimate must fit the budget.
+      // Checked and reserved in one synchronous step, so attempts starting together cannot all slip under it.
+      const attemptKey = `${unit.id}#${attempt}`;
+      const estimate = attemptEstimateCents({ tier, estimate: unit.estimate }, model, options.prices, options.calibration);
+      if (options.budgetCents !== undefined) {
+        const reserved = reservations.total();
+        const cap = capCheck({ budgetCents: options.budgetCents, spentCents: spent, reservedCents: reserved, nextEstimateCents: estimate });
+        if (!cap.ok) {
+          if (!preflightPaused) {
+            preflightPaused = true;
+            await emit("budget.paused", unit.id, {
+              preflight: true,
+              spent_cents: spent,
+              reserved_cents: reserved,
+              estimate_cents: estimate,
+              budget_cents: options.budgetCents,
+              shortfall_cents: cap.shortfallCents,
+            });
+          }
+          lastReason = "budget paused";
+          break;
+        }
+      }
+      reservations.reserve(attemptKey, estimate);
       const startedAt = Date.now();
       await emit("attempt.started", unit.id, { attempt, tier, model });
 
@@ -261,6 +294,7 @@ export async function runMission(options: MissionOptions): Promise<MissionReport
           ledger.push(row);
           await emit("ledger.charged", unit.id, { attempt, model: row.model, provider: row.provider, cost_cents: row.costCents } satisfies LedgerChargedPayload);
           spent += row.costCents;
+          reservations.charge(attemptKey, row.costCents);
           if (options.budgetCents !== undefined && spent >= options.budgetCents && !budgetStop.signal.aborted) {
             await emit("budget.paused", unit.id, { spent_cents: spent, budget_cents: options.budgetCents });
             budgetStop.abort();
@@ -270,6 +304,7 @@ export async function runMission(options: MissionOptions): Promise<MissionReport
         }
       }
       active.delete(handle);
+      reservations.release(attemptKey);
 
       let verdict: PassVerdict;
       try {
@@ -327,6 +362,13 @@ export async function runMission(options: MissionOptions): Promise<MissionReport
       if (afterRed(attempt, maxAttempts) === "fail") break;
     }
 
+    if (lastReason === "budget paused" && !attempts.some((a) => a.unitId === unit.id)) {
+      // Nothing of this unit ever ran: it waits for the budget decision instead of counting as failed.
+      statuses[unit.id] = "blocked";
+      await emit("unit.blocked", unit.id, { reason: "budget_paused" });
+      await block(unit.id);
+      return;
+    }
     statuses[unit.id] = "failed";
     await emit("unit.failed", unit.id, { reason: lastReason });
     await block(unit.id);
@@ -383,7 +425,7 @@ export async function runMission(options: MissionOptions): Promise<MissionReport
   };
   await emit("mission.finished", undefined, {
     stopped: options.signal?.aborted === true,
-    paused: budgetStop.signal.aborted,
+    paused: budgetStop.signal.aborted || preflightPaused,
     ...(resume ? { resumed: true } : {}),
     shipped: shipped.length,
     held: held.length,

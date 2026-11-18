@@ -1,5 +1,7 @@
 import { spawn } from "node:child_process";
 import { validatePlan, type Plan, type ValidationContext } from "@bulletin/core";
+import type { ModelClient } from "@bulletin/models";
+import { selectProvider } from "@bulletin/models";
 import { GENERAL_PROMPT, renderGeneralTask } from "@bulletin/prompts";
 
 /** One model call: system prompt and user message in, raw text out. Injected so tests need no model. */
@@ -102,4 +104,44 @@ export function withFallback(primary: ModelCall, fallback: ModelCall, onFallback
       return fallback(system, user);
     }
   };
+}
+
+/** Output room for one General, Interviewer or Answerer reply (non-streaming; thinking tokens count against it). */
+const MODEL_CALL_MAX_TOKENS = 16_000;
+
+/**
+ * A ModelCall over a provider client (Anthropic or Bedrock), so the sidecar can plan and interview without
+ * the Claude Code CLI. No tools. A refusal, a reply cut off at max_tokens, or an empty reply throws, so
+ * withFallback moves on to the next model instead of the caller parsing half a JSON object.
+ */
+export function modelClientCall(client: ModelClient, model: string, maxTokens = MODEL_CALL_MAX_TOKENS): ModelCall {
+  return async (system, user) => {
+    const response = await client.complete({ model, system, messages: [{ role: "user", content: user }], tools: [], max_tokens: maxTokens });
+    if (response.stop_reason === "refusal") throw new Error(`${model} refused the request`);
+    if (response.stop_reason === "max_tokens") throw new Error(`${model} reply was cut off at max_tokens (${maxTokens})`);
+    const text = response.content.flatMap((b) => (b.type === "text" ? [b.text] : [])).join("");
+    if (text.trim() === "") throw new Error(`${model} returned no text`);
+    return text;
+  };
+}
+
+/**
+ * Chooses how model calls are made. With BULLETIN_PROVIDER set (anthropic or bedrock) they go through the
+ * provider SDK; without it they use the Claude Code CLI as before. Pass the result to createGeneralCall as
+ * its second argument. The SDK client is built on the first call, not at startup.
+ */
+export function modelCallFactory(
+  env: Readonly<Record<string, string | undefined>>,
+  deps: { client?: ModelClient; bedrockModels?: Readonly<Record<string, string>> } = {},
+): (model: string) => ModelCall {
+  if (!env.BULLETIN_PROVIDER?.trim()) return (model) => claudeModelCall(model);
+  selectProvider(env); // an unknown value fails here, naming the variable
+  let client: Promise<ModelClient> | undefined;
+  const get = () => {
+    client ??= deps.client
+      ? Promise.resolve(deps.client)
+      : import("@bulletin/models/real").then((m) => m.createRealModelClient(env, deps.bedrockModels));
+    return client;
+  };
+  return (model) => async (system, user) => modelClientCall(await get(), model)(system, user);
 }

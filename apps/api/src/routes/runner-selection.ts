@@ -26,7 +26,12 @@ export function createRunnerFactory(env: RunnerEnvironment, root: string): (repo
         return managedRunner(repo, root, sandboxRepo);
       };
     }
+    case "sdk":
+      return async (repo, scratchDir) => {
+        const { sdkRunner } = await import("../runners");
+        return sdkRunner(repo, scratchDir, root);
+      };
     default:
-      throw new Error("BULLETIN_RUNNER must be claude or managed");
+      throw new Error("BULLETIN_RUNNER must be claude or managed, or sdk");
   }
 }

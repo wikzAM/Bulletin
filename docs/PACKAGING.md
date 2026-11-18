@@ -19,6 +19,39 @@ intermediate files go. The script is Windows x64 only for now and refuses other 
 The tests in `packages/packaging` build the bundle and, on Windows, the executable, start it, and check
 that it answers `health` and exits when stdin closes. They take a couple of minutes on a slow machine.
 
+## Prepare it for a Tauri build
+
+```powershell
+pnpm run sidecar:prepare
+```
+
+`scripts/prepare-sidecar.mjs` builds the executable (above) into `src-tauri/binaries/` under the name
+Tauri's external binary convention needs, `bulletin-sidecar-<target triple>.exe`. The triple is the `host:`
+line of `rustc -vV`; `--target <triple>` or Tauri's `TAURI_ENV_TARGET_TRIPLE` overrides it. It refuses any
+triple other than `x86_64-pc-windows-msvc` before building, and checks the file exists afterwards. Run it before
+`tauri build` (the release workflow draft does).
+
+### What `src-tauri/tauri.conf.json` must set
+
+The Tauri owner makes these changes; they are not made from here.
+
+```json
+"bundle": {
+  "externalBin": ["binaries/bulletin-sidecar"],
+  "resources": {
+    "../config/models.json": "config/models.json",
+    "../config/prices.json": "config/prices.json"
+  }
+}
+```
+
+- `externalBin` makes Tauri look for `binaries/bulletin-sidecar-<triple>.exe` at build time and install it next to
+  `Bulletin.exe` as `bulletin-sidecar.exe`, where the Rust core looks first.
+- `resources` is already set. The sidecar reads its configuration from the folder Tauri passes as
+  `BULLETIN_RESOURCE_DIR`; without `models.json` and `prices.json` there it will not start.
+- `beforeBuildCommand` should run `pnpm run sidecar:prepare` as well as the frontend build, or the release workflow
+  must run it first. `src-tauri/binaries/` is a build product and should be git-ignored.
+
 ## What the script does
 
 1. **Bundle.** esbuild turns `apps/sidecar/src/main.ts` and everything it imports (workspace packages,
