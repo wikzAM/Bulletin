@@ -202,3 +202,4 @@ Desktop project page layout: spending meter top-right, decisions in a sticky rig
 - The bundle is CommonJS because a SEA main script cannot be an ES module. `import.meta.url` and `import.meta.dirname` are defined to the executable's location; the packaged app sets `BULLETIN_RESOURCE_DIR` first.
 - The build fails on any esbuild warning, and the tests run the real executable, so a bundle that loads but misbehaves is caught.
 - `packages/packaging` exists only so the repo's vitest include pattern runs the build test; it has no dependencies.
+- The test that builds and runs the real 90 MB executable is skipped unless `BULLETIN_SIDECAR_EXE_TEST=1` (30-100 s here), because `pnpm run verify` must stay fast for every station and graph run. The esbuild bundle is still built and run with plain node in the default run, and the release workflow draft sets the variable. This is a new test of mine, not a weakened old one.

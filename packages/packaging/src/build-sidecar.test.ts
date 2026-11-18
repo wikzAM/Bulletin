@@ -82,7 +82,10 @@ describe("bundleSidecar", () => {
   });
 });
 
-describe.runIf(process.platform === "win32" && process.arch === "x64")("buildSidecar", () => {
+// Builds a ~90 MB executable (30-100 s on this machine), which would slow `pnpm run verify` for every station and
+// graph run. The release workflow sets BULLETIN_SIDECAR_EXE_TEST=1; set it by hand before changing the build.
+const exeTest = process.platform === "win32" && process.arch === "x64" && process.env.BULLETIN_SIDECAR_EXE_TEST === "1";
+describe.runIf(exeTest)("buildSidecar", () => {
   it("builds the single executable, which answers health and exits when stdin closes", async () => {
     const outDir = join(work, "binaries");
     const built = await buildSidecar({ root, outDir, workDir: join(work, "scratch") });
