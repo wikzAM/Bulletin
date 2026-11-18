@@ -405,11 +405,17 @@ new `decision.resolved` event. Its payload records `opened_event_id`, `choice`,
 and `kind` when present. The endpoint records the oldest open approval decision
 for the unit. Send question answers through `POST /questions/:id/answer`.
 
-This endpoint records the choice in the mission log. Resuming held work after
-approval requires a separate engine change. An unavailable decision returns
-`404 Not Found` with `{"error":"Open decision not found"}`. A concurrent
-resolution of the same decision returns `409 Conflict` with
-`{"error":"Decision resolution in progress"}`.
+In the runnable API and sidecar, approving held work merges the held branch
+and runs any newly unblocked units before returning. Rejecting records the unit
+as failed and keeps its dependents blocked. A merge conflict leaves the
+decision open and returns `409 Conflict` with
+`{"error":"Held branch conflicts with the integration branch"}`. An approval
+decision also returns `409 Conflict` while the mission is still running or if
+its saved plan is unavailable.
+
+An unavailable decision returns `404 Not Found` with
+`{"error":"Open decision not found"}`. A concurrent resolution of the same
+decision returns `409 Conflict` with `{"error":"Decision resolution in progress"}`.
 
 ## `GET /missions/:id/rules`
 

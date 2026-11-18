@@ -1,32 +1,20 @@
-import { PlanSchema, type BulletinEvent, type EventSink, type EventType, type Plan, type PricesConfig } from "@bulletin/core";
+import type { BulletinEvent, EventSink, EventType, PricesConfig } from "@bulletin/core";
 import type { FastifyInstance } from "fastify";
-import { z } from "zod";
 import type { EventLog } from "../store/event-log";
 import { capCheck, fareEstimate } from "../treasury/treasury";
-import { readLedgerCharge, readMissionBudget, roundCents } from "./mission-ledger";
+import { missionExecution, type MissionExecution } from "./mission-execution";
+import { readLedgerCharge, roundCents } from "./mission-ledger";
 import { emptyBody, validateIdParams } from "./request-validation";
 
-export type MissionStarter = (input: {
-  missionId: string;
-  repo: string;
-  baseBranch: string;
-  briefing?: string;
-  plan: Plan;
+export type MissionStarter = (input: MissionExecution & {
   events: EventSink;
   signal: AbortSignal;
-  budgetCents?: number;
 }) => Promise<unknown>;
 
 export interface MissionPricing {
   prices: PricesConfig;
   tiers: Readonly<Record<string, string>>;
 }
-
-const missionMetadata = z.object({
-  repo: z.string().min(1),
-  base: z.string().min(1),
-  goal: z.string().optional(),
-});
 
 function runnerEventSink(log: EventLog, missionId: string, startup: BulletinEvent[]): EventSink {
   // Standalone engine runs publish their own startup events. The API already
@@ -58,18 +46,17 @@ export function registerMissionApproval(
     }
 
     const proposed = events.findLast((event) => event.type === "plan.proposed");
-    const metadata = missionMetadata.safeParse(created.payload);
-    const plan = PlanSchema.safeParse(proposed?.payload.plan);
-    if (!proposed || !metadata.success || !plan.success) {
+    const execution = missionExecution(created, proposed, events);
+    if (!proposed || !execution) {
       return reply.code(409).send({ error: "Mission has no plan to approve" });
     }
 
-    const budgetCents = readMissionBudget(created.payload.budget_cents);
-    if (budgetCents !== null) {
+    const { budgetCents } = execution;
+    if (budgetCents !== undefined) {
       if (!pricing) return reply.code(503).send({ error: "Mission pricing not configured" });
       let estimate: number;
       try {
-        estimate = fareEstimate(plan.data.units, pricing.tiers, pricing.prices).lowCents;
+        estimate = fareEstimate(execution.plan.units, pricing.tiers, pricing.prices).lowCents;
       } catch {
         return reply.code(422).send({ error: "Plan cannot be priced" });
       }
@@ -93,15 +80,9 @@ export function registerMissionApproval(
       active.delete(id);
       throw error;
     }
-    const { repo, base, goal } = metadata.data;
-    const markdown = events.findLast(({ type }) => type === "briefing.versioned")?.payload.markdown;
-    const briefing = typeof markdown === "string" ? markdown : goal;
     const sink = runnerEventSink(log, id, [created, proposed, approved]);
     void Promise.resolve()
-      .then(() => startMission({
-        missionId: id, repo, baseBranch: base, briefing, plan: plan.data, events: sink, signal: controller.signal,
-        ...(budgetCents === null ? {} : { budgetCents }),
-      }))
+      .then(() => startMission({ ...execution, events: sink, signal: controller.signal }))
       .catch(async (error: unknown) => {
         request.log.error({ err: error }, "Mission execution failed");
         if (log.events.some((event) => event.mission_id === id && event.type === "mission.finished")) return;

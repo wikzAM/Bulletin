@@ -38,6 +38,18 @@ export async function createApplication() {
   const interviewer = models.roles.interviewer;
   const answerer = models.roles.answerer;
 
+  async function engineOptions({ missionId, repo }: { missionId: string; repo: string }) {
+    const scratchDir = join(dataDirectory, missionId);
+    return {
+      scratchDir,
+      runner: await createRunner(repo, scratchDir),
+      prices,
+      tiers: models.tiers,
+      allowedCommands: allowedLocalCommands,
+      unitAllowanceCents: DEFAULT_UNIT_ALLOWANCE_CENTS,
+    };
+  }
+
   const log = await openEventLog(appData, join(dataDirectory, "events.jsonl"), process.env.BULLETIN_EVENT_STORE);
   const briefingStore = await JsonlBriefingStore.open(join(dataDirectory, "briefings.jsonl")).catch(async (error: unknown) => {
     await log.close();
@@ -51,20 +63,18 @@ export async function createApplication() {
     modelCall,
     questionStore: new MemoryQuestionStore(),
     async startMission(mission) {
-      const scratchDir = join(dataDirectory, mission.missionId);
-      const [{ runMission }, runner] = await Promise.all([
+      const [{ runMission }, options] = await Promise.all([
         import("./orchestrator/run-mission"),
-        createRunner(mission.repo, scratchDir),
+        engineOptions(mission),
       ]);
-      return runMission({
-        ...mission,
-        scratchDir,
-        runner,
-        prices,
-        tiers: models.tiers,
-        allowedCommands: allowedLocalCommands,
-        unitAllowanceCents: DEFAULT_UNIT_ALLOWANCE_CENTS,
-      });
+      return runMission({ ...mission, ...options });
+    },
+    async resolveHeldMission(held) {
+      const [{ resolveHeld }, options] = await Promise.all([
+        import("./orchestrator/resolve-held"),
+        engineOptions(held),
+      ]);
+      return (await resolveHeld({ ...held, ...options })).outcome;
     },
   });
   app.addHook("onClose", async () => {
