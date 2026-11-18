@@ -156,6 +156,9 @@ Desktop project page layout: spending meter top-right, decisions in a sticky rig
 ## 2026-11-18: desktop window feel
 `lib/window-settings.ts` stores width/height/position behind a small `SettingsStore` (localStorage mock in the browser; Tauri settings command later). Shortcuts: Ctrl/⌘N new project, Ctrl/⌘/ jump field, Esc dismiss. Title bar is a drag-region-ready strip; shell `min-width: 960px` so the UI stays desktop-first.
 
+## 2026-11-18: desktop package vitest config
+`apps/desktop/vitest.config.ts` includes `test/**/*.test.ts` relative to the package cwd so `pnpm --filter @bulletin/desktop test` works. The root vitest config is unchanged.
+
 ## 2026-11-18: native desktop bridge dependencies
 
 - Tauri 2 and `tauri-build` provide the Windows desktop shell and IPC bridge.
