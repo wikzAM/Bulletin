@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { loadModelsConfig, loadPricesConfig } from "@bulletin/core";
-import { claudeModelCall } from "./general";
+import { modelCallFactory } from "./general";
 import { appDataDirectory } from "./platform/paths";
 import { createGeneralCall } from "./routes/general-model";
 import { DEFAULT_UNIT_ALLOWANCE_CENTS } from "./routes/mission-ledger";
@@ -34,7 +34,8 @@ export async function createApplication() {
   const prices = loadPricesConfig(join(root, "config/prices.json"));
   const general = models.roles.general;
   if (!general) throw new Error("The General model is missing from config/models.json");
-  const modelCall = createGeneralCall(general);
+  const createCall = modelCallFactory(process.env, { bedrockModels: models.providers?.bedrock?.models });
+  const modelCall = createGeneralCall(general, createCall);
   const interviewer = models.roles.interviewer;
   const answerer = models.roles.answerer;
 
@@ -56,10 +57,10 @@ export async function createApplication() {
     throw error;
   });
   const app = buildServer(log, {
-    answererCall: answerer ? claudeModelCall(answerer.model) : undefined,
+    answererCall: answerer ? createCall(answerer.model) : undefined,
     briefingStore,
     config: { models, prices },
-    interviewerCall: interviewer ? claudeModelCall(interviewer.model) : undefined,
+    interviewerCall: interviewer ? createCall(interviewer.model) : undefined,
     modelCall,
     questionStore: new MemoryQuestionStore(),
     async startMission(mission) {

@@ -17,9 +17,11 @@ pnpm --filter @bulletin/api exec tsx src/serve.ts
 The API binds to `127.0.0.1` and reads `PORT`, with `4000` as the default.
 `PORT=0` assigns a free port and prints the listening address. Set
 `NEXT_PUBLIC_API_URL=http://localhost:4000` for the web client on port `3000`.
-Planning, interviews, and automatic answers use Claude Code. Put `claude` on
-`PATH` and configure Claude Code credentials. The server loads model and price
-settings from `config/models.json` and `config/prices.json`.
+Planning, interviews, and automatic answers use Claude Code by default. Put
+`claude` on `PATH` and configure its login for that mode. Set
+`BULLETIN_PROVIDER=anthropic` or `BULLETIN_PROVIDER=bedrock` to use that provider's
+SDK and environment credentials. The server loads model and price settings from
+`config/models.json` and `config/prices.json`.
 If the General's primary model call fails, the server tries the configured
 fallback with the same request.
 
