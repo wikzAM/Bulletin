@@ -7,6 +7,34 @@ Multiple requests can be in flight. Close stdin to shut down the sidecar.
 
 From the repository root, launch it with `pnpm exec tsx apps/sidecar/src/main.ts`.
 
+## Tauri desktop bridge
+
+The desktop frontend can call `invoke("rpc", { method, params })` with the
+methods below. A successful invocation resolves to the JSON-RPC result. A
+protocol failure rejects with the sidecar's `code` and `message`. Use
+`listen("bulletin://event", handler)` to receive the notification's `params`
+object as the Tauri event payload. Register the listener before subscribing.
+
+The Tauri process supervises the child. A child exit rejects outstanding calls
+with code `-32000` and triggers a restart. Reissue reads as needed and reconnect
+subscriptions with the last event ID received. Confirm the outcome of an
+interrupted write before retrying it.
+
+Set `BULLETIN_SIDECAR_PATH` to use a specific sidecar executable. Development
+uses `pnpm --filter @bulletin/sidecar exec tsx src/main.ts` when the workspace
+manifest exists, or Node with the root `tsx` installation while it is pending.
+The release executable defaults to `bulletin-sidecar.exe` next to Bulletin on
+Windows. The packaging work supplies that executable. Tauri passes the bundled
+config directory through `BULLETIN_RESOURCE_DIR` to the release sidecar.
+
+Windows Credential Manager and macOS Keychain back the Tauri commands
+`secret_set` with `{ name, value }`, `secret_get` with `{ name }`, and
+`secret_has` with `{ name }`. `secret_get` returns a string or `null`, and
+`secret_has` returns a boolean. Use `secret_has` for settings status. The Rust
+bridge reads `ANTHROPIC_API_KEY` and `BULLETIN_GITHUB_TOKEN` from the keychain
+when launching the sidecar if they are absent from the parent environment.
+Settings changes take effect the next time the sidecar starts.
+
 ## `health`
 
 Returns the health object from `GET /health`.

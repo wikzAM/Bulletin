@@ -1,0 +1,28 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Bulletin",
+  "identifier": "app.bulletin.desktop",
+  "build": {
+    "beforeDevCommand": "pnpm --filter desktop dev --host 127.0.0.1 --port 1420 --strictPort",
+    "beforeBuildCommand": "pnpm --filter desktop build",
+    "devUrl": "http://127.0.0.1:1420",
+    "frontendDist": "../apps/desktop/dist"
+  },
+  "app": {
+    "windows": [
+      { "label": "main", "title": "Bulletin", "width": 1200, "height": 800 }
+    ],
+    "security": {
+      "csp": "default-src 'self'; connect-src ipc: http://ipc.localhost; style-src 'self' 'unsafe-inline'; img-src 'self' data:",
+      "devCsp": "default-src 'self'; script-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost ws://127.0.0.1:1420; style-src 'self' 'unsafe-inline'; img-src 'self' data:"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "icon": ["icons/icon.ico"],
+    "resources": {
+      "../config/models.json": "config/models.json",
+      "../config/prices.json": "config/prices.json"
+    }
+  }
+}

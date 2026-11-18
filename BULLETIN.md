@@ -193,3 +193,7 @@
 ## [2026-11-18] Windows verification while testing SQLite
 
 - The SQLite storage suite and HTTP restart test passed in isolation. Full verification reached 482 passing tests and 18 failures, with timeouts in the engine and API fixtures and a Git fixture cleanup permission error after a timeout. A direct stdio probe started the SQLite sidecar and returned its first frame in 44 seconds. The sidecar test now allows up to 120 seconds for cold child startup and keeps the protocol assertions.
+
+## [2026-11-18] Rust lockfile and installer sidecar
+
+- `src-tauri/Cargo.lock` pins the new desktop crate's dependencies. Windows `cargo check` passed. The packaging unit needs to install the generated `bulletin-sidecar.exe` beside Bulletin and add its source path to Tauri's `bundle.externalBin` when the target-specific build artifact is available.

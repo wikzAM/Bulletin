@@ -14,7 +14,8 @@ import { recoverInterruptedMissions } from "./store/mission-recovery";
 import { openEventLog } from "./store/open-event-log";
 
 export async function createApplication() {
-  const root = resolve(import.meta.dirname, "../../..");
+  const resourceDirectory = process.env.BULLETIN_RESOURCE_DIR?.trim();
+  const root = resourceDirectory ? resolve(resourceDirectory) : resolve(import.meta.dirname, "../../..");
   if (process.env.BULLETIN_RUNNER === "managed") {
     const missing = missingManagedVariableNames(
       (name) => Boolean(process.env[name]?.trim()),
@@ -26,7 +27,9 @@ export async function createApplication() {
     BULLETIN_RUNNER: process.env.BULLETIN_RUNNER,
     BULLETIN_SANDBOX_REPO: process.env.BULLETIN_SANDBOX_REPO,
   }, root);
-  const dataDirectory = resolve(root, process.env.BULLETIN_SCRATCH_DIR ?? ".bulletin-scratch", "api");
+  const appData = appDataDirectory();
+  const defaultScratch = resourceDirectory ? join(appData, "scratch") : ".bulletin-scratch";
+  const dataDirectory = resolve(root, process.env.BULLETIN_SCRATCH_DIR ?? defaultScratch, "api");
   const models = loadModelsConfig(join(root, "config/models.json"));
   const prices = loadPricesConfig(join(root, "config/prices.json"));
   const general = models.roles.general;
@@ -35,7 +38,7 @@ export async function createApplication() {
   const interviewer = models.roles.interviewer;
   const answerer = models.roles.answerer;
 
-  const log = await openEventLog(appDataDirectory(), join(dataDirectory, "events.jsonl"), process.env.BULLETIN_EVENT_STORE);
+  const log = await openEventLog(appData, join(dataDirectory, "events.jsonl"), process.env.BULLETIN_EVENT_STORE);
   const briefingStore = await JsonlBriefingStore.open(join(dataDirectory, "briefings.jsonl")).catch(async (error: unknown) => {
     await log.close();
     throw error;
