@@ -18,7 +18,9 @@ object as the Tauri event payload. Register the listener before subscribing.
 The Tauri process supervises the child. A child exit rejects outstanding calls
 with code `-32000` and triggers a restart. Reissue reads as needed and reconnect
 subscriptions with the last event ID received. Confirm the outcome of an
-interrupted write before retrying it.
+interrupted write before retrying it. On Windows, Bulletin puts the sidecar in
+a Job Object before it starts so it can stop the sidecar and its descendants
+together.
 
 Set `BULLETIN_SIDECAR_PATH` to use a specific sidecar executable. Development
 uses `pnpm --filter @bulletin/sidecar exec tsx src/main.ts` when the workspace

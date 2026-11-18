@@ -197,3 +197,4 @@
 ## [2026-11-18] Rust lockfile and installer sidecar
 
 - `src-tauri/Cargo.lock` pins the new desktop crate's dependencies. Windows `cargo check` passed. The packaging unit needs to install the generated `bulletin-sidecar.exe` beside Bulletin and add its source path to Tauri's `bundle.externalBin` when the target-specific build artifact is available.
+- The supervisor adds native process APIs and the temporary-directory test fixture to the Rust lockfile. The pnpm lockfile is unchanged.

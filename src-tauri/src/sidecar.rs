@@ -1,8 +1,9 @@
+use bulletin_desktop::supervisor::ManagedChild;
 use serde::Serialize;
 use serde_json::{Value, json};
 use std::collections::HashMap;
 use std::io::{self, BufRead, BufReader, Write};
-use std::process::{Child, Command, Stdio};
+use std::process::{Command, Stdio};
 use std::sync::{Mutex, mpsc};
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
@@ -96,7 +97,7 @@ impl Drop for Sidecar {
 }
 
 struct Running {
-    child: Child,
+    child: ManagedChild,
     generation: u64,
     input: Option<mpsc::Sender<String>>,
     pending: HashMap<u64, ResponseSender>,
@@ -112,15 +113,17 @@ impl Running {
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::null());
-        #[cfg(windows)]
-        {
-            use std::os::windows::process::CommandExt;
-            const CREATE_NO_WINDOW: u32 = 0x08000000;
-            command.creation_flags(CREATE_NO_WINDOW);
-        }
-        let mut child = command.spawn()?;
-        let mut stdin = child.stdin.take().expect("sidecar stdin is piped");
-        let stdout = child.stdout.take().expect("sidecar stdout is piped");
+        let mut child = ManagedChild::spawn(&mut command)?;
+        let mut stdin = child
+            .child_mut()
+            .stdin
+            .take()
+            .expect("sidecar stdin is piped");
+        let stdout = child
+            .child_mut()
+            .stdout
+            .take()
+            .expect("sidecar stdout is piped");
         let (input, queue) = mpsc::channel();
         let running = Self {
             child,
@@ -211,8 +214,6 @@ impl Drop for Running {
             let _ = response.send(Err(RpcError::unavailable()));
         }
         self.input.take();
-        let _ = self.child.kill();
-        let _ = self.child.wait();
     }
 }
 
@@ -269,7 +270,7 @@ fn supervise(
             }
             Err(mpsc::RecvTimeoutError::Timeout) => {
                 if let Some(child) = &mut running
-                    && matches!(child.child.try_wait(), Ok(Some(_)) | Err(_))
+                    && matches!(child.child.child_mut().try_wait(), Ok(Some(_)) | Err(_))
                 {
                     running = None;
                     retry_at = Instant::now() + RESTART_DELAY;

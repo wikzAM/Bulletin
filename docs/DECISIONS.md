@@ -146,3 +146,4 @@ Founder decision, recorded in docs/SPEC.md (Platform section, which wins over se
 - Tauri 2 and `tauri-build` provide the Windows desktop shell and IPC bridge.
 - Serde and `serde_json` encode JSON-RPC frames and serializable command errors.
 - `keyring` 3.6 provides native credential storage on Windows and macOS behind a local trait.
+- `windows-sys` provides Windows Job Objects for native process-tree cancellation. `libc` supplies the Unix process-group signal, and `tempfile` makes Git fixtures disposable.
