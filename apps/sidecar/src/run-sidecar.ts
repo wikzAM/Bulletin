@@ -2,12 +2,13 @@ import { createInterface } from "node:readline";
 import type { createApplication } from "../../api/src/application";
 import { EnvKeychain } from "../../api/src/platform/keychain";
 import { appDataDirectory } from "../../api/src/platform/paths";
+import { MissionEventFeed } from "../../api/src/routes/mission-event-feed";
 import { createDesktopMethods } from "./methods";
 import { RpcError } from "./rpc-error";
 
 type RpcId = string | number | null;
 type Application = Awaited<ReturnType<typeof createApplication>>;
-type Subscription = { missionId: string; after: number; index: number };
+type Subscription = { missionId: string; after: number };
 const keychain = new EnvKeychain();
 
 function record(value: unknown): value is Record<string, unknown> {
@@ -60,10 +61,10 @@ async function proxy(app: Application["app"], params: Record<string, unknown>) {
 export async function runSidecar({ app, log }: Application) {
   const input = createInterface({ input: process.stdin, crlfDelay: Infinity });
   const desktop = createDesktopMethods({ dataDirectory: appDataDirectory(), keychain });
-  const subscriptions = new Map<number, Subscription>();
+  const feed = new MissionEventFeed(log);
+  const subscriptions = new Map<number, () => void>();
   const pending = new Set<Promise<void>>();
   let nextSubscription = 1;
-  let pumping: Promise<void> | undefined;
   let shuttingDown = false;
 
   function fail() {
@@ -86,14 +87,14 @@ export async function runSidecar({ app, log }: Application) {
         if (!log.events.some((event) => event.mission_id === mission_id && event.type === "mission.created")) {
           throw new RpcError(-32004, "Mission not found");
         }
-        const firstUnseen = log.events.findIndex((event) => event.id > after);
         const id = nextSubscription++;
-        newSubscriptions.set(id, { missionId: mission_id, after, index: firstUnseen < 0 ? log.events.length : firstUnseen });
+        newSubscriptions.set(id, { missionId: mission_id, after });
         return { subscription_id: id };
       }
       case "unsubscribe": {
         const { subscription_id } = params;
         if (!integer(subscription_id, 1)) throw new RpcError(-32602, "Expected a subscription ID");
+        subscriptions.get(subscription_id)?.();
         return { unsubscribed: subscriptions.delete(subscription_id) };
       }
       default: {
@@ -131,25 +132,18 @@ export async function runSidecar({ app, log }: Application) {
     // Queue the acknowledgement before registering the subscription so it
     // precedes replay, and an immediate unsubscribe can find the subscription.
     const response = id === undefined ? undefined : send({ id, ...outcome });
-    if (!shuttingDown) for (const [subscriptionId, subscription] of newSubscriptions) subscriptions.set(subscriptionId, subscription);
-    await response;
-  }
-
-  async function pump() {
-    for (const [id, subscription] of subscriptions) {
-      const end = log.events.length;
-      while (subscriptions.has(id) && subscription.index < end) {
-        const event = log.events[subscription.index++];
-        if (event && event.id > subscription.after && event.mission_id === subscription.missionId) {
-          await send({ method: "event", params: { subscription_id: id, event } });
-        }
+    if (!shuttingDown) {
+      for (const [subscription_id, { missionId, after }] of newSubscriptions) {
+        const unsubscribe = feed.subscribe(missionId, after, {
+          event: (event) => send({ method: "event", params: { subscription_id, event } }),
+          end: () => subscriptions.delete(subscription_id),
+          error: fail,
+        });
+        subscriptions.set(subscription_id, unsubscribe);
       }
     }
+    await response;
   }
-
-  const poll = setInterval(() => {
-    pumping ??= pump().catch(fail).finally(() => { pumping = undefined; });
-  }, 50).unref();
   input.on("line", (line) => {
     const task = handle(line).catch(fail).finally(() => { pending.delete(task); });
     pending.add(task);
@@ -162,9 +156,8 @@ export async function runSidecar({ app, log }: Application) {
     await new Promise<void>((resolve) => input.once("close", resolve));
   } finally {
     shuttingDown = true;
-    clearInterval(poll);
     subscriptions.clear();
-    await Promise.all([...pending, pumping]);
+    await Promise.all([...pending, feed.close()]);
     await app.close();
     process.stdout.removeListener("error", fail);
     process.removeListener("SIGINT", stop);

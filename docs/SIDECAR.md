@@ -96,7 +96,10 @@ on the HTTP interface.
 Send `mission_id` and optional `after`, a non-negative safe integer. The cursor
 is exclusive and defaults to zero. The response supplies a `subscription_id`
 before the sidecar sends any notifications for it. Delivery replays committed
-events in ascending ID order, then follows new events for that mission.
+events in ascending ID order, then follows a running mission. A finished
+mission replays its available history and releases the subscription. A cursor
+beyond that history produces an empty replay. Each subscription has its own
+cursor.
 An unknown mission returns error `-32004`.
 
 ```json

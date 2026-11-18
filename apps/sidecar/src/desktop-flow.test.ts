@@ -91,10 +91,22 @@ it("finishes the desktop setup and mission through the real sidecar with local f
       goal: "Set the value to 1", repo, briefing_id: briefing.id, budget_cents: 50,
     });
     expect(plan).toMatchObject({ briefing_version: 1, units: [expect.objectContaining({ id: "write-value" })] });
+    const first = await client.request("subscribe", { mission_id }) as { subscription_id: number };
+    const second = await client.request("subscribe", { mission_id }) as { subscription_id: number };
+    expect(first.subscription_id).not.toBe(second.subscription_id);
+    await expect.poll(() => client.events.filter((event) => event.mission_id === mission_id && event.type === "mission.created").length,
+      { timeout: 30_000 }).toBe(2);
+    expect(await client.request("unsubscribe", first)).toEqual({ unsubscribed: true });
     const question = await request<{ id: string }>("POST", "/questions", 201, { mission_id, body: "Which value?" });
+    for (const type of ["dispatch.asked", "decision.opened"]) {
+      const event = await client.waitForEvent(
+        (event) => event.mission_id === mission_id && event.type === type && event.payload?.question_id === question.id,
+        30_000,
+      );
+      expect(event.payload).toMatchObject({ question_id: question.id });
+    }
     await request("POST", `/questions/${question.id}/answer`, 200, { answer: "1" });
     expect(await request("POST", "/questions", 201, { mission_id, body: "WHICH value?" })).toMatchObject({ source: "cache", answer: "1" });
-    expect(await client.request("subscribe", { mission_id })).toMatchObject({ subscription_id: expect.any(Number) });
     await request("POST", `/missions/${mission_id}/approve`, 202);
     const finished = await client.waitForEvent((event) => event.mission_id === mission_id && event.type === "mission.finished", 90_000);
     expect(finished.payload).toMatchObject({ shipped: 1, failed: 0 });
@@ -105,6 +117,8 @@ it("finishes the desktop setup and mission through the real sidecar with local f
       shipped: ["write-value"], attempts: 1, model_calls: 1, cost_cents: 0.3, cost_per_green_unit_cents: 0.3,
       touches: 1, touch_rate: 1, auto_answer_rate: 0.5,
     });
+    expect(client.events.filter((event) => event.mission_id === mission_id && event.type === "mission.finished")).toHaveLength(1);
+    expect(await client.request("unsubscribe", second)).toEqual({ unsubscribed: false });
     expect(await git(repo, "show", `bulletin/${mission_id}/integration:value.txt`)).toBe("1");
     expect(await git(repo, "show", "main:value.txt")).toBe("0");
     expect(await client.close()).toBe(0);
