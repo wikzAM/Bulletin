@@ -1,4 +1,3 @@
-import { createInterface } from "node:readline";
 import { createApplication } from "../../api/src/application";
 import { EnvKeychain } from "../../api/src/platform/keychain";
 import { appDataDirectory } from "../../api/src/platform/paths";
@@ -177,6 +176,9 @@ async function main() {
 }
 
 main().catch(() => {
+import { runSidecar } from "./run-sidecar";
+
+createApplication().then(runSidecar).catch(() => {
   console.error("Sidecar failed to start or shut down");
   process.exitCode = 1;
 });

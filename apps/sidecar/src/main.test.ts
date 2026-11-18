@@ -63,7 +63,7 @@ function expectContractFrame(line: string): Frame {
   return frame;
 }
 
-it("proxies Fastify requests and replays and follows mission events over stdio", async () => {
+it("proxies Fastify requests and closes a finished mission replay over stdio", async () => {
   const directory = await mkdtemp(join(tmpdir(), "bulletin-sidecar-"));
   const data = join(directory, "api");
   const path = join(directory, "events.sqlite");
@@ -128,14 +128,9 @@ it("proxies Fastify requests and replays and follows mission events over stdio",
       expect(await receive()).toEqual({ jsonrpc: "2.0", id: 5, result: { subscription_id: 1 } });
       expect(await receive()).toEqual({ jsonrpc: "2.0", method: "event", params: { subscription_id: 1, event: finished } });
       send(6, "request", { method: "POST", path: "/questions", body: { mission_id: "demo", body: "Which seed?" } });
-      const replies = [await receive(), await receive(), await receive()];
-      expect(replies).toEqual(expect.arrayContaining([
-        expect.objectContaining({ id: 6, result: expect.objectContaining({ status: 201 }) }),
-        expect.objectContaining({ method: "event", params: expect.objectContaining({ event: expect.objectContaining({ id: 3, type: "dispatch.asked" }) }) }),
-        expect.objectContaining({ method: "event", params: expect.objectContaining({ event: expect.objectContaining({ id: 4, type: "decision.opened" }) }) }),
-      ]));
+      expect(await receive()).toMatchObject({ id: 6, result: { status: 201 } });
       send(7, "unsubscribe", { subscription_id: 1 });
-      expect(await receive()).toMatchObject({ id: 7, result: { unsubscribed: true } });
+      expect(await receive()).toMatchObject({ id: 7, result: { unsubscribed: false } });
       send(8, "subscribe", { mission_id: "missing" });
       expect(await receive()).toMatchObject({ id: 8, error: { code: -32004 } });
 
@@ -173,6 +168,10 @@ it("proxies Fastify requests and replays and follows mission events over stdio",
       expect(await receive()).toMatchObject({ id: 19, result: { present: true } });
       send(20, "secret.set", { name: "PATH", value: "C:/evil" });
       expect(await receive()).toMatchObject({ id: 20, error: { code: -32602 } });
+      send(21, "subscribe", { mission_id: "demo", after: 100 });
+      expect(await receive()).toMatchObject({ id: 21, result: { subscription_id: 2 } });
+      send(22, "unsubscribe", { subscription_id: 2 });
+      expect(await receive()).toMatchObject({ id: 22, result: { unsubscribed: false } });
       // No frame carries a secret value or anything from `claude auth status` beyond the login flag.
       const everything = raw.join("|");
       expect(everything).not.toContain(sentinel);

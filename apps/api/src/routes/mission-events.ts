@@ -1,6 +1,7 @@
 import { PassThrough } from "node:stream";
 import type { FastifyInstance } from "fastify";
 import type { EventLog } from "../store/event-log";
+import { MissionEventFeed } from "./mission-event-feed";
 import { validateIdParams } from "./request-validation";
 
 function parseCursor(value: unknown): number | undefined {
@@ -10,42 +11,41 @@ function parseCursor(value: unknown): number | undefined {
   return Number.isSafeInteger(cursor) ? cursor : undefined;
 }
 
-function followMission(log: EventLog, missionId: string, after: number): PassThrough {
-  const stream = new PassThrough();
-  const firstUnseen = log.events.findIndex((event) => event.id > after);
-  let nextIndex = firstUnseen === -1 ? log.events.length : firstUnseen;
-
-  function flushEvents() {
-    if (stream.destroyed || stream.writableEnded || stream.writableNeedDrain) return;
-    try {
-      while (nextIndex < log.events.length) {
-        const event = log.events[nextIndex++];
-        if (!event || event.id <= after || event.mission_id !== missionId) continue;
-        const frame = `id: ${event.id}\nevent: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`;
-        if (!stream.write(frame)) return;
-      }
-    } catch (error) {
-      stream.destroy(error instanceof Error ? error : new Error(String(error)));
+function waitForDrain(stream: PassThrough): Promise<void> {
+  return new Promise((resolve) => {
+    function ready() {
+      stream.removeListener("drain", ready);
+      stream.removeListener("close", ready);
+      resolve();
     }
-  }
+    stream.once("drain", ready);
+    stream.once("close", ready);
+  });
+}
 
-  // The log exposes an append-only array. One index covers replay and new
-  // appends, including events emitted while a client is still reading history.
-  const poll = setInterval(flushEvents, 50).unref();
+function followMission(feed: MissionEventFeed, missionId: string, after: number): PassThrough {
+  const stream = new PassThrough();
+  if (!feed.isFinished(missionId)) stream.write(": connected\n\n");
+  const unsubscribe = feed.subscribe(missionId, after, {
+    event(event) {
+      if (stream.destroyed || stream.writableEnded) return;
+      const frame = `id: ${event.id}\nevent: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`;
+      if (!stream.write(frame)) return waitForDrain(stream);
+    },
+    end() { stream.end(); },
+    error(error) { stream.destroy(error instanceof Error ? error : new Error(String(error))); },
+  });
   const heartbeat = setInterval(() => {
     if (!stream.destroyed && !stream.writableEnded && !stream.writableNeedDrain) stream.write(": keep-alive\n\n");
   }, 15_000).unref();
   stream.once("close", () => {
-    clearInterval(poll);
+    unsubscribe();
     clearInterval(heartbeat);
   });
-  stream.on("drain", flushEvents);
-  stream.write(": connected\n\n");
-  flushEvents();
   return stream;
 }
 
-export function registerMissionEventStream(app: FastifyInstance, log: EventLog): void {
+export function registerMissionEventStream(app: FastifyInstance, log: EventLog, feed = new MissionEventFeed(log)): void {
   const streams = new Set<PassThrough>();
   app.addHook("preClose", async () => {
     for (const stream of streams) stream.end();
@@ -63,10 +63,18 @@ export function registerMissionEventStream(app: FastifyInstance, log: EventLog):
       const lastEventId = request.headers["last-event-id"];
       const cursor = parseCursor(lastEventId === "" || lastEventId === undefined ? request.query.after : lastEventId);
       if (cursor === undefined) return reply.code(400).send({ error: "Invalid event cursor" });
+      if (feed.isFinished(id) && !log.events.some((event) => event.id > cursor && event.mission_id === id)) {
+        return reply.code(204).header("Cache-Control", "no-store").send();
+      }
 
-      const stream = followMission(log, id, cursor);
+      const stream = followMission(feed, id, cursor);
       streams.add(stream);
-      stream.once("close", () => streams.delete(stream));
+      const disconnect = () => stream.destroy();
+      reply.raw.once("close", disconnect);
+      stream.once("close", () => {
+        reply.raw.removeListener("close", disconnect);
+        streams.delete(stream);
+      });
       return reply
         .type("text/event-stream; charset=utf-8")
         .header("Cache-Control", "no-cache, no-transform")

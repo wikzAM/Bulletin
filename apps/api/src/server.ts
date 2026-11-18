@@ -7,6 +7,7 @@ import { registerBriefings } from "./routes/briefings";
 import { registerConfig, type ConfigSource } from "./routes/config";
 import { registerMissionApproval, type MissionPricing, type MissionStarter } from "./routes/mission-approval";
 import { registerMissionDecisions, type HeldMissionResolver } from "./routes/mission-decisions";
+import type { MissionEventFeed } from "./routes/mission-event-feed";
 import { registerMissionPlanning } from "./routes/mission-planning";
 import { registerMissionRules, type ReadGit } from "./routes/mission-rules";
 import { registerMissionRoutes } from "./routes/missions";
@@ -22,6 +23,7 @@ export interface ServerOptions {
   config?: ConfigSource;
   interviewerCall?: ModelCall;
   modelCall?: ModelCall;
+  missionEventFeed?: MissionEventFeed;
   pricing?: MissionPricing;
   questionStore?: QuestionStore;
   questionWorkflow?: QuestionWorkflow;
@@ -94,7 +96,7 @@ export function buildServer(events: EventLog = new MemoryEventLog(), options: Se
   const briefings = options.briefingStore ?? new MemoryBriefingStore();
   const pricing = options.pricing ?? (options.config && { prices: options.config.prices, tiers: options.config.models.tiers });
   registerBriefings(app, briefings, options.interviewerCall);
-  registerMissionRoutes(app, events);
+  registerMissionRoutes(app, events, options.missionEventFeed);
   registerMissionDecisions(app, events, options.resolveHeldMission);
   registerMissionRules(app, events, options.readGit);
   registerMissionPlanning(app, events, briefings, options.modelCall);

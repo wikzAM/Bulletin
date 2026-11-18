@@ -326,3 +326,20 @@ RED touched a locked file: pnpm-lock.yaml
 ## [2026-11-18] Report metrics verification
 
 - Task 13 is committed at `ea61d20` with 18 targeted tests passing. Full verification passed install, lint, and typecheck, then finished with 918 passed, 3 failed, and 2 existing skips. The same engine report setup hook exceeded its 10-second deadline in all three failures. One of those fixtures also reported a Windows permission error during teardown.
+
+## [2026-11-18] Desktop flow verification
+
+- Task 14 passed against both the TSX fixture entry point and its Windows executable. Full verification passed install, lint, and typecheck, then reported 972 passed, 6 failed, and 3 existing skips. Three engine report hooks and two SDK runner hooks exceeded their deadlines. The pass-worker tree-kill test also exceeded its 60-second assertion.
+
+## [2026-11-18] Mission event stream verification
+
+- Task 15 passed the SSE, SQLite replay, and real sidecar checks. Full verification passed install, lint, and typecheck, then reported 978 passed, 4 failed, and 3 existing skips. All failures were the recurring 10-second graph report setup hook. One fixture also saw a Windows permission error during teardown.
+
+## [2026-11-18] Refresh desktop events after resolving a finished mission decision
+
+- A finished mission now closes its replay. Resolving a held decision may append more events or run a continuation after that close.
+- Options are to resubscribe from the last event ID after a successful decision, or refresh the mission and use a new cursor on the next view. Recommend resubscribing from the last ID so the war table receives the decision and any continuation events. The desktop transport owner can wire that refresh.
+
+## [2026-11-18] M5 team groundwork verification
+
+- Task 16 passed all six mission role tests. Full verification with one worker passed install, lint, and typecheck, then reported 984 passed, 4 failed, and 3 existing skips. The same 10-second graph report setup hook failed in all four cases, including with reduced concurrency.
