@@ -1,4 +1,5 @@
 import type { Runner } from "@bulletin/runners";
+import type { SdkRunnerDeps } from "../runners";
 
 interface RunnerEnvironment {
   BULLETIN_RUNNER?: string;
@@ -11,7 +12,7 @@ export function missingManagedVariableNames(configured: (name: string) => boolea
   return names.filter((name) => !configured(name));
 }
 
-export function createRunnerFactory(env: RunnerEnvironment, root: string): (repo: string, scratchDir: string) => Promise<Runner> {
+export function createRunnerFactory(env: RunnerEnvironment, root: string): (repo: string, scratchDir: string, ...sdk: [SdkRunnerDeps?]) => Promise<Runner> {
   switch (env.BULLETIN_RUNNER ?? "claude") {
     case "claude":
       return async (repo, scratchDir) => {
@@ -27,9 +28,9 @@ export function createRunnerFactory(env: RunnerEnvironment, root: string): (repo
       };
     }
     case "sdk":
-      return async (repo, scratchDir) => {
+      return async (repo, scratchDir, ...sdk) => {
         const { sdkRunner } = await import("../runners");
-        return sdkRunner(repo, scratchDir, root);
+        return sdkRunner(repo, scratchDir, root, ...sdk);
       };
     default:
       throw new Error("BULLETIN_RUNNER must be claude or managed, or sdk");

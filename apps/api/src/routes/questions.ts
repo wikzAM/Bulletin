@@ -4,7 +4,7 @@ import { z } from "zod";
 import type { ModelCall } from "../general";
 import type { EventLog } from "../store/event-log";
 import { answerFromBriefing } from "./answerer";
-import { MemoryQuestionStore, type AnsweredQuestion, type QuestionStore } from "./questions-store";
+import type { QuestionWorkflow } from "./question-workflow";
 import { emptyBody, identifier, validateIdParams } from "./request-validation";
 
 const questionQuery = z.object({ mission_id: identifier.optional() });
@@ -15,21 +15,13 @@ const questionBody = z.strictObject({
 });
 const answerBody = z.strictObject({ answer: z.string().trim().min(1) });
 
-async function publishAnswer(log: EventLog, question: AnsweredQuestion): Promise<void> {
-  const { mission_id, unit_id, id: question_id, answer, source } = question;
-  const citation = source === "briefing" ? { source, briefing_ref: question.briefing_ref } : {};
-  await log.emit({ mission_id, unit_id, type: "dispatch.answered", payload: { question_id, answer, ...citation } });
-  await log.emit({ mission_id, unit_id, type: "decision.resolved", payload: {
-    question_id, kind: "question", ...(source === "briefing" ? { source } : {}),
-  } });
-}
-
 export function registerQuestionRoutes(
   app: FastifyInstance,
   log: EventLog,
-  store: QuestionStore = new MemoryQuestionStore(),
+  workflow: QuestionWorkflow,
   call?: ModelCall,
 ): void {
+  const { store } = workflow;
   const answering = new Set<string>();
   app.get("/questions", async (request, reply) => {
     const parsed = questionQuery.safeParse(request.query);
@@ -41,25 +33,21 @@ export function registerQuestionRoutes(
     const parsed = questionBody.safeParse(request.body);
     if (!parsed.success) return reply.code(400).send({ error: "Invalid request" });
 
-    const { mission_id, unit_id, body } = parsed.data;
+    const { mission_id } = parsed.data;
     if (!log.events.some((event) => event.mission_id === mission_id && event.type === "mission.created")) {
       return reply.code(404).send({ error: "Mission not found" });
     }
-    const question = await store.create(parsed.data);
-    const scope = { mission_id, unit_id };
-    await log.emit({ ...scope, type: "dispatch.asked", payload: { question_id: question.id, body } });
-    await log.emit({ ...scope, type: "decision.opened", payload: { question_id: question.id, kind: "question" } });
+    const question = await workflow.post(parsed.data);
     return reply.code(201).send(question);
   });
 
   app.post<{ Params: { id: string } }>("/questions/:id/answer", { preValidation: validateIdParams }, async (request, reply) => {
     const parsed = answerBody.safeParse(request.body);
     if (!parsed.success) return reply.code(400).send({ error: "Invalid request" });
-    const result = await store.answer(request.params.id, parsed.data.answer);
+    const result = await workflow.answerHuman(request.params.id, parsed.data.answer);
     if (result.status === "missing") return reply.code(404).send({ error: "Question not found" });
     if (result.status === "already_answered") return reply.code(409).send({ error: "Question already answered" });
 
-    await publishAnswer(log, result.question);
     return result.question;
   });
 
@@ -88,10 +76,9 @@ export function registerQuestionRoutes(
       }
 
       if (answer) {
-        const result = await store.answer(id, answer.answer, { source: "briefing", briefing_ref: answer.briefing_ref });
+        const result = await workflow.answerAutomatically(question, answer.answer, { source: "briefing", briefing_ref: answer.briefing_ref });
         if (result.status === "missing") return reply.code(404).send({ error: "Question not found" });
         if (result.status === "already_answered") return reply.code(409).send({ error: "Question already answered" });
-        await publishAnswer(log, result.question);
         return result.question;
       }
 

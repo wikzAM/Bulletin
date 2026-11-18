@@ -481,7 +481,7 @@ then `decision.resolved` with `kind: "question"` and `question_id`.
 For a mission with a completed Briefing, the answer also appends one line to
 the Decisions log and publishes a `briefing.versioned` event with the next
 version and its Markdown. That version caches the answer for the same
-normalized question. A station waiting on the question receives the answer
+normalized question. An SDK station waiting on the question receives the answer
 through `bulletin_wait`.
 
 ## `POST /questions/:id/auto-answer`

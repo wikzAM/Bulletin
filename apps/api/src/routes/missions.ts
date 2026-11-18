@@ -66,6 +66,7 @@ function listMissions(events: readonly BulletinEvent[]): MissionSummary[] {
         status: "interview",
       });
     }
+    if (type === "briefing.versioned" && payload.reason === "question_answer") continue;
     const status = missionStatuses[type];
     if (mission && status) {
       mission.status = status;

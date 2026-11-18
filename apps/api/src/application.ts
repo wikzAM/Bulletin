@@ -6,6 +6,7 @@ import { appDataDirectory } from "./platform/paths";
 import { createGeneralCall } from "./routes/general-model";
 import { DEFAULT_UNIT_ALLOWANCE_CENTS } from "./routes/mission-ledger";
 import { allowedLocalCommands } from "./routes/mission-planning";
+import { QuestionWorkflow } from "./routes/question-workflow";
 import { MemoryQuestionStore } from "./routes/questions-store";
 import { createRunnerFactory, missingManagedVariableNames } from "./routes/runner-selection";
 import { buildServer } from "./server";
@@ -38,31 +39,33 @@ export async function createApplication() {
   const modelCall = createGeneralCall(general, createCall);
   const interviewer = models.roles.interviewer;
   const answerer = models.roles.answerer;
-
-  async function engineOptions({ missionId, repo }: { missionId: string; repo: string }) {
-    const scratchDir = join(dataDirectory, missionId);
-    return {
-      scratchDir,
-      runner: await createRunner(repo, scratchDir),
-      prices,
-      tiers: models.tiers,
-      allowedCommands: allowedLocalCommands,
-      unitAllowanceCents: DEFAULT_UNIT_ALLOWANCE_CENTS,
-    };
-  }
+  const answererCall = answerer ? createCall(answerer.model) : undefined;
 
   const log = await openEventLog(appData, join(dataDirectory, "events.jsonl"), process.env.BULLETIN_EVENT_STORE);
   const briefingStore = await JsonlBriefingStore.open(join(dataDirectory, "briefings.jsonl")).catch(async (error: unknown) => {
     await log.close();
     throw error;
   });
+  const questionWorkflow = new QuestionWorkflow(log, new MemoryQuestionStore());
+
+  async function engineOptions({ missionId, repo }: { missionId: string; repo: string }) {
+    const scratchDir = join(dataDirectory, missionId);
+    const runner = process.env.BULLETIN_RUNNER === "sdk"
+      ? await createRunner(repo, scratchDir, { stationTools: await questionWorkflow.stationTools(answererCall) })
+      : await createRunner(repo, scratchDir);
+    return {
+      scratchDir, runner, prices, tiers: models.tiers, allowedCommands: allowedLocalCommands,
+      unitAllowanceCents: DEFAULT_UNIT_ALLOWANCE_CENTS,
+    };
+  }
+
   const app = buildServer(log, {
-    answererCall: answerer ? createCall(answerer.model) : undefined,
+    answererCall,
     briefingStore,
     config: { models, prices },
     interviewerCall: interviewer ? createCall(interviewer.model) : undefined,
     modelCall,
-    questionStore: new MemoryQuestionStore(),
+    questionWorkflow,
     async startMission(mission) {
       const [{ runMission }, options] = await Promise.all([
         import("./orchestrator/run-mission"),
