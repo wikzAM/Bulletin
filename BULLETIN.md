@@ -339,3 +339,7 @@ RED touched a locked file: pnpm-lock.yaml
 
 - A finished mission now closes its replay. Resolving a held decision may append more events or run a continuation after that close.
 - Options are to resubscribe from the last event ID after a successful decision, or refresh the mission and use a new cursor on the next view. Recommend resubscribing from the last ID so the war table receives the decision and any continuation events. The desktop transport owner can wire that refresh.
+
+## [2026-11-18] M5 team groundwork verification
+
+- Task 16 passed all six mission role tests. Full verification with one worker passed install, lint, and typecheck, then reported 984 passed, 4 failed, and 3 existing skips. The same 10-second graph report setup hook failed in all four cases, including with reduced concurrency.
