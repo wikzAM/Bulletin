@@ -45,6 +45,12 @@ fn secret_set(state: State<'_, Desktop>, name: String, value: String) -> Result<
     Ok(())
 }
 
+/// Restarts the sidecar so it re-reads its settings (the provider is read at start).
+#[tauri::command]
+fn restart_sidecar(state: State<'_, Desktop>) {
+    state.sidecar.restart();
+}
+
 #[tauri::command]
 fn secret_has(state: State<'_, Desktop>, name: String) -> Result<bool, &'static str> {
     secrets::fetch(state.secrets.as_ref(), &name).map(|value| value.is_some())
@@ -117,7 +123,12 @@ fn main() {
             });
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![rpc, secret_set, secret_has])
+        .invoke_handler(tauri::generate_handler![
+            rpc,
+            secret_set,
+            secret_has,
+            restart_sidecar
+        ])
         .build(tauri::generate_context!())
         .expect("could not initialize Bulletin desktop");
     app.run(|handle, event| {

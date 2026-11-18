@@ -153,7 +153,14 @@ export function createTauriBridge(opts: { invoke: TauriInvoke; retryDelayMs?: nu
     },
 
     async setSettings(values) {
-      return ((await rpc("settings.set", { values })) as { settings: AppSettings }).settings;
+      // The sidecar reads the provider when it starts, so a changed provider means a restart.
+      const before = "provider" in values ? await this.getSettings() : null;
+      const after = ((await rpc("settings.set", { values })) as { settings: AppSettings }).settings;
+      if (before && (before.provider ?? null) !== (after.provider ?? null)) {
+        await opts.invoke("restart_sidecar", {});
+        await rpc("health", {}, 40).catch(() => undefined);
+      }
+      return after;
     },
   };
 }

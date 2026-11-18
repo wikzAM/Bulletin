@@ -12,6 +12,7 @@ import {
 } from "../lib/setup";
 import { createLocalSettingsStore } from "../lib/window-settings";
 import { PageLoading, PageShell } from "./PageStates";
+import { saveSetup } from "./SetupPage.settings";
 
 const SETUP_DONE_KEY = "bulletin.setup.done";
 
@@ -70,6 +71,11 @@ export function SetupPage() {
 
   const finish = async () => {
     if (!ready) return;
+    try {
+      await saveSetup(bridge, draft);
+    } catch {
+      // The choice is also kept locally below; the sidecar keeps its default provider until this saves.
+    }
     await createLocalSettingsStore().set(SETUP_DONE_KEY, true);
     navigate("/");
   };
