@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useReducer, useState } from "react";
 import type { BulletinEvent } from "@bulletin/core";
-import { approveMission, resolveDecision, stopMission, subscribeEvents, type ConnectionState } from "../lib/api";
+import { approveMission, listQuestions, stopMission, subscribeEvents, type ConnectionState } from "../lib/api";
+import type { Question } from "../lib/types";
+import { InboxDrawer } from "./InboxDrawer";
 import { approveMessage, canApprove, type ApproveMessage } from "../lib/approve";
 import { copy, LANE_LABELS } from "../lib/copy";
-import { heldForYou, resolveMessage } from "../lib/decisions";
+import { heldForYou } from "../lib/decisions";
 import { attemptResultLabel, canStop, cardStatus, stopMessage } from "../lib/ending";
 import { formatCents, formatPercent } from "../lib/format";
 import { summarizeTreasury, type TreasurySummary } from "../lib/treasury";
@@ -15,13 +17,14 @@ import {
   initialState,
   unitTitles,
   type AttemptRecord,
-  type DecisionChoice,
   type Ending,
   type UnitCard,
   type WarTableState,
 } from "../lib/war-table";
 import { PlanFlow } from "./PlanFlow";
-import { CourierLayer, DecisionDrawer, ReceiptCard } from "./WarExtras";
+import { PlanReview } from "./PlanReview";
+import { CourierLayer, ReceiptCard } from "./WarExtras";
+import { nextRevisionCount } from "../lib/plan-review";
 
 const t = copy.missionPage;
 const tt = copy.treasury;
@@ -146,6 +149,9 @@ export function WarTable({
   const [connection, setConnection] = useState<ConnectionState>("connecting");
   const heldCount = heldForYou(state, {}).length;
   const [drawerOpen, setDrawerOpen] = useState(heldCount > 0);
+  const [revisionsUsed, setRevisionsUsed] = useState(0);
+  const [revising, setRevising] = useState(false);
+  const [questions, setQuestions] = useState<Question[]>([]);
 
   useEffect(
     () => subscribeEvents(missionId, { onEvent: (e: BulletinEvent) => dispatch(e), onState: setConnection }),
@@ -153,11 +159,37 @@ export function WarTable({
   );
 
   useEffect(() => {
-    if (heldCount > 0) setDrawerOpen(true);
-  }, [heldCount]);
+    void listQuestions()
+      .then((all) => setQuestions(all.filter((q) => q.mission_id === missionId)))
+      .catch(() => setQuestions([]));
+  }, [missionId]);
+
+  useEffect(() => {
+    if (heldCount > 0 || questions.some((q) => q.status === "open")) setDrawerOpen(true);
+  }, [heldCount, questions]);
+
+  const onRevise = async (comment: string) => {
+    setRevising(true);
+    try {
+      // Revision request is recorded locally until a revise route exists; count enforces the one-revision rule.
+      void comment;
+      setRevisionsUsed((n) => nextRevisionCount(n));
+    } finally {
+      setRevising(false);
+    }
+  };
 
   return (
     <div className="war-shell">
+      {canApprove(status, state) && (
+        <PlanReview
+          units={units}
+          estimateCents={treasury?.budget_cents ?? 500}
+          revisionsUsed={revisionsUsed}
+          onRevise={onRevise}
+          revising={revising}
+        />
+      )}
       <div className="war-top">
         <div className="war-actions">
           {canApprove(status, state) && <ApprovePanel missionId={missionId} />}
@@ -175,9 +207,13 @@ export function WarTable({
           badge={state.ending ? t.endings[state.ending] : t.connection[connection]}
           hideTreasury
         />
-        <DecisionDrawer open={drawerOpen} onToggle={() => setDrawerOpen((o) => !o)} count={heldCount}>
-          <HeldPanel missionId={missionId} state={state} />
-        </DecisionDrawer>
+        <InboxDrawer
+          missionId={missionId}
+          state={state}
+          questions={questions}
+          open={drawerOpen}
+          onToggle={() => setDrawerOpen((o) => !o)}
+        />
       </div>
       <CourierLayer state={state} />
       <ReceiptCard state={state} />
@@ -280,69 +316,6 @@ function StopPanel({ missionId }: { missionId: string }) {
     </div>
   );
 }
-function HeldPanel({ missionId, state }: { missionId: string; state: WarTableState }) {
-  const th = copy.held;
-  const [local, setLocal] = useState<Record<string, DecisionChoice>>({});
-  const [busy, setBusy] = useState<string | null>(null);
-  const [messages, setMessages] = useState<Record<string, { tone: "ok" | "error"; text: string }>>({});
-  const items = heldForYou(state, local);
-  if (items.length === 0) return null;
-
-  const decide = async (unitId: string, choice: DecisionChoice) => {
-    setBusy(unitId);
-    try {
-      const result = await resolveDecision(missionId, unitId, choice);
-      setMessages((m) => ({ ...m, [unitId]: resolveMessage(choice, result) }));
-      if (result.ok) setLocal((l) => ({ ...l, [unitId]: choice }));
-    } catch {
-      setMessages((m) => ({ ...m, [unitId]: { tone: "error", text: th.failed } }));
-    } finally {
-      setBusy(null);
-    }
-  };
-
-  return (
-    <section className="held" aria-labelledby="held-title">
-      <h2 id="held-title">{th.title}</h2>
-      <p className="muted">{th.intro}</p>
-      <ul>
-        {items.map((item) => {
-          const message = messages[item.id];
-          return (
-            <li key={item.id} aria-busy={busy === item.id}>
-              <h3>{item.title}</h3>
-              <p>{item.why}</p>
-              {item.branch && <p className="muted">{th.branch(item.branch)}</p>}
-              {item.choice ? (
-                <p className="status">{th.choice[item.choice]}</p>
-              ) : (
-                <div className="actions">
-                  <button type="button" onClick={() => void decide(item.id, "approve")} disabled={busy !== null}>
-                    {busy === item.id ? th.saving : th.approve}
-                  </button>
-                  <button type="button" className="secondary" onClick={() => void decide(item.id, "reject")} disabled={busy !== null}>
-                    {th.reject}
-                  </button>
-                </div>
-              )}
-              {message &&
-                (message.tone === "ok" ? (
-                  <p className="notice" role="status">
-                    {message.text}
-                  </p>
-                ) : (
-                  <p className="form-error" role="alert">
-                    {message.text}
-                  </p>
-                ))}
-            </li>
-          );
-        })}
-      </ul>
-    </section>
-  );
-}
-/** The task board, spending and activity for one project state; no data fetching. */
 export function WarTableView({
   units,
   state,

@@ -159,6 +159,26 @@ Desktop project page layout: spending meter top-right, decisions in a sticky rig
 ## 2026-11-18: desktop package vitest config
 `apps/desktop/vitest.config.ts` includes `test/**/*.test.ts` relative to the package cwd so `pnpm --filter @bulletin/desktop test` works. The root vitest config is unchanged.
 
+## 2026-11-18: first-run setup
+`/setup` collects environment probe results, API provider (Claude Code login / Anthropic key / Bedrock), repo path (Tauri folder pick or text field), and optional `secret_set` via `DesktopBridge`. Keychain names: `ANTHROPIC_API_KEY` and `AWS_BEARER_TOKEN_BEDROCK`. The secret field clears after save and is never logged. Checklist logic lives in `lib/setup.ts`.
+
+## 2026-11-18: plan review (F2)
+`PlanReview` shows the React Flow plan, lane labels, fare range (estimate → 1.8×), and a comment box that may fire once (`canRequestRevision`). Until a revise API exists, the comment only advances the local revision count. Approve stays on the existing Approve panel. Fare helpers live in `lib/plan-review.ts`.
+
+## 2026-11-18: decision inbox (F4)
+`InboxDrawer` groups open questions and held tasks by kind (question, closed_lane_merge, gated_retry, budget). Approve/reject uses `resolveDecision`; questions use `answerQuestion`. `groupInbox` / `resolvePayload` / `answerPayload` live in `lib/inbox.ts`.
+
+## 2026-11-18: battle replay (M6)
+`replaySchedule` spaces events across 30s; `ReplayPage` plays with pause/skip/speed and shows a static timeline when `prefers-reduced-motion` is set. Helpers in `lib/replay.ts`.
+
+## 2026-11-18: about / diagnostics
+`/about` shows package version, sidecar health (Tauri `rpc`/`health` or mock), and data folder. `buildDiagnosticsText` never mentions secrets. Helpers in `lib/diagnostics.ts`.
+
+
+
+
+
+
 ## 2026-11-18: native desktop bridge dependencies
 
 - Tauri 2 and `tauri-build` provide the Windows desktop shell and IPC bridge.

@@ -939,6 +939,46 @@ ul.lesson-list li:first-child {
   border: 0;
 }
 
+.setup-checks {
+  list-style: none;
+  padding: 0;
+  margin: 1rem 0;
+}
+.setup-checks li {
+  margin: 0.35rem 0;
+}
+.setup-checks li.ok {
+  color: var(--green);
+}
+.setup-providers {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  margin: 1rem 0;
+}
+.setup-provider {
+  display: block;
+  margin: 0.4rem 0;
+}
+.setup-repo-row {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.35rem;
+}
+.setup-repo-row input {
+  flex: 1;
+}
+.setup-secret {
+  margin: 1rem 0;
+  max-width: 28rem;
+}
+.setup-secret input {
+  display: block;
+  width: 100%;
+  margin: 0.35rem 0;
+}
+
+
 
 
 /* War table desktop layout (spec §13 extras) */

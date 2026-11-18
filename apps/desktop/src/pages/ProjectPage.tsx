@@ -49,6 +49,8 @@ export function ProjectPage() {
       <p className="muted">
         {mission.repo} · <span className="badge">{copy.missionStatus[mission.status]}</span> ·{" "}
         <Link to={`/missions/${encodeURIComponent(mission.id)}/lessons`}>{t.lessonsLink}</Link>
+        {" · "}
+        <Link to={`/missions/${encodeURIComponent(mission.id)}/replay`}>{copy.replay.title}</Link>
       </p>
       <WarTable missionId={mission.id} status={mission.status} units={mission.units} treasury={treasury} />
     </PageShell>
