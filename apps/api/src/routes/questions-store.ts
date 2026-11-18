@@ -6,7 +6,7 @@ export interface NewQuestion {
   body: string;
 }
 
-export type AnswerSource = { source: "human" } | { source: "briefing"; briefing_ref: string };
+export type AnswerSource = { source: "human" } | { source: "briefing" | "cache"; briefing_ref: string };
 
 type StoredQuestion = NewQuestion & {
   id: string;
@@ -17,7 +17,7 @@ type StoredQuestion = NewQuestion & {
 export type AnsweredQuestion = StoredQuestion & AnswerSource & { status: "answered"; answer: string; answered_at: string };
 export type Question = AnsweredQuestion | (StoredQuestion & { status: "open"; answer: null; answered_at: null });
 
-type AnswerResult =
+export type AnswerResult =
   | { status: "missing" }
   | { status: "already_answered" }
   | { status: "answered"; question: AnsweredQuestion };
@@ -25,7 +25,7 @@ type AnswerResult =
 export interface QuestionStore {
   list(missionId?: string): Promise<readonly Question[]>;
   get(id: string): Promise<Question | undefined>;
-  create(input: NewQuestion): Promise<Question>;
+  create(input: NewQuestion, id?: string): Promise<Question>;
   /** Implementations must check and set the answer in one operation. */
   answer(id: string, answer: string, attribution?: AnswerSource): Promise<AnswerResult>;
   markAutoAnswerTried(id: string): Promise<Question | undefined>;
@@ -42,10 +42,10 @@ export class MemoryQuestionStore implements QuestionStore {
     return this.questions.get(id);
   }
 
-  async create(input: NewQuestion): Promise<Question> {
+  async create(input: NewQuestion, id = randomUUID()): Promise<Question> {
     const question: Question = {
       ...input,
-      id: randomUUID(),
+      id,
       status: "open",
       created_at: new Date().toISOString(),
       answer: null,

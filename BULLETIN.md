@@ -307,3 +307,22 @@ RED touched a locked file: pnpm-lock.yaml
 - recommendation: (a), together with the UI change; it needs the setup page owner (Cursor's files), so I did not do half of it.
 - working default: (c)
 - status: open
+## [2026-11-18] Bedrock keychain value at sidecar launch
+
+- The shared API application now honors `BULLETIN_PROVIDER` for the General, Interviewer, and Answerer. The first-run screen stores a Bedrock bearer as `AWS_BEARER_TOKEN_BEDROCK`. Include that variable in the native sidecar launch allowlist during the builder's keychain task so the saved value reaches the provider SDK at spawn time.
+
+## [2026-11-18] Integrated desktop verification on Windows
+
+- After syncing the desktop and provider integrations, full verification with the thread pool passed frozen install, lint, and typecheck. Vitest reported 905 passed, 12 failed, and 2 skipped by the existing suite. The failures were deadlines in the Git-backed engine and API fixtures, including cleanup errors after some timeouts. The new application provider test passed.
+
+## [2026-11-18] Tick 20 board append conflicts
+
+- Merging `main` at `7ff360d` into `codex/warroom-api` conflicted in `BULLETIN.md` and `docs/board/log.md`. I aborted the merge per the Worker loop. The provider test import fix is committed at `091428e`, with full lint and typecheck passing. The coordinator can preserve both branches' board records when integrating it.
+
+## [2026-11-18] Question workflow verification
+
+- Task 12 is committed at `831a708` with 25 targeted tests passing. Full verification passed install, lint, and typecheck, then finished with 915 passed, 4 failed, and 2 existing skips. All four failures were timeouts in the engine report's shared setup hook. A Git fixture also reported a Windows permission error during teardown.
+
+## [2026-11-18] Report metrics verification
+
+- Task 13 is committed at `ea61d20` with 18 targeted tests passing. Full verification passed install, lint, and typecheck, then finished with 918 passed, 3 failed, and 2 existing skips. The same engine report setup hook exceeded its 10-second deadline in all three failures. One of those fixtures also reported a Windows permission error during teardown.

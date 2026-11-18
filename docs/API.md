@@ -20,9 +20,11 @@ pnpm --filter @bulletin/api exec tsx src/serve.ts
 The API binds to `127.0.0.1` and reads `PORT`, with `4000` as the default.
 `PORT=0` assigns a free port and prints the listening address. Set
 `NEXT_PUBLIC_API_URL=http://localhost:4000` for the web client on port `3000`.
-Planning, interviews, and automatic answers use Claude Code. Put `claude` on
-`PATH` and configure Claude Code credentials. The server loads model and price
-settings from `config/models.json` and `config/prices.json`.
+Planning, interviews, and automatic answers use Claude Code by default. Put
+`claude` on `PATH` and configure its login for that mode. Set
+`BULLETIN_PROVIDER=anthropic` or `BULLETIN_PROVIDER=bedrock` to use that provider's
+SDK and environment credentials. The server loads model and price settings from
+`config/models.json` and `config/prices.json`.
 If the General's primary model call fails, the server tries the configured
 fallback with the same request.
 
@@ -316,6 +318,7 @@ after a stop, budget pause, or interruption. An unfinished mission returns
   "cost_per_green_unit_cents": 0.625,
   "touches": 1,
   "touch_rate": 1,
+  "auto_answer_rate": 0.5,
   "elapsed_ms": 12000
 }
 ```
@@ -324,10 +327,15 @@ Attempts count `attempt.ended` events. Model calls and cost use the recorded
 ledger charges. Cost per green unit divides cost by distinct passed units,
 including held units and excluding passes that were sent back after a failed
 merge. It is `null` if none passed. Touches use the finish event count or the
-number of held units when that event lacks a count. Touch rate divides touches
-by shipped units and is `null` when none shipped. Elapsed time is the time from
-approval to the finish event, using creation as the start when approval is
-absent. Unusable timestamps yield `null`.
+number of held units for legacy reports that lack decision and revision events.
+Otherwise, touches count human decision resolutions and edits after the initial
+Briefing and plan. A human answer and its generated Briefing version count as
+one touch. Touch rate divides touches by shipped units and is `null` when none
+shipped. Auto-answer rate divides questions answered by the Briefing or the
+cache by all questions, including those still waiting. It is `null` when nobody
+asked a question. These metrics use events through the selected finish event.
+Elapsed time runs from approval to finish, using creation as the start when
+approval is absent. Unusable timestamps yield `null`.
 
 ## `GET /missions/:id/events?after=<event id>`
 
@@ -461,8 +469,11 @@ already exist. Returns `201 Created` with the question.
 }
 ```
 
-The mission stream receives `dispatch.asked` with `question_id` and `body`,
-then `decision.opened` with `kind: "question"` and `question_id`.
+The mission stream receives `dispatch.asked` with `question_id` and `body`.
+A matching cached answer for the current Briefing version returns an answered
+question with `source: "cache"` and `briefing_ref`. It also publishes
+`dispatch.answered`. A question that needs a human answer publishes
+`decision.opened` with `kind: "question"` and `question_id`.
 
 ## `POST /questions/:id/answer`
 
@@ -475,6 +486,12 @@ A question with an answer returns `409 Conflict` with
 
 The mission stream receives `dispatch.answered` with `question_id` and `answer`,
 then `decision.resolved` with `kind: "question"` and `question_id`.
+
+For a mission with a completed Briefing, the answer also appends one line to
+the Decisions log and publishes a `briefing.versioned` event with the next
+version and its Markdown. That version caches the answer for the same
+normalized question. An SDK station waiting on the question receives the answer
+through `bulletin_wait`.
 
 ## `POST /questions/:id/auto-answer`
 

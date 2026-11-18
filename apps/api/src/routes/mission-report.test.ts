@@ -31,7 +31,7 @@ it("projects the final report from a recorded run and ignores later activity", a
     expect(res.json()).toEqual({
       mission_id: "demo", shipped: ["seed"], held: ["review"], failed: ["send-back"], blocked: ["publish"],
       attempts: 4, model_calls: 3, cost_cents: 3, cost_per_green_unit_cents: 1.5,
-      touches: 1, touch_rate: 1, elapsed_ms: 25_000,
+      touches: 1, touch_rate: 1, auto_answer_rate: null, elapsed_ms: 25_000,
     });
   } finally {
     await app.close();
@@ -56,8 +56,64 @@ it("distinguishes unknown, unfinished, and interrupted missions without shipped 
     expect(interrupted.statusCode).toBe(200);
     expect(interrupted.json()).toMatchObject({
       shipped: [], held: [], failed: [], blocked: [], attempts: 0, model_calls: 0, cost_cents: 0,
-      cost_per_green_unit_cents: null, touches: 0, touch_rate: null, elapsed_ms: expect.any(Number),
+      cost_per_green_unit_cents: null, touches: 0, touch_rate: null, auto_answer_rate: null, elapsed_ms: expect.any(Number),
     });
+  } finally {
+    await app.close();
+  }
+});
+
+it("derives touches, the auto-answer rate, and cost per green unit from mission events", async () => {
+  const history: RecordedEvent[] = [
+    ["mission.created", null],
+    ["briefing.versioned", null, { version: 1 }], ["plan.proposed", null],
+    ["briefing.versioned", null, { version: 2 }], ["plan.proposed", null], ["plan.approved", null],
+    ["dispatch.asked", "first", { question_id: "human" }],
+    ["decision.opened", "first", { question_id: "human", kind: "question" }],
+    ["briefing.versioned", null, { version: 3, reason: "question_answer" }],
+    ["dispatch.answered", "first", { question_id: "human", answer: "17" }],
+    ["decision.resolved", "first", { question_id: "human", kind: "question" }],
+    ["dispatch.asked", "second", { question_id: "cited" }],
+    ["dispatch.answered", "second", { question_id: "cited", source: "briefing" }],
+    ["decision.resolved", "second", { question_id: "cited", source: "briefing" }],
+    ["dispatch.asked", "second", { dispatch_id: "reused" }],
+    ["dispatch.answered", "second", { dispatch_id: "reused", source: "cache" }],
+    ["dispatch.asked", "third", { question_id: "pending" }],
+    ["decision.opened", "third", { question_id: "pending" }],
+    ["pass.green", "first"], ["unit.merged", "first"], ["ledger.charged", "first", { cost_cents: 1.25 }],
+    ["pass.green", "second"], ["unit.merged", "second"], ["ledger.charged", "second", { cost_cents: 2.75 }],
+    ["pass.green", "third"], ["unit.sent_back", "third"], ["pass.red", "third"],
+    ["ledger.charged", "third", { cost_cents: 2.25 }], ["mission.finished", null, { touches: 99 }],
+    ["dispatch.answered", "third", { question_id: "pending", source: "cache" }],
+    ["decision.resolved", "third", { question_id: "pending" }],
+  ];
+  const log = new MemoryEventLog();
+  for (const [type, unit_id, payload] of history) await log.emit({ mission_id: "demo", type, unit_id, payload });
+  const app = buildServer(log);
+  try {
+    const report = await app.inject("/missions/demo/report");
+    expect(report.statusCode).toBe(200);
+    expect(report.json()).toMatchObject({
+      shipped: ["first", "second"], touches: 3, touch_rate: 1.5,
+      auto_answer_rate: 0.5, cost_cents: 6.25, cost_per_green_unit_cents: 3.125,
+    });
+  } finally {
+    await app.close();
+  }
+});
+
+it("counts an open hold as zero human touches even when an older finish payload reports it", async () => {
+  const log = new MemoryEventLog();
+  const mission_id = "demo";
+  await log.emit({ mission_id, type: "mission.created" });
+  await log.emit({ mission_id, unit_id: "seed", type: "unit.held" });
+  await log.emit({ mission_id, unit_id: "seed", type: "decision.opened", payload: { kind: "closed_lane_merge" } });
+  await log.emit({ mission_id, type: "mission.finished", payload: { touches: 1 } });
+  const app = buildServer(log);
+  try {
+    const response = await app.inject("/missions/demo/report");
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({ held: ["seed"], touches: 0, touch_rate: null, auto_answer_rate: null });
   } finally {
     await app.close();
   }

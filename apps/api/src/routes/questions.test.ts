@@ -1,5 +1,5 @@
 import { MemoryEventLog } from "@bulletin/core";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { buildServer } from "../server";
 
 describe("question board", () => {
@@ -107,3 +107,34 @@ describe("question board", () => {
     expect(events.events).toHaveLength(2);
   });
 });
+
+it("versions the Briefing after a human answer and serves the same question from cache after reopening the API", async () => {
+  const log = new MemoryEventLog();
+  const mission_id = "demo";
+  const briefing = "# Briefing: Demo\n\n## Decisions log\n\n## Notes\nOriginal notes";
+  await log.emit({ mission_id, type: "mission.created" });
+  await log.emit({ mission_id, type: "briefing.versioned", payload: { briefing_id: "b1", version: 1, markdown: briefing } });
+  const answererCall = vi.fn(async () => "SILENT");
+  let app = buildServer(log, { answererCall });
+  try {
+    const ask = (body: string) => app.inject({ method: "POST", url: "/questions", payload: { mission_id, body } });
+    const question = await ask("Which seed?");
+    const questionId = question.json().id;
+    const answer = await app.inject({ method: "POST", url: `/questions/${questionId}/answer`, payload: { answer: "Seed 17" } });
+    expect(answer.statusCode).toBe(200);
+    expect(log.events.filter(({ type }) => type === "briefing.versioned").map(({ payload }) => payload)).toEqual([
+      { briefing_id: "b1", version: 1, markdown: briefing },
+      expect.objectContaining({ briefing_id: "b1", version: 2, markdown: "# Briefing: Demo\n\n## Decisions log\n- Q: Which seed? A: Seed 17\n\n## Notes\nOriginal notes" }),
+    ]);
+
+    await app.close();
+    app = buildServer(log, { answererCall });
+    const cached = await ask("  WHICH   SEED? ");
+    expect(cached.statusCode).toBe(201);
+    expect(cached.json()).toMatchObject({ status: "answered", answer: "Seed 17", source: "cache", briefing_ref: "Decisions log" });
+    expect(answererCall).not.toHaveBeenCalled();
+    expect(log.events.filter(({ type }) => type === "decision.opened")).toHaveLength(1);
+  } finally {
+    await app.close();
+  }
+}, 30_000);

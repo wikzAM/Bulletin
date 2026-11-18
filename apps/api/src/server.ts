@@ -10,8 +10,9 @@ import { registerMissionDecisions, type HeldMissionResolver } from "./routes/mis
 import { registerMissionPlanning } from "./routes/mission-planning";
 import { registerMissionRules, type ReadGit } from "./routes/mission-rules";
 import { registerMissionRoutes } from "./routes/missions";
+import { QuestionWorkflow } from "./routes/question-workflow";
 import { registerQuestionRoutes } from "./routes/questions";
-import type { QuestionStore } from "./routes/questions-store";
+import { MemoryQuestionStore, type QuestionStore } from "./routes/questions-store";
 import { MemoryBriefingStore, type BriefingStore } from "./store/briefing-store";
 import type { EventLog } from "./store/event-log";
 
@@ -23,6 +24,7 @@ export interface ServerOptions {
   modelCall?: ModelCall;
   pricing?: MissionPricing;
   questionStore?: QuestionStore;
+  questionWorkflow?: QuestionWorkflow;
   readGit?: ReadGit;
   resolveHeldMission?: HeldMissionResolver;
   startMission?: MissionStarter;
@@ -97,7 +99,7 @@ export function buildServer(events: EventLog = new MemoryEventLog(), options: Se
   registerMissionRules(app, events, options.readGit);
   registerMissionPlanning(app, events, briefings, options.modelCall);
   registerMissionApproval(app, events, options.startMission, pricing);
-  registerQuestionRoutes(app, events, options.questionStore, options.answererCall);
+  registerQuestionRoutes(app, events, options.questionWorkflow ?? new QuestionWorkflow(events, options.questionStore ?? new MemoryQuestionStore()), options.answererCall);
 
   return app;
 }
