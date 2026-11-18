@@ -2,7 +2,9 @@ import { createInterface } from "node:readline";
 import { createApplication } from "../../api/src/application";
 import { EnvKeychain } from "../../api/src/platform/keychain";
 import { appDataDirectory } from "../../api/src/platform/paths";
+import { SettingsStore } from "../../api/src/platform/settings";
 import { createDesktopMethods } from "./methods";
+import { applyProviderSettings } from "./provider-settings";
 import { RpcError } from "./rpc-error";
 
 type RpcId = string | number | null;
@@ -58,6 +60,7 @@ async function proxy(app: Application["app"], params: Record<string, unknown>) {
 }
 
 async function main() {
+  applyProviderSettings(process.env, await new SettingsStore(appDataDirectory()).get());
   const { app, log } = await createApplication();
   const input = createInterface({ input: process.stdin, crlfDelay: Infinity });
   const desktop = createDesktopMethods({ dataDirectory: appDataDirectory(), keychain });

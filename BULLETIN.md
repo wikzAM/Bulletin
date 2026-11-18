@@ -306,7 +306,7 @@ RED touched a locked file: pnpm-lock.yaml
 - options: (a) at start the sidecar reads `settings.json` and, when `BULLETIN_PROVIDER` is unset, maps `anthropic-key` to `anthropic` and `bedrock` to `bedrock` (small change in `apps/sidecar/src/main.ts`), the setup page saves through `bridge.setSettings`, and the region becomes a setting; (b) the Rust launcher sets `BULLETIN_PROVIDER` from the same file; (c) leave it until a person wants a non-login provider
 - recommendation: (a), together with the UI change; it needs the setup page owner (Cursor's files), so I did not do half of it.
 - working default: (c)
-- status: open
+- status: resolved (coordinator approved (a), 2026-11-19). The sidecar maps the `provider` setting at start (`apps/sidecar/src/provider-settings.ts`), the setup page saves it through `bridge.setSettings` on Continue, and a changed provider restarts the sidecar (`restart_sidecar`). The AWS region stays an environment variable (`AWS_REGION`); a region field needs new text in `copy.ts`, which was outside the grant.
 ## [2026-11-18] Bedrock keychain value at sidecar launch
 
 - The shared API application now honors `BULLETIN_PROVIDER` for the General, Interviewer, and Answerer. The first-run screen stores a Bedrock bearer as `AWS_BEARER_TOKEN_BEDROCK`. Include that variable in the native sidecar launch allowlist during the builder's keychain task so the saved value reaches the provider SDK at spawn time.

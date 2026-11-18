@@ -112,10 +112,42 @@ describe("Tauri desktop bridge", () => {
     expect(await createTauriBridge(picker).pickFolder()).toBe("D:/work/demo");
   });
 
+  it("a changed provider restarts the sidecar (it reads the provider at start) and waits for it; other changes do not", async () => {
+    let stored: Record<string, unknown> = { provider: "claude-code" };
+    const h = host({
+      commands: { restart_sidecar: () => null },
+      rpc: {
+        "settings.get": () => ({ settings: { ...stored } }),
+        "settings.set": (params) => {
+          for (const [k, v] of Object.entries(params.values as Record<string, unknown>)) {
+            if (v === null) delete stored[k];
+            else stored[k] = v;
+          }
+          return { settings: { ...stored } };
+        },
+        health: () => ({ status: "ok" }),
+      },
+    });
+    const bridge = createTauriBridge({ ...h, retryDelayMs: 1 });
+    await bridge.setSettings({ repo_path: "D:/work/demo", setup_complete: true });
+    expect(h.log.map((e) => e.cmd === "rpc" ? e.args.method : e.cmd)).toEqual(["settings.set"]);
+
+    h.log.length = 0;
+    await bridge.setSettings({ provider: "claude-code" });
+    expect(h.log.map((e) => e.cmd === "rpc" ? e.args.method : e.cmd)).toEqual(["settings.get", "settings.set"]);
+
+    h.log.length = 0;
+    await bridge.setSettings({ provider: "bedrock" });
+    expect(h.log.map((e) => e.cmd === "rpc" ? e.args.method : e.cmd)).toEqual(["settings.get", "settings.set", "restart_sidecar", "health"]);
+    stored = {};
+  });
+
   it("inspectRepo and settings go to the sidecar's repo.inspect and settings methods", async () => {
     const info = { path: "D:/work/demo", exists: true, is_repo: true, root: "D:/work/demo", branch: "main", dirty: false, test_command: "npm test", file_count: 3, file_count_capped: false };
     const h = host({
+      commands: { restart_sidecar: () => null },
       rpc: {
+        health: () => ({ status: "ok" }),
         "repo.inspect": () => info,
         "settings.get": () => ({ settings: { provider: "bedrock" } }),
         "settings.set": (params) => ({ settings: params.values }),
@@ -128,7 +160,10 @@ describe("Tauri desktop bridge", () => {
     expect(h.log.map((entry) => entry.args)).toEqual([
       { method: "repo.inspect", params: { path: "D:/work/demo" } },
       { method: "settings.get", params: {} },
+      { method: "settings.get", params: {} },
       { method: "settings.set", params: { values: { repo_path: "D:/work/demo", provider: null } } },
+      {},
+      { method: "health", params: {} },
     ]);
   });
 

@@ -50,6 +50,10 @@ the new value; calls in flight fail with code `-32000`, and subscriptions end
 (subscribe again from the last event ID). The sidecar's own `secret.set` method
 (below) is not a store: it changes the running process only and is lost at exit.
 
+The Tauri command `restart_sidecar` (no arguments) restarts the sidecar the same
+way; the desktop calls it after the `provider` setting changes, because the sidecar
+reads that setting only at start.
+
 The flow for a pasted key is: the UI calls `secret_set` (stored, sidecar
 restarts), waits for `health`, then asks `env.check` or `secret.has` to confirm
 the name now reads as present.
@@ -127,7 +131,12 @@ these keys:
   JSON, when it exits 0). Only that one flag is read from the output. The check
   gives up after 15 seconds and reports `false`. It is `false` when not found.
 - `provider.id` is the provider the sidecar was started with, in the names the
-  desktop uses: `claude-code` when `BULLETIN_PROVIDER` is unset (stations and the
+  desktop uses. When `BULLETIN_PROVIDER` is not set in the environment, the sidecar
+  takes it at start from the `provider` setting (`anthropic-key` becomes
+  `anthropic`, `bedrock` stays `bedrock`, and then `BULLETIN_RUNNER` defaults to `sdk`
+  so the stations call the API directly too); an environment value always wins, and
+  changing the setting takes effect when the sidecar next starts. `claude-code` is
+  what you get when neither names a provider (stations and the
   General run through the Claude Code login), `anthropic-key` for
   `BULLETIN_PROVIDER=anthropic`, `bedrock` for `BULLETIN_PROVIDER=bedrock`. Any
   other value is not guessed at: `id` is `null`, `env` is empty and `ready` is `false`.
