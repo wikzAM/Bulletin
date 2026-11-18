@@ -15,7 +15,8 @@
     "dev:api": "pnpm --filter @bulletin/api dev",
     "dev:web": "pnpm --filter @bulletin/web dev",
     "db:generate": "pnpm --filter @bulletin/db generate",
-    "bulletin": "tsx apps/api/src/cli.ts"
+    "bulletin": "tsx apps/api/src/cli.ts",
+    "sidecar:prepare": "node scripts/prepare-sidecar.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
