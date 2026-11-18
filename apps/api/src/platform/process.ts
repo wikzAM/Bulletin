@@ -3,7 +3,7 @@ import { spawn, type ChildProcessWithoutNullStreams, type SpawnOptions } from "n
 type Command = { executable: string; args?: readonly string[] } | { script: string };
 type CommandOptions = Pick<SpawnOptions, "env" | "signal"> & { cwd: string };
 
-export function systemShell(platform = process.platform, env = process.env): string {
+export function systemShell(platform = process.platform, env: NodeJS.Dict<string> = process.env): string {
   return platform === "win32" ? (env.ComSpec || env.COMSPEC || "cmd.exe") : "/bin/sh";
 }
 

@@ -2,7 +2,7 @@ import { homedir } from "node:os";
 import { posix, win32 } from "node:path";
 
 export function appDataDirectory(
-  env: NodeJS.ProcessEnv = process.env,
+  env: NodeJS.Dict<string> = process.env,
   platform: NodeJS.Platform = process.platform,
   home = homedir(),
 ): string {

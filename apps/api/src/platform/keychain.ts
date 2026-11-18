@@ -4,7 +4,7 @@ export interface Keychain {
 }
 
 export class EnvKeychain implements Keychain {
-  constructor(private readonly env: NodeJS.ProcessEnv = process.env) {}
+  constructor(private readonly env: NodeJS.Dict<string> = process.env) {}
 
   async getSecret(name: string): Promise<string | undefined> {
     validateName(name);
