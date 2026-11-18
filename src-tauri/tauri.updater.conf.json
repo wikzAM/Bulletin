@@ -1,0 +1,14 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "bundle": {
+    "createUpdaterArtifacts": true
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "PLACEHOLDER-REPLACE-WITH-THE-PUBLIC-KEY-FROM-tauri-signer-generate",
+      "endpoints": [
+        "https://UPDATE-ENDPOINT-PLACEHOLDER.invalid/bulletin/{{target}}/{{arch}}/{{current_version}}"
+      ]
+    }
+  }
+}

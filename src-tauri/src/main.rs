@@ -90,7 +90,11 @@ fn sidecar_command(resource_dir: &Path, bundled: &Path, secrets: &dyn SecretStor
 }
 
 fn main() {
-    let app = tauri::Builder::default()
+    let builder = tauri::Builder::default();
+    // Updates are opt-in: the plugin exists only in a build made with `--features updater`.
+    #[cfg(feature = "updater")]
+    let builder = builder.plugin(tauri_plugin_updater::Builder::new().build());
+    let app = builder
         .setup(|app| {
             let resource_dir = app.path().resource_dir()?;
             let bundled: PathBuf = env::current_exe()?
