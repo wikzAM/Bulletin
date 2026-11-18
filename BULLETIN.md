@@ -343,3 +343,8 @@ RED touched a locked file: pnpm-lock.yaml
 ## [2026-11-18] M5 team groundwork verification
 
 - Task 16 passed all six mission role tests. Full verification with one worker passed install, lint, and typecheck, then reported 984 passed, 4 failed, and 3 existing skips. The same 10-second graph report setup hook failed in all four cases, including with reduced concurrency.
+
+## [2026-11-18] Sidecar startup verification and tick 22 board merge
+
+- Commit b7fd4a2 keeps first-run provider settings in the startup entry point and uses the shared sidecar runtime. Lint, typecheck, and 37 focused tests passed. Full verification reported 991 passed, 4 failed, and 3 existing skips. The four failures were the recurring 10-second graph report setup hook.
+- Main at 177d1fe contains the same startup fix. Merging it into codex/warroom-api conflicted on the append-only docs/board/log.md because both branches added a status line. Aborted the merge per the Worker loop. The coordinator can preserve both status lines on the next integration.
