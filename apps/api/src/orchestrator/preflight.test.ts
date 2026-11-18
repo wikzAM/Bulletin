@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryEventLog, type PricesConfig } from "@bulletin/core";
-import { StubRunner } from "@bulletin/runners/stub-runner";
+import { StubRunner, type StubScript } from "@bulletin/runners/stub-runner";
 import { attemptEstimateCents, Reservations } from "./preflight";
 import { runMission } from "./run-mission";
 
@@ -28,6 +28,11 @@ describe("attemptEstimateCents", () => {
   it("scales by the tier's calibration factor", () => {
     expect(attemptEstimateCents(unit, "model-a", prices, { station: 0.5 })).toBeCloseTo(2, 6);
     expect(attemptEstimateCents(unit, "model-a", prices, { escalated: 3 })).toBeCloseTo(4, 6);
+  });
+  it("ignores a calibration factor that is zero, negative or not a number", () => {
+    for (const bad of [0, -1, Number.NaN, Number.POSITIVE_INFINITY]) {
+      expect(attemptEstimateCents(unit, "model-a", prices, { station: bad })).toBeCloseTo(4, 6);
+    }
   });
   it("is zero for a unit with no estimate, so it adds nothing to the preflight", () => {
     expect(attemptEstimateCents({ tier: "station" }, "model-a", prices)).toBe(0);
@@ -168,6 +173,45 @@ describe("treasury preflight in the engine", () => {
     const calibrated = await run(units, { missionId: "m2", budgetCents: 5, parallel: 2, calibration: { station: 0.5 } });
     expect(calibrated.started.sort()).toEqual(["a", "b"]);
     expect(pausedOf(calibrated.events)).toBe(false);
+  });
+
+  it("parks every unit it holds back as blocked, not failed, even ones that were never looked at", async () => {
+    // a (12 cents) is refused first; b and c (2 cents each) start at the same moment and must not end 'failed'.
+    const { result, events, started } = await run(
+      [unit("a", { input_tokens: 120_000, output_tokens: 0 }), unit("b", { input_tokens: 20_000, output_tokens: 0 }), unit("c", { input_tokens: 20_000, output_tokens: 0 })],
+      { budgetCents: 10, parallel: 3 },
+    );
+    expect(started).toEqual([]);
+    expect(result.statuses).toEqual({ a: "blocked", b: "blocked", c: "blocked" });
+    expect(events.events.some((e) => e.type === "unit.failed")).toBe(false);
+    expect(events.events.filter((e) => e.type === "budget.paused")).toHaveLength(1);
+  });
+
+  it("parks a unit whose send-back retry no longer fits, instead of failing it for good", async () => {
+    const events = new MemoryEventLog();
+    const script: StubScript = (input) => {
+      if (input.attempt === 1) return { files: {} as Record<string, string>, error: "first try goes wrong" };
+      return { files: { "src/a.ts": "export const x = 1;\n" } };
+    };
+    const runner = new StubRunner(repo, join(root, "stations"), script);
+    const result = await runMission({
+      missionId: "m3",
+      repo,
+      scratchDir: join(root, "scratch"),
+      baseBranch: "main",
+      plan: { briefing_version: 1, units: [unit("a", FOUR_CENTS)] },
+      runner,
+      prices,
+      tiers: { station: "model-a" },
+      testCommand: "node check.mjs",
+      allowedCommands: ["node *"],
+      events,
+      budgetCents: 4.1, // attempt 1 fits (4); attempt 2 would need 0.15 spent + 4
+    });
+    expect(result.statuses.a).toBe("blocked");
+    expect(result.attempts.filter((a) => a.unitId === "a")).toHaveLength(1);
+    expect(events.events.some((e) => e.type === "unit.failed")).toBe(false);
+    expect(events.events.find((e) => e.type === "unit.blocked")?.payload).toMatchObject({ reason: "budget_paused", attempts: 1 });
   });
 
   it("changes nothing for a mission without a budget or without estimates", async () => {

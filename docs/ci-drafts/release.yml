@@ -1,9 +1,13 @@
 name: release
 
-# Builds the Windows installers (MSI and NSIS) with the Tauri bundler.
-# Unsigned for now: no signing certificate is configured, so Windows SmartScreen will warn.
-# When one exists, add its details as repository secrets and pass them to tauri-action
-# (see docs/PACKAGING.md); never put them in this file.
+# Builds the Windows installers (NSIS and MSI) with the Tauri bundler.
+#
+# UNSIGNED. Signing is a later step and needs a code-signing certificate that does not exist yet, so
+# Windows SmartScreen will warn when someone runs the installer. When there is a certificate, add it as
+# repository secrets and pass it to the Tauri build (see "Signing" in docs/PACKAGING.md). Never put
+# certificate material or passwords in this file.
+#
+# Draft: copy to .github/workflows/release.yml once the gh token has the `workflow` scope.
 on:
   push:
     tags: ["v*"]
@@ -15,44 +19,45 @@ permissions:
 jobs:
   windows:
     runs-on: windows-latest
-    timeout-minutes: 60
+    timeout-minutes: 90
     steps:
       - run: git config --global core.autocrlf false
       - uses: actions/checkout@v4
-      - id: app
-        shell: bash
-        run: |
-          if [ -f src-tauri/tauri.conf.json ]; then echo "present=true" >> "$GITHUB_OUTPUT"; else echo "present=false" >> "$GITHUB_OUTPUT"; echo "::warning::src-tauri/tauri.conf.json not found; the desktop app is not scaffolded yet, nothing to build."; fi
-      - if: steps.app.outputs.present == 'true'
-        uses: pnpm/action-setup@v4
-      - if: steps.app.outputs.present == 'true'
-        uses: actions/setup-node@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version: 24 # the sidecar executable is a copy of this node; pinned on purpose
           cache: pnpm
-      - if: steps.app.outputs.present == 'true'
-        uses: dtolnay/rust-toolchain@stable
-      - if: steps.app.outputs.present == 'true'
-        uses: Swatinem/rust-cache@v2
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
-      - if: steps.app.outputs.present == 'true'
-        run: pnpm install --frozen-lockfile
-      # Tauri bundles this as an external binary: bulletin-sidecar-x86_64-pc-windows-msvc.exe
-      - if: steps.app.outputs.present == 'true'
-        run: node scripts/build-sidecar.mjs
+      - run: pnpm install --frozen-lockfile
+
+      # 1. The sidecar executable, src-tauri/binaries/bulletin-sidecar-x86_64-pc-windows-msvc.exe
+      - run: pnpm run sidecar:prepare
       # The default test run skips building the 90 MB executable; the release proves it starts and answers health.
-      - if: steps.app.outputs.present == 'true'
-        run: pnpm exec vitest run packages/packaging
+      - run: pnpm exec vitest run packages/packaging
         env:
           BULLETIN_SIDECAR_EXE_TEST: "1"
-      - if: steps.app.outputs.present == 'true'
-        uses: tauri-apps/tauri-action@v0
+
+      # 2. The installers. tauri-action runs `tauri build`, whose beforeBuildCommand builds the desktop frontend.
+      - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Signing, later: TAURI_SIGNING_* / certificate secrets go here, from repository secrets.
         with:
           tagName: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
           releaseName: Bulletin ${{ github.ref_name }}
           releaseDraft: true
           prerelease: false
-          args: --bundles msi,nsis
+          args: --bundles nsis,msi
+
+      # 3. Keep the installers with the run, so a manual (workflow_dispatch) build can be downloaded without a release.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bulletin-windows-unsigned
+          path: |
+            src-tauri/target/release/bundle/nsis/*.exe
+            src-tauri/target/release/bundle/msi/*.msi
+          if-no-files-found: error

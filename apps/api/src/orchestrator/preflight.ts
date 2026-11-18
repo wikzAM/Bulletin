@@ -24,7 +24,8 @@ export function attemptEstimateCents(
     { input_tokens: unit.estimate.input_tokens, output_tokens: unit.estimate.output_tokens, cache_read_tokens: 0, cache_write_tokens: 0 },
     prices,
   );
-  const factor = Object.hasOwn(calibration, unit.tier) ? calibration[unit.tier]! : 1;
+  const raw = Object.hasOwn(calibration, unit.tier) ? calibration[unit.tier]! : 1;
+  const factor = Number.isFinite(raw) && raw > 0 ? raw : 1; // a zero, negative or NaN factor is noise, not a discount
   return base * factor;
 }
 
