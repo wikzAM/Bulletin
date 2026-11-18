@@ -1,8 +1,11 @@
 import { chmod, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, beforeEach, expect, it } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { resolveExecutable, runTool } from "./executables";
+
+// Starting cmd.exe and node is slow on a loaded Windows host.
+vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
 
 let directory: string;
 beforeEach(async () => {
