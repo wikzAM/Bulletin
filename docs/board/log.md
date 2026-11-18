@@ -140,3 +140,4 @@
 11:12 | cursor | 10. inbox drawer grouped by kind + resolve/answer payloads | cursor/web-shell@185cbed | desktop test 231 green
 11:15 | cursor | 11. battle replay scheduler (~30s) + Replay page | cursor/web-shell@afc4ec4 | desktop test 234 + build green
 11:17 | cursor | 12. About/diagnostics page + secret-free copy text | cursor/web-shell@cf1faad | desktop test 235 + build green
+15:41 | coordinator | tick 19: cursor idle ~4h, so I squash-merged cursor/web-shell and fixed its 2 lint errors myself (dead HeldPanel + imports, AboutPage assignment); lint+typecheck clean, 235 desktop tests, build ok. Desktop app now on main: first-run setup, plan review (fare range, one revision), inbox drawer, battle replay, about/diagnostics. Codex and builder idle.
