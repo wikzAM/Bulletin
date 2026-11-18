@@ -286,3 +286,17 @@ RED touched a locked file: pnpm-lock.yaml
 - recommendation: (c) for a fully clean proof, otherwise (a) with the baseline comparison. It is user-level and reversible, but it is a change to the user's machine and not mine to decide.
 - working default: (b); everything else continues
 - status: open
+
+## [2026-11-19] Folder picker for first-run setup needs a Tauri dialog plugin (queue task 24)
+- question: `desktop-bridge.ts` calls a Tauri command `pick_folder` that does not exist in src-tauri, so "Choose folder" returns nothing in the packaged app (the person can still type a path; `repo.inspect` checks it). A real picker needs `tauri-plugin-dialog` (a new Rust crate plus `@tauri-apps/plugin-dialog`, a capability entry, a Cargo.lock and pnpm-lock.yaml change).
+- options: (a) add the plugin now with a DECISIONS line; (b) leave the typed path as the only way until the first-run flow is tried by a person; (c) a small hand-written Windows folder dialog in Rust (more code, no dependency)
+- recommendation: (a), after the person has tried (b) once. It is a dependency and a lockfile change, so I did not add it unasked.
+- working default: (b)
+- status: open
+
+## [2026-11-19] A secret change restarts the sidecar, which ends live subscriptions with no signal (queue tasks 8, 24)
+- question: Stored secrets reach the sidecar only as environment variables at launch, so `secret_set` restarts it. The same is true of the existing crash-restart: the UI is not told, so a mission's event subscription silently stops. During first-run nothing is subscribed, so this does not bite yet; once missions run, the UI must resubscribe from its last event ID.
+- options: (a) the Rust bridge emits a `bulletin://sidecar` event on every (re)start and the UI resubscribes; (b) the UI re-subscribes on a timer from its last event ID; (c) leave as is until missions are run from the app
+- recommendation: (a), when the first mission is run from the desktop app. It is small (one extra emit in `src-tauri/src/sidecar.rs`) but it is a UI contract, so the UI owner should agree.
+- working default: (c); the transport retries a `subscribe` that fails with -32000
+- status: open
