@@ -108,21 +108,32 @@ describe("createSdkModelClient", () => {
     expect(r2.usage).toEqual({ input_tokens: 1, output_tokens: 2, cache_read_tokens: 0, cache_write_tokens: 0 });
   });
 
-  it("keeps text and tool_use blocks and drops block types the loop does not model", async () => {
+  it("keeps thinking blocks verbatim and in order, because the next request must send them back unchanged", async () => {
+    const thinking = { type: "thinking", thinking: "", signature: "sig-abc" };
+    const redacted = { type: "redacted_thinking", data: "opaque" };
     const { sdk } = fakeSdk({
-      content: [
-        { type: "thinking", thinking: "..." },
-        { type: "text", text: "ok" },
-        { type: "tool_use", id: "t1", name: "read_file", input: { path: "a" } },
-      ],
+      content: [thinking, { type: "text", text: "ok" }, redacted, { type: "tool_use", id: "t1", name: "read_file", input: { path: "a" } }],
       stop_reason: "tool_use",
     });
     const response = await createSdkModelClient({ provider: "anthropic", sdk }).complete(request());
     expect(response.content).toEqual([
+      thinking,
       { type: "text", text: "ok" },
+      redacted,
       { type: "tool_use", id: "t1", name: "read_file", input: { path: "a" } },
     ]);
     expect(response.stop_reason).toBe("tool_use");
+  });
+
+  it("drops block types a station loop never uses, such as server-tool results", async () => {
+    const { sdk } = fakeSdk({
+      content: [
+        { type: "web_search_tool_result", content: [] },
+        { type: "text", text: "ok" },
+      ],
+    });
+    const response = await createSdkModelClient({ provider: "anthropic", sdk }).complete(request());
+    expect(response.content).toEqual([{ type: "text", text: "ok" }]);
   });
 
   it("uses the bedrock model id for the call", async () => {

@@ -116,6 +116,30 @@ describe("SdkStationRunner", () => {
     expect(model.requests[0]!.model).toBe("test-model");
   });
 
+  it("sends a turn's thinking blocks back unchanged with its tool call", async () => {
+    const thinking = { type: "thinking", thinking: "", signature: "sig-1" } as const;
+    const model = scripted([
+      {
+        stop_reason: "tool_use",
+        content: [thinking, { type: "tool_use", id: "t1", name: "list_files", input: { path: "." } }],
+        usage,
+      },
+      finishTurn(),
+    ]);
+    await run(model);
+    const assistant = model.requests[1]!.messages.find((m) => m.role === "assistant")!;
+    expect(assistant.content).toEqual([thinking, { type: "tool_use", id: "t1", name: "list_files", input: { path: "." } }]);
+  });
+
+  it("tags every usage event with the model client's provider", async () => {
+    const model = scripted([finishTurn()]);
+    (model as { provider: string }).provider = "bedrock";
+    const { events } = await run(model);
+    const usageEvents = events.filter((e) => e.type === "usage");
+    expect(usageEvents.length).toBeGreaterThan(0);
+    for (const e of usageEvents) expect(e).toMatchObject({ provider: "bedrock" });
+  });
+
   it("lists files and does not list .git", async () => {
     const model = scripted([toolTurn("list_files", { path: "." }), finishTurn()]);
     await run(model);

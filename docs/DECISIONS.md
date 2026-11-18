@@ -229,3 +229,7 @@ Desktop project page layout: spending meter top-right, decisions in a sticky rig
 - `Answerer.ask` now receives `dispatch_id`, the id of the question dispatch the server just posted, and a pending result carries it.
 - Two quoting layers protect dispatch text (a `> ` prefix on every line, and `<` escaped to `&lt;`). The injection test passes if either is intact and fails only when both are removed, which is deliberate defence in depth; each layer also has its own test.
 - New devDependencies of `packages/bulletin-mcp`: `@bulletin/core` (event log in tests) and `@bulletin/prompts` (the station prompt's rule is asserted).
+
+## 2026-11-18, claude/general: thinking blocks pass through the provider layer
+
+- The configured station model runs adaptive thinking, so its responses carry `thinking` blocks, and the provider checks that a conversation's thinking blocks come back unchanged. `ContentBlock` therefore has an opaque `thinking` / `redacted_thinking` variant; the adapter keeps those blocks verbatim and in order, and the station runner (which appends the whole `response.content` as the assistant turn) resends them. Only types the loop never uses (server-tool results) are dropped. The station runner's default `max_tokens` is now 16000, because thinking tokens count against it.

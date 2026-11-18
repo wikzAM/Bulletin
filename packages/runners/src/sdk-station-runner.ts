@@ -214,7 +214,7 @@ export class SdkStationRunner implements Runner {
           system,
           messages,
           tools: TOOLS,
-          max_tokens: this.options.maxTokens ?? 8192,
+          max_tokens: this.options.maxTokens ?? 16_000,
           signal: abort.signal,
         });
       } catch (e) {

@@ -7,7 +7,17 @@ import type { Usage } from "@bulletin/core";
 
 /* ---- Shapes. They follow the Messages API, so an adapter over an official SDK is thin. ---- */
 
+/**
+ * Thinking blocks are opaque to Bulletin but must travel: the provider checks that a conversation's thinking
+ * blocks come back unchanged, so a tool loop that dropped them from the assistant turn it resends would break.
+ */
+export interface ThinkingBlock {
+  type: "thinking" | "redacted_thinking";
+  [field: string]: unknown;
+}
+
 export type ContentBlock =
+  | ThinkingBlock
   | { type: "text"; text: string }
   | { type: "tool_use"; id: string; name: string; input: Record<string, unknown> }
   | { type: "tool_result"; tool_use_id: string; content: string; is_error?: boolean };
@@ -69,7 +79,11 @@ export function bedrockModelId(model: string, overrides: Readonly<Record<string,
   return model.startsWith("anthropic.") ? model : `anthropic.${model}`;
 }
 
-/** Which environment variables are missing for a provider, by name, for a settings screen or an error. */
+/**
+ * Which environment variables are missing for a provider, by name, for a settings screen or an error.
+ * Environment only: an `ant auth login` profile or workload identity federation (which the SDKs also accept)
+ * is not seen here, so treat the result as a hint, not a verdict.
+ */
 export function missingCredentialNames(provider: ProviderName, has: (name: string) => boolean): string[] {
   if (provider === "anthropic") return has("ANTHROPIC_API_KEY") || has("ANTHROPIC_AUTH_TOKEN") ? [] : ["ANTHROPIC_API_KEY"];
   const missing: string[] = [];
@@ -111,7 +125,9 @@ export interface SdkLike {
 function toBlocks(content: SdkMessage["content"]): ContentBlock[] {
   const blocks: ContentBlock[] = [];
   for (const block of content) {
-    if (block.type === "text" && typeof block.text === "string") {
+    if (block.type === "thinking" || block.type === "redacted_thinking") {
+      blocks.push({ ...block, type: block.type });
+    } else if (block.type === "text" && typeof block.text === "string") {
       blocks.push({ type: "text", text: block.text });
     } else if (block.type === "tool_use" && typeof block.id === "string" && typeof block.name === "string") {
       const input = block.input;
@@ -122,7 +138,7 @@ function toBlocks(content: SdkMessage["content"]): ContentBlock[] {
         input: typeof input === "object" && input !== null && !Array.isArray(input) ? (input as Record<string, unknown>) : {},
       });
     }
-    // Thinking, server-tool and other block types are not part of the station loop; they are dropped.
+    // Server-tool results and other types the station loop never uses are dropped.
   }
   return blocks;
 }
