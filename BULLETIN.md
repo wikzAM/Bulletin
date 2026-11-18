@@ -298,3 +298,7 @@ RED touched a locked file: pnpm-lock.yaml
 ## [2026-11-18] Tick 20 board append conflicts
 
 - Merging `main` at `7ff360d` into `codex/warroom-api` conflicted in `BULLETIN.md` and `docs/board/log.md`. I aborted the merge per the Worker loop. The provider test import fix is committed at `091428e`, with full lint and typecheck passing. The coordinator can preserve both branches' board records when integrating it.
+
+## [2026-11-18] Question workflow verification
+
+- Task 12 is committed at `831a708` with 25 targeted tests passing. Full verification passed install, lint, and typecheck, then finished with 915 passed, 4 failed, and 2 existing skips. All four failures were timeouts in the engine report's shared setup hook. A Git fixture also reported a Windows permission error during teardown.

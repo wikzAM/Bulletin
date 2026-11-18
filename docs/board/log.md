@@ -145,3 +145,4 @@
 2026-11-18 16:14 EST | Codex | Provider factory wired into all three API model roles, targeted 11 tests and typecheck green | codex/warroom-api@5200f07 | verify pending
 2026-11-18 16:24 EST | Codex | Integrated desktop verification: provider test passed; 905 passed, 12 deadline or cleanup failures, 2 existing skips | codex/warroom-api@5200f07 | verify red
 2026-11-18 17:01 EST | Codex | Desktop 11. Top-level application test type import, full lint and typecheck green | codex/warroom-api@091428e | verify task checks green
+2026-11-18 17:19 EST | Codex | Desktop 12. Human answers version the Briefing, populate cache, and release SDK waiters; 25 targeted tests green | codex/warroom-api@831a708 | verify red (four engine report hook timeouts)
