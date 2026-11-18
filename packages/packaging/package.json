@@ -1,0 +1,7 @@
+{
+  "name": "@bulletin/packaging",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Tests for scripts/build-sidecar.mjs, which bundles the sidecar into one Windows executable."
+}

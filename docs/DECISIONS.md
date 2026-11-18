@@ -194,3 +194,11 @@ Desktop project page layout: spending meter top-right, decisions in a sticky rig
 - `.github/workflows/release.yml` builds MSI and NSIS installers on version tags (or by hand), attaches them to a draft release, and is unsigned; it skips with a warning until `src-tauri/tauri.conf.json` exists. It builds the sidecar with `node scripts/build-sidecar.mjs` (queue task 5), which also does not exist yet.
 - No new dependencies; secrets (signing) are only mentioned in comments, never written.
 
+
+## 2026-11-18, claude/general: sidecar packaging (queue task 5)
+
+- Two root dev dependencies, `esbuild` and `postject`. esbuild was already in the lockfile through tsx and vite; making it direct lets `scripts/build-sidecar.mjs` import it under pnpm's strict layout. `postject` is Node's documented injector for single executable applications and the only way to inject a blob on Node 24 (`--build-sea` arrives later).
+- The sidecar becomes one executable with Node SEA, not `pkg` or a bundled Node plus `node_modules`: SEA is Node's own mechanism, needs no extra runtime, and keeps one process for Tauri to supervise.
+- The bundle is CommonJS because a SEA main script cannot be an ES module. `import.meta.url` and `import.meta.dirname` are defined to the executable's location; the packaged app sets `BULLETIN_RESOURCE_DIR` first.
+- The build fails on any esbuild warning, and the tests run the real executable, so a bundle that loads but misbehaves is caught.
+- `packages/packaging` exists only so the repo's vitest include pattern runs the build test; it has no dependencies.
