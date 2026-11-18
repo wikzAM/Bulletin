@@ -315,6 +315,7 @@ after a stop, budget pause, or interruption. An unfinished mission returns
   "cost_per_green_unit_cents": 0.625,
   "touches": 1,
   "touch_rate": 1,
+  "auto_answer_rate": 0.5,
   "elapsed_ms": 12000
 }
 ```
@@ -323,10 +324,15 @@ Attempts count `attempt.ended` events. Model calls and cost use the recorded
 ledger charges. Cost per green unit divides cost by distinct passed units,
 including held units and excluding passes that were sent back after a failed
 merge. It is `null` if none passed. Touches use the finish event count or the
-number of held units when that event lacks a count. Touch rate divides touches
-by shipped units and is `null` when none shipped. Elapsed time is the time from
-approval to the finish event, using creation as the start when approval is
-absent. Unusable timestamps yield `null`.
+number of held units for legacy reports that lack decision and revision events.
+Otherwise, touches count human decision resolutions and edits after the initial
+Briefing and plan. A human answer and its generated Briefing version count as
+one touch. Touch rate divides touches by shipped units and is `null` when none
+shipped. Auto-answer rate divides questions answered by the Briefing or the
+cache by all questions, including those still waiting. It is `null` when nobody
+asked a question. These metrics use events through the selected finish event.
+Elapsed time runs from approval to finish, using creation as the start when
+approval is absent. Unusable timestamps yield `null`.
 
 ## `GET /missions/:id/events?after=<event id>`
 

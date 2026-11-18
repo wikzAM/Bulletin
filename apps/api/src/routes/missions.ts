@@ -129,6 +129,51 @@ function missionProgress(events: readonly BulletinEvent[]) {
   return { units: [...units.values()], ledger, ledgerByUnit };
 }
 
+function automaticAnswer(source: unknown): boolean {
+  return source === "briefing" || source === "cache";
+}
+
+function questionKey({ question_id, dispatch_id }: BulletinEvent["payload"]): string | undefined {
+  if (typeof question_id === "string" && question_id) return question_id;
+  if (typeof dispatch_id === "string" && dispatch_id) return dispatch_id;
+}
+
+function reportActivity(history: readonly BulletinEvent[]) {
+  const questions = new Set<string>();
+  const automated = new Set<string>();
+  let unkeyedQuestions = 0;
+  let touches = 0;
+  let hasDecisionHistory = false;
+  let proposed = false;
+  let briefed = false;
+
+  for (const { type, payload } of history) {
+    if (type === "briefing.versioned") {
+      if (briefed && payload.reason !== "question_answer") touches++;
+      briefed = true;
+    } else if (type === "plan.proposed") {
+      if (proposed) touches++;
+      proposed = true;
+    } else if (type === "decision.opened" || type === "decision.resolved") {
+      hasDecisionHistory = true;
+      if (type === "decision.resolved" && !automaticAnswer(payload.source)) touches++;
+    } else if (type === "dispatch.asked") {
+      const key = questionKey(payload);
+      if (key) questions.add(key);
+      else unkeyedQuestions++;
+    } else if (type === "dispatch.answered") {
+      const key = questionKey(payload);
+      if (key && questions.has(key)) {
+        if (automaticAnswer(payload.source)) automated.add(key);
+        else automated.delete(key);
+      }
+    }
+  }
+
+  const totalQuestions = questions.size + unkeyedQuestions;
+  return { touches, hasDecisionHistory, autoAnswerRate: totalQuestions ? automated.size / totalQuestions : null };
+}
+
 function finishedReport(events: readonly BulletinEvent[], created: BulletinEvent, finished: BulletinEvent) {
   const history = events.filter(({ id }) => id <= finished.id);
   const { units, ledger } = missionProgress(history);
@@ -145,9 +190,11 @@ function finishedReport(events: readonly BulletinEvent[], created: BulletinEvent
   }
 
   const cost = roundCents(ledger.cost_cents);
+  const activity = reportActivity(history);
   const recordedTouches = finished.payload.touches;
-  const touches = typeof recordedTouches === "number" && Number.isSafeInteger(recordedTouches) && recordedTouches >= 0
+  const legacyTouches = typeof recordedTouches === "number" && Number.isSafeInteger(recordedTouches) && recordedTouches >= 0
     ? recordedTouches : held.length;
+  const touches = activity.hasDecisionHistory || activity.touches > 0 ? activity.touches : legacyTouches;
   const started = history.find(({ type }) => type === "plan.approved") ?? created;
   const elapsed = Date.parse(finished.ts) - Date.parse(started.ts);
 
@@ -163,6 +210,7 @@ function finishedReport(events: readonly BulletinEvent[], created: BulletinEvent
     cost_per_green_unit_cents: green.size ? roundCents(cost / green.size) : null,
     touches,
     touch_rate: shipped.length ? touches / shipped.length : null,
+    auto_answer_rate: activity.autoAnswerRate,
     elapsed_ms: Number.isFinite(elapsed) ? Math.max(0, elapsed) : null,
   };
 }
