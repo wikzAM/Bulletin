@@ -202,3 +202,7 @@
 ## [2026-11-18] Desktop queue verification remains red
 
 - The last full run passed frozen install, lint, and typecheck. Vitest finished with 489 passed and 16 failed. It hit test and hook deadlines again in the existing engine and API suites, including the HTTP subprocess startup deadline, and reported a Windows Git fixture cleanup permission error. The new sidecar, SQLite, platform, and route-contract tests passed in the full run. Windows `cargo check` and all three `cargo test` cases passed. The queue boxes remain open for full verification.
+
+## [2026-11-18] Coordinator log append conflicted during refresh
+
+- Merging `main` at `02e111b` into `codex/warroom-api` conflicted in `docs/board/log.md` because both branches appended records. I aborted the merge per the Worker loop. The coordinator can preserve both sets of entries during integration. The queue on `main` contains the same six desktop tasks.
