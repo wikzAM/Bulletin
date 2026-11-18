@@ -4,10 +4,11 @@ import { join, resolve } from "node:path";
 import { loadModelsConfig } from "@bulletin/core";
 import { expect, it, vi } from "vitest";
 import { createApplication } from "./application";
+import type * as GeneralModule from "./general";
 import { modelCallFactory } from "./general";
 
 vi.mock("./general", async (importOriginal) => ({
-  ...await importOriginal<typeof import("./general")>(),
+  ...await importOriginal<typeof GeneralModule>(),
   claudeModelCall: () => async () => { throw new Error("Unexpected Claude Code call"); },
   modelCallFactory: vi.fn(),
 }));
