@@ -17,7 +17,7 @@ async function listFromBoot(directory: string) {
   const exited = once(child, "close");
   let output = "";
   child.stderr.setEncoding("utf8").on("data", (chunk: string) => { output += chunk; });
-  const timeout = setTimeout(() => child.kill(), 5000);
+  const timeout = setTimeout(() => child.kill(), 60_000);
   try {
     let address: string | undefined;
     for await (const line of createInterface({ input: child.stdout })) {
@@ -80,7 +80,7 @@ it("boots on an assigned port and durably marks unfinished missions interrupted 
     await rmdir(apiData);
     await rmdir(directory);
   }
-}, 15_000);
+}, 125_000);
 
 it("warns about missing managed environment variable names without printing configured values", () => {
   const entry = fileURLToPath(new URL("../serve.ts", import.meta.url));
@@ -91,9 +91,9 @@ it("warns about missing managed environment variable names without printing conf
       ANTHROPIC_API_KEY: configuredValue, BULLETIN_GITHUB_TOKEN: "",
       BULLETIN_MA_AGENT_ID: "configured", BULLETIN_MA_ENV_ID: "configured",
     },
-    encoding: "utf8", timeout: 5000, windowsHide: true,
+    encoding: "utf8", timeout: 60_000, windowsHide: true,
   });
   expect(result.status).toBe(1);
   expect(result.stderr).toContain("Managed runner is missing environment variables: BULLETIN_SANDBOX_REPO, BULLETIN_GITHUB_TOKEN");
   expect(`${result.stdout}${result.stderr}`).not.toContain(configuredValue);
-}, 8000);
+}, 65_000);

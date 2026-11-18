@@ -5,6 +5,8 @@ to stdout, one JSON object per line. Diagnostics go to stderr. Each line is
 an individual request or notification. A request ID is echoed in the response.
 Multiple requests can be in flight. Close stdin to shut down the sidecar.
 
+From the repository root, launch it with `pnpm exec tsx apps/sidecar/src/main.ts`.
+
 ## `health`
 
 Returns the health object from `GET /health`.
