@@ -160,3 +160,9 @@ Founder decision, recorded in docs/SPEC.md (Platform section, which wins over se
 - Dependents revived are the blocked ones downstream of the approved unit, unless they also sit downstream of a unit that failed or is still held. A mission that ended stopped or budget-paused only gets the merge, no new work.
 - Reject emits `unit.failed` with reason `rejected`; dependents stay blocked.
 - Open for Codex when wiring the route: approving while the mission is still running returns `mission_running`; the engine does not yet pick up a decision mid-run.
+## Pass without Docker: supervised subprocess with kill-tree (2026-11-18)
+
+- The pass already ran the checks in a clean detached worktree of the unit branch, with check configuration (locked paths) read from the integration branch. What was missing was a real timeout: `child.kill()` on Windows only killed the cmd.exe wrapper, so a hung check and its children lived on and held the pipes, which could hang the pass forever.
+- `runCommand` now kills the whole tree on timeout (`taskkill /T /F` on Windows, retried because it goes through WMI and can fail under load; the process group on POSIX), returns exit code 124 with "timed out after Ns and was killed", and always settles. `PassInput.commandTimeoutMs` sets the limit (default 10 minutes).
+- Programs start directly; only pnpm/npm/npx/yarn go through cmd.exe on Windows, because they are `.cmd` shims. Argument rules (no shell characters) are unchanged.
+- Known limit: a process that starts a grandchild at the instant of the kill, or a taskkill that keeps failing, can leave an orphan. Real containment on Windows is a Job Object with kill-on-close, which belongs in the Rust core (see BULLETIN.md).

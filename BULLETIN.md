@@ -187,3 +187,10 @@
 - recommendation: (b), then (a) if it persists
 - working default: carry on; judge verify by lint, typecheck and the tests of packages I touch, and log the apps/api timeouts
 - status: open
+
+## [2026-11-18] Pass tree-kill on Windows depends on taskkill, which goes through WMI
+- question: runCommand kills a hung check with `taskkill /T /F`. Under heavy load (several sessions running tests at once) taskkill failed with "ERROR: Quota violation" and "ERROR: Call cancelled", leaving orphans. It is retried 3 times and the pass never hangs, but containment is not guaranteed. Who owns real containment?
+- options: (a) accept taskkill plus retries and re-verify on a quiet machine or the Windows CI runner (queue task 6); (b) the Rust core runs checks inside a Windows Job Object with kill-on-close (spec Platform section gives process supervision to the Rust core)
+- recommendation: (b) for the shipped app, (a) in the meantime
+- working default: (a)
+- status: open

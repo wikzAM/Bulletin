@@ -90,3 +90,4 @@
 2026-11-18 | claude | 1. packages/bulletin-mcp MCP server | claude/general | lint+typecheck green, bulletin-mcp tests 13/13 green; full verify red only from apps/api timeouts (tsx cold start 6s, see BULLETIN.md), none in files I touched
 2026-11-18 | claude | 2. sdk-station-runner (agent loop runner) | claude/general | lint+typecheck green, runners+bulletin-mcp tests 40/40 green; full verify still red only from apps/api timeouts (BULLETIN.md)
 2026-11-18 | claude | 3. resolveHeld (approve merges and runs dependents, reject fails) | claude/general | lint+typecheck green; resolve-held tests 8/8 green; run-mission.test.ts 13/17 (4 hook timeouts, same env slowness as before)
+2026-11-18 | claude | 4. pass without Docker: timeout + kill-tree for hung checks | claude/general | lint+typecheck green; pass-worker tests 25/25 green twice (taskkill can fail with WMI errors under load, see BULLETIN.md)
