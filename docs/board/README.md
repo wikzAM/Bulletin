@@ -2,7 +2,7 @@
 
 Same idea as Bulletin's own question board, applied to building it.
 
-- `docs/board/<tool>.md` is that tool's task QUEUE. Top unchecked task is next. Claude (the coordinator) refills it.
+- `docs/board/<tool>.md` is that tool's task QUEUE (codex, cursor, claude). The Claude session in this repo's main checkout is the COORDINATOR: it merges and refills queues. A separate Claude builder session works docs/board/claude.md in D:\wt-claude. Top unchecked task is next. Claude (the coordinator) refills it.
 - `BULLETIN.md` (repo root of main) is the QUESTION board. Anything that is not your call goes there as a question with options and a recommendation; keep working on other tasks.
 - `docs/board/log.md` is append-only status. After each task append one line: `time | tool | task | branch@commit | verify green/red`.
 - Queue files live on main. To read new tasks run `git merge main` in your worktree, then re-read your queue.
