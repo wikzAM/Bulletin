@@ -73,6 +73,8 @@ it("proxies Fastify requests and replays and follows mission events over stdio",
     await mkdir(data);
     await mkdir(bin);
     await fakeTools(bin);
+    // The provider chosen on first run, saved by an earlier session of the app.
+    await writeFile(join(directory, "settings.json"), JSON.stringify({ provider: "anthropic-key" }));
     const log = await SqliteEventLog.open(path);
     const finished = await (async () => {
       try {
@@ -145,7 +147,7 @@ it("proxies Fastify requests and replays and follows mission events over stdio",
         result: {
           git: { found: true, version: "git version 9.9.9.fake" },
           claude: { found: true, logged_in: true },
-          provider: { id: "claude-code", ready: true, env: {} },
+          provider: { id: "anthropic-key", ready: true, env: { ANTHROPIC_API_KEY: true } },
         },
       });
       send(10, "repo.inspect", { path: join(directory, "nowhere") });
