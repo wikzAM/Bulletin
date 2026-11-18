@@ -140,3 +140,8 @@ Needed for the Managed Agents runner adapter (apps/api/src/managed-client.ts). I
   "Stop hidden" above.
 ## 2026-11-17: ship as a Tauri 2 desktop app (Windows first)
 Founder decision, recorded in docs/SPEC.md (Platform section, which wins over sections 0, 5, 6, 7, 14, 15). UI becomes React + Vite + Tailwind + React Flow in Tauri; a Rust core supervises processes, worktrees, SQLite and credentials; the existing TypeScript engine, General, runners and Anthropic SDK code become the bundled sidecar, spoken to over JSON-RPC on stdio. Why: the user wants an installable app; the local runner needs the user's own machine and login anyway. The Fastify API and Next.js web app stay as a headless/dev surface until the desktop app replaces them.
+## bulletin-mcp: MCP server (2026-11-18)
+
+- New dependency `@modelcontextprotocol/sdk` (^1.32.2) in packages/bulletin-mcp: the official MCP server/client with stdio and in-memory transports. Why: spec section 10 makes the Bulletin an MCP server; hand-rolling the protocol would be worse. pnpm-lock.yaml changed by `pnpm add`, not by hand.
+- The server takes an injected `store` (dispatches, Briefing) and `answerer` (cache, model, human pipeline), so it needs no model in tests. One server instance serves one attempt and holds that attempt's question count (default cap 10). The first question over the cap posts one `blocker` dispatch so the General sees it; later ones only get an error.
+- Dispatch text is returned as a `<dispatch>` block with every line prefixed `> ` and `<` escaped, so it cannot forge the closing tag.

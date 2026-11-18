@@ -173,3 +173,17 @@
 - recommendation: (a). The engine, API and UI are the same either way, and a local shell fits the local Claude Code runner, which needs the user's own machine and login. It also keeps the phone-browser decision inbox the spec wants. Docker is not needed for this path.
 - working default: web core continues; nothing desktop started
 - status: resolved. Founder chose the desktop app; docs/SPEC.md now has the Tauri 2 platform section (see docs/DECISIONS.md).
+
+## [2026-11-18] pnpm-lock.yaml changed for @modelcontextprotocol/sdk
+- question: Queue task 1 adds @modelcontextprotocol/sdk to packages/bulletin-mcp. `pnpm add` rewrote pnpm-lock.yaml (needed, because verify installs with --frozen-lockfile). OK to merge that lockfile diff?
+- options: (a) merge as is; (b) regenerate the lockfile on main after merging
+- recommendation: (a). It is a machine-written, additive change (77 packages).
+- working default: (a), committed on claude/general
+- status: open
+
+## [2026-11-18] apps/api tests time out on this machine (not a code failure)
+- question: `pnpm run verify` in D:\wt-claude: lint and typecheck pass, but 12 to 17 apps/api tests (serve.test.ts, run-mission.test.ts, mission-flow.test.ts, and others) time out. Cold `tsx` startup takes about 6s here, and serve.test.ts spawns it with a 5s timeout; git-heavy tests hit 10s default timeouts. No apps/api file is touched by claude/general. Should the timeouts be raised, or is the host slow (antivirus scanning the new worktree)?
+- options: (a) Codex raises the spawnSync/test timeouts; (b) exclude D:\wt-* from Windows Defender and retry; (c) ignore
+- recommendation: (b), then (a) if it persists
+- working default: carry on; judge verify by lint, typecheck and the tests of packages I touch, and log the apps/api timeouts
+- status: open
