@@ -15,6 +15,7 @@
     "@anthropic-ai/sdk": "^1.9.0",
     "@bulletin/core": "workspace:*",
     "@bulletin/graph": "workspace:*",
+    "@bulletin/models": "workspace:*",
     "@bulletin/pass-worker": "workspace:*",
     "@bulletin/prompts": "workspace:*",
     "@bulletin/runners": "workspace:*",

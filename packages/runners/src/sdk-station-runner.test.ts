@@ -140,6 +140,37 @@ describe("SdkStationRunner", () => {
     for (const e of usageEvents) expect(e).toMatchObject({ provider: "bedrock" });
   });
 
+  it("offers host-supplied tools next to its own, built fresh for each attempt, and reports their errors as results", async () => {
+    let built = 0;
+    const calls: string[] = [];
+    const stationTools = () => {
+      built += 1;
+      return {
+        definitions: [{ name: "host_tool", description: "d", input_schema: { type: "object" } }],
+        async call(name: string, args: Record<string, unknown>) {
+          calls.push(`${name}:${JSON.stringify(args)}`);
+          if (args.fail) throw new Error("host says no");
+          return "host says yes";
+        },
+      };
+    };
+    const model = scripted([
+      toolTurn("host_tool", { n: 1 }, "a"),
+      toolTurn("host_tool", { fail: true }, "b"),
+      finishTurn(),
+    ]);
+    const { events } = await run(model, { stationTools });
+
+    expect(built).toBe(1);
+    expect(model.requests[0]!.tools.map((t) => t.name)).toEqual(expect.arrayContaining(["read_file", "write_file", "list_files", "run_command", "host_tool"]));
+    expect(calls).toEqual(['host_tool:{"n":1}', 'host_tool:{"fail":true}']);
+    expect(JSON.stringify(model.requests[1]!.messages.at(-1)!.content)).toContain("host says yes");
+    const errorResult = model.requests[2]!.messages.at(-1)!.content as Array<{ is_error?: boolean; content: string }>;
+    expect(errorResult[0]).toMatchObject({ is_error: true });
+    expect(errorResult[0]!.content).toContain("host says no");
+    expect(events.at(-1)).toEqual({ type: "done", ok: true });
+  });
+
   it("lists files and does not list .git", async () => {
     const model = scripted([toolTurn("list_files", { path: "." }), finishTurn()]);
     await run(model);

@@ -14,7 +14,18 @@ export type { ContentBlock, ModelClient, ModelMessage, ModelRequest, ModelRespon
 /** Runs a program with an argument list, no shell chaining. Injected for tests. */
 export type CommandRunner = (argv: readonly string[], cwd: string, timeoutMs: number) => Promise<ExecResult>;
 
+/**
+ * Extra tools for one attempt, supplied by the host (for example the Bulletin tools, called in-process).
+ * Definitions are fixed for the attempt. `call` returns text for the model; throwing reports an error result.
+ */
+export interface StationTools {
+  definitions: ToolDefinition[];
+  call(name: string, args: Record<string, unknown>): Promise<string>;
+}
+
 export interface SdkStationRunnerOptions {
+  /** Called once per attempt, so per-attempt limits (such as the Bulletin question cap) start fresh. */
+  stationTools?: (attempt: { missionId: string; unit_id: string; attempt: number }) => StationTools;
   repo: string;
   scratchDir: string;
   model: ModelClient;
@@ -196,6 +207,8 @@ export class SdkStationRunner implements Runner {
     const { model, costOf } = this.options;
     const maxTurns = this.options.maxTurns ?? DEFAULT_MAX_TURNS;
     const allowed = [...(this.options.allowedCommands ?? []), ...input.unit.acceptance];
+    const extra = this.options.stationTools?.({ missionId: input.missionId, unit_id: input.unit.id, attempt: input.attempt });
+    const tools = extra ? [...TOOLS, ...extra.definitions] : TOOLS;
     const system = buildPrompt(input);
     const messages: ModelMessage[] = [
       { role: "user", content: "Begin. Use the tools to do the unit's work, run its acceptance commands, then reply with a short summary." },
@@ -213,7 +226,7 @@ export class SdkStationRunner implements Runner {
           model: input.model,
           system,
           messages,
-          tools: TOOLS,
+          tools,
           max_tokens: this.options.maxTokens ?? 16_000,
           signal: abort.signal,
         });
@@ -258,7 +271,9 @@ export class SdkStationRunner implements Runner {
           return;
         }
         try {
-          const content = await this.runTool(use.name, use.input, workdir, allowed);
+          const content = extra?.definitions.some((d) => d.name === use.name)
+            ? await extra.call(use.name, use.input)
+            : await this.runTool(use.name, use.input, workdir, allowed);
           results.push({ type: "tool_result", tool_use_id: use.id, content });
         } catch (e) {
           const message = e instanceof ToolError ? e.message : `tool failed: ${(e as Error).message}`;

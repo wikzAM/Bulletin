@@ -1,9 +1,8 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { DEFAULT_LANES, loadModelsConfig, loadPricesConfig } from "@bulletin/core";
-import { ClaudeCodeRunner } from "@bulletin/runners/claude-code-runner";
 import { git } from "@bulletin/runners/git";
-import { managedRunner } from "./runners";
+import { cliRunner } from "./runners";
 import { claudeModelCall, runGeneral, withFallback } from "./general";
 import { formatReport, runMission } from "./orchestrator/run-mission";
 
@@ -43,7 +42,7 @@ async function main(): Promise<void> {
     return;
   }
   if (cmd !== "run" || !flag("repo") || !flag("plan")) {
-    console.error('usage: bulletin plan --repo <path> --goal "text" [--out plan.json]\n       bulletin run --repo <path> --plan <plan.json> [--base main] [--test "pnpm test"]');
+    console.error('usage: bulletin plan --repo <path> --goal "text" [--out plan.json]\n       bulletin run --repo <path> --plan <plan.json> [--base main] [--test "pnpm test"] [--runner claude|managed|sdk]');
     process.exit(2);
   }
   const repo = resolve(flag("repo")!);
@@ -67,7 +66,7 @@ async function main(): Promise<void> {
     scratchDir,
     baseBranch: base,
     plan,
-    runner: flag("runner") === "managed" ? managedRunner(repo, root, flag("sandbox-repo")) : new ClaudeCodeRunner(repo, scratchDir),
+    runner: await cliRunner(flag("runner"), { repo, scratchDir, root, sandboxRepo: flag("sandbox-repo") }),
     prices,
     tiers: models.tiers,
     testCommand: flag("test"),

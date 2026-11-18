@@ -50,6 +50,9 @@ importers:
       '@bulletin/graph':
         specifier: workspace:*
         version: link:../../packages/graph
+      '@bulletin/models':
+        specifier: workspace:*
+        version: link:../../packages/models
       '@bulletin/pass-worker':
         specifier: workspace:*
         version: link:../pass-worker
@@ -154,6 +157,9 @@ importers:
       '@bulletin/prompts':
         specifier: workspace:*
         version: link:../prompts
+      '@bulletin/runners':
+        specifier: workspace:*
+        version: link:../runners
 
   packages/core:
     dependencies:

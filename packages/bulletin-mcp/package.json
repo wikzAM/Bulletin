@@ -12,6 +12,7 @@
   },
   "devDependencies": {
     "@bulletin/core": "workspace:*",
-    "@bulletin/prompts": "workspace:*"
+    "@bulletin/prompts": "workspace:*",
+    "@bulletin/runners": "workspace:*"
   }
 }
