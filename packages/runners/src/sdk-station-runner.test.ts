@@ -187,6 +187,24 @@ describe("SdkStationRunner", () => {
     expect(result).toMatch(/v\d+\./);
   });
 
+  // Windows only: .cmd shims (tsc, vitest, pnpm...) cannot be started directly.
+  it.runIf(process.platform === "win32")("runs a .cmd shim from PATH", async () => {
+    const bin = join(root, "bin");
+    await mkdir(bin);
+    await writeFile(join(bin, "hello.cmd"), ["@echo hi from a shim", ""].join("\r\n"));
+    const oldPath = process.env.PATH;
+    process.env.PATH = `${bin};${oldPath ?? ""}`;
+    try {
+      const model = scripted([toolTurn("run_command", { command: "hello" }), finishTurn()]);
+      await run(model, { allowedCommands: ["hello"] });
+      const result = JSON.stringify(model.requests[1]!.messages.at(-1)!.content);
+      expect(result).not.toContain('"is_error":true');
+      expect(result).toContain("hi from a shim");
+    } finally {
+      process.env.PATH = oldPath;
+    }
+  });
+
   it("supports glob-style allowed commands", async () => {
     const commandRunner: CommandRunner = async () => ({ code: 0, stdout: "fine", stderr: "" });
     const model = scripted([toolTurn("run_command", { command: "vitest run src/a.test.ts" }), finishTurn()]);

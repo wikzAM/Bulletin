@@ -182,7 +182,7 @@
 - status: open
 
 ## [2026-11-18] apps/api tests time out on this machine (not a code failure)
-- question: `pnpm run verify` in D:\wt-claude: lint and typecheck pass, but 12 to 17 apps/api tests (serve.test.ts, run-mission.test.ts, mission-flow.test.ts, and others) time out. Cold `tsx` startup takes about 6s here, and serve.test.ts spawns it with a 5s timeout; git-heavy tests hit 10s default timeouts. No apps/api file is touched by claude/general. Should the timeouts be raised, or is the host slow (antivirus scanning the new worktree)?
+- question: `pnpm run verify` in D:\wt-claude: lint and typecheck pass, but 12 to 17 apps/api tests (serve.test.ts, run-mission.test.ts, mission-flow.test.ts, and others) time out. Cold `tsx` startup takes about 6s here, and serve.test.ts spawns it with a 5s timeout; git-heavy tests hit 10s default timeouts. claude/general touches only apps/api/src/orchestrator (run-mission.ts, resolve-held.ts), which these tests exercise, but the timeouts are in the host: the same tests time out on main. Should the timeouts be raised, or is the host slow (antivirus scanning the new worktree)?
 - options: (a) Codex raises the spawnSync/test timeouts; (b) exclude D:\wt-* from Windows Defender and retry; (c) ignore
 - recommendation: (b), then (a) if it persists
 - working default: carry on; judge verify by lint, typecheck and the tests of packages I touch, and log the apps/api timeouts

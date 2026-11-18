@@ -87,6 +87,21 @@ describe("runCommand", () => {
     expect(result.output).not.toContain("timed out");
   });
 
+  // Windows only: Node cannot start .cmd shims (tsc, vitest, eslint, pnpm...) directly, so they need cmd.exe.
+  it.runIf(process.platform === "win32")("still runs a .cmd shim that is not pnpm or npm", async () => {
+    writeFileSync(join(root, "hello.cmd"), ["@echo hi from a shim", ""].join("\r\n"));
+    // Real shims live on PATH; cmd.exe does not look in the working folder.
+    const oldPath = process.env.PATH;
+    process.env.PATH = `${root};${oldPath ?? ""}`;
+    try {
+      const result = await runCommand("test", "hello", root, 30_000);
+      expect(result.exitCode).toBe(0);
+      expect(result.output).toContain("hi from a shim");
+    } finally {
+      process.env.PATH = oldPath;
+    }
+  });
+
   it("still refuses commands with shell characters", async () => {
     const result = await runCommand("test", "node ok.mjs && echo hi", root);
     expect(result.exitCode).toBe(126);

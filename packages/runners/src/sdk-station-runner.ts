@@ -121,29 +121,34 @@ export function splitCommand(command: string): string[] {
   return out;
 }
 
-/** Windows ships these as .cmd shims, which Node can only start through a shell. */
-const CMD_SHIMS = new Set(["pnpm", "npm", "npx", "yarn"]);
-
-/** Default: spawn without a shell (metacharacters are already refused); .cmd shims go through cmd on Windows. */
+/**
+ * Default: start the program directly (metacharacters are already refused, so no shell is needed).
+ * On Windows, .cmd shims (pnpm, tsc, vitest...) can only start through cmd.exe, so a direct start
+ * that cannot find the program is retried there.
+ */
 const defaultCommandRunner: CommandRunner = (argv, cwd, timeoutMs) =>
   new Promise((resolvePromise) => {
     const [file, ...args] = argv;
     if (!file) return resolvePromise({ code: 1, stdout: "", stderr: "empty command" });
-    const useShell = process.platform === "win32" && CMD_SHIMS.has(file);
-    const child = spawn(file, args, { cwd, windowsHide: true, shell: useShell });
     let stdout = "";
     let stderr = "";
-    const timer = setTimeout(() => child.kill(), timeoutMs);
-    child.stdout.on("data", (d) => (stdout += String(d)));
-    child.stderr.on("data", (d) => (stderr += String(d)));
-    child.on("error", (e) => {
-      clearTimeout(timer);
-      resolvePromise({ code: 127, stdout, stderr: stderr + e.message });
-    });
-    child.on("close", (code) => {
-      clearTimeout(timer);
-      resolvePromise({ code: code ?? 1, stdout, stderr });
-    });
+    const launch = (shell: boolean) => {
+      const child = spawn(file, args, { cwd, windowsHide: true, shell });
+      const timer = setTimeout(() => child.kill(), timeoutMs);
+      child.stdout.on("data", (d) => (stdout += String(d)));
+      child.stderr.on("data", (d) => (stderr += String(d)));
+      child.on("error", (e: NodeJS.ErrnoException) => {
+        clearTimeout(timer);
+        if (!shell && process.platform === "win32" && e.code === "ENOENT") launch(true);
+        else resolvePromise({ code: 127, stdout, stderr: stderr + e.message });
+      });
+      child.on("close", (code) => {
+        clearTimeout(timer);
+        if (child.pid === undefined || (code !== null && code < 0)) return; // the start failed; "error" decides what happens
+        resolvePromise({ code: code ?? 1, stdout, stderr });
+      });
+    };
+    launch(false);
   });
 
 class ToolError extends Error {}

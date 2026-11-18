@@ -92,3 +92,4 @@
 2026-11-18 | claude | 3. resolveHeld (approve merges and runs dependents, reject fails) | claude/general | lint+typecheck green; resolve-held tests 8/8 green; run-mission.test.ts 13/17 (4 hook timeouts, same env slowness as before)
 2026-11-18 | claude | 4. pass without Docker: timeout + kill-tree for hung checks | claude/general | lint+typecheck green; pass-worker tests 25/25 green twice (taskkill can fail with WMI errors under load, see BULLETIN.md)
 2026-11-18 | claude | 6. GitHub Actions ci.yml (windows verify + cargo check) and release.yml (tauri MSI/NSIS, unsigned) | claude/general | YAML parses; not run on GitHub; push needs gh workflow scope (BULLETIN.md 2026-11-16)
+2026-11-18 | claude | note | scope: task 4 needed apps/pass-worker/src/run-pass.ts (+ its new test), which is not on the queue's owned list; task 6 workflows are committed but NOT pushed (a push needs your go-ahead and the gh workflow scope)

@@ -4,9 +4,6 @@ import { LOCKED_PATHS, type PassVerdict, type Unit } from "@bulletin/core";
 import { addDetachedWorktree, git, removeWorktree } from "@bulletin/runners/git";
 import { judge, type CommandKind, type CommandResult, type JudgeInput } from "./judge";
 
-/** Windows ships these as .cmd shims, which Node can only start through cmd.exe. Everything else starts directly. */
-const CMD_SHIMS = /^(pnpm|npm|npx|yarn)(\.cmd)?$/i;
-
 /** Every argument of a check command must look like this. Anything else is refused, not quoted. */
 const SAFE_ARGUMENT = /^[\w@./:=,+-]+$/;
 
@@ -54,8 +51,9 @@ async function killTree(child: ChildProcess): Promise<void> {
 /**
  * Run one check command as a supervised subprocess, as an argument list. The command is split on
  * whitespace and each argument must be plain (letters, digits, and @ . / : = , + - _), so nothing
- * in it can chain, pipe, substitute or redirect. On Windows the program may be a .cmd shim (pnpm,
- * npm), which Node can only start through cmd.exe; the argument rule above is what makes that safe.
+ * in it can chain, pipe, substitute or redirect. On Windows a program that is a .cmd shim (pnpm,
+ * tsc, vitest) can only start through cmd.exe, so a direct start that cannot find the program is retried
+ * there; the argument rule above is what makes that safe.
  *
  * If the command is still running after `timeoutMs`, it and everything it started are killed
  * (taskkill /T on Windows, the process group elsewhere) and the result is exit code 124 with
@@ -69,12 +67,7 @@ export function runCommand(kind: CommandKind, command: string, cwd: string, time
   }
   return new Promise((resolve) => {
     const [program, ...args] = argv as [string, ...string[]];
-    const child = spawn(program, args, {
-      cwd,
-      shell: process.platform === "win32" && CMD_SHIMS.test(program),
-      windowsHide: true,
-      detached: process.platform !== "win32",
-    });
+    let child: ChildProcess;
     let output = "";
     let settled = false;
     let timedOut = false;
@@ -102,13 +95,24 @@ export function runCommand(kind: CommandKind, command: string, cwd: string, time
         settle(124);
       });
     }, timeoutMs);
-    child.stdout.on("data", (d) => (output += String(d)));
-    child.stderr.on("data", (d) => (output += String(d)));
-    child.on("error", (e) => settle(127, e.message));
-    child.on("close", (code) => {
-      closed = true;
-      void (killed ?? Promise.resolve()).then(() => settle(code ?? 124));
-    });
+
+    /** Start directly, so a kill reaches the real program. On Windows, .cmd shims (pnpm, tsc, vitest...) can only start through cmd.exe: retry there when the direct start cannot find a program. */
+    const launch = (shell: boolean) => {
+      const mine = spawn(program, args, { cwd, shell, windowsHide: true, detached: process.platform !== "win32" });
+      child = mine;
+      mine.stdout?.on("data", (d) => (output += String(d)));
+      mine.stderr?.on("data", (d) => (output += String(d)));
+      mine.on("error", (e: NodeJS.ErrnoException) => {
+        if (!shell && process.platform === "win32" && e.code === "ENOENT") launch(true);
+        else settle(127, e.message);
+      });
+      mine.on("close", (code) => {
+        if (child !== mine) return; // a start that failed and was retried
+        closed = true;
+        void (killed ?? Promise.resolve()).then(() => settle(code ?? 124));
+      });
+    };
+    launch(false);
   });
 }
 
