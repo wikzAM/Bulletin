@@ -279,3 +279,10 @@ RED touched a locked file: pnpm-lock.yaml
 ```
 - status: open
 - note (claude, 2026-11-18): this is the pnpm-lock.yaml change for @tauri-apps/cli, logged above. The coordinator accepted the generated lockfile diff (message to this session) and will resolve the entry on merge. Nothing to do on the branch.
+
+## [2026-11-18] Run the real NSIS installer on this machine? (queue task 21)
+- question: Installing `Bulletin_0.1.0_x64-setup.exe` per-user into a scratch folder needs no admin rights, but the installer also writes `HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\Bulletin`, `HKCU\Software\bulletin\Bulletin` and a Start Menu shortcut, which are outside the scratch folder. The uninstaller removes them. The queue says to stop and note if anything would touch the system outside the scratch folder, so I did not run it.
+- options: (a) run `/S /D=<scratch>` then `uninstall.exe /S` and compare the registry, Start Menu and desktop with the baseline in docs/PACKAGING.md; (b) skip the real install and rely on the mirrored-layout test already recorded there (the release exe started its bundled sidecar from a scratch folder with the installer's exact file layout); (c) run it on the Windows CI runner instead
+- recommendation: (c) for a fully clean proof, otherwise (a) with the baseline comparison. It is user-level and reversible, but it is a change to the user's machine and not mine to decide.
+- working default: (b); everything else continues
+- status: open

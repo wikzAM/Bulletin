@@ -4,6 +4,11 @@ version = "0.1.0"
 edition = "2024"
 rust-version = "1.100"
 
+[features]
+default = []
+# Auto-update, OFF unless built with --features updater (see docs/PACKAGING.md, "Updates").
+updater = ["dep:tauri-plugin-updater"]
+
 [build-dependencies]
 tauri-build = "2"
 
@@ -11,6 +16,7 @@ tauri-build = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tauri = "2"
+tauri-plugin-updater = { version = "2", optional = true }
 
 [dev-dependencies]
 tempfile = "3"
