@@ -155,3 +155,4 @@
 2026-11-18 18:10 EST | Codex | Desktop 14. First-run through receipt passed in TSX and Windows fixture executable | codex/warroom-api@0e72230 | verify red (972 passed, six deadline failures)
 2026-11-18 18:26 EST | Codex | Desktop 15. Finished replay, dual subscribers, abort cleanup and empty cursor | codex/warroom-api@e99acb8 | verify red (978 passed, four report hook timeouts)
 2026-11-18 18:41 EST | Codex | Desktop 16. M5 invites, shared event privacy and mission roles; six targeted tests passed | codex/warroom-api@fe4a766 | verify red (984 passed, four report hook timeouts)
+2026-11-18 18:44 EST | Codex | Sidecar startup reconciled after merging provider settings; existing stored-provider contract and full desktop flow pass | codex/warroom-api@b7fd4a2 | lint, typecheck and 37 targeted tests green; full verify pending
