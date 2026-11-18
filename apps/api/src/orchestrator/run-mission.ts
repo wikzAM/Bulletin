@@ -241,7 +241,7 @@ export async function runMission(options: MissionOptions): Promise<MissionReport
       // Treasury preflight (spec section 12): spent + reserved + this attempt's estimate must fit the budget.
       // Checked and reserved in one synchronous step, so attempts starting together cannot all slip under it.
       const attemptKey = `${unit.id}#${attempt}`;
-      const estimate = attemptEstimateCents(unit, model, options.prices, options.calibration);
+      const estimate = attemptEstimateCents({ tier, estimate: unit.estimate }, model, options.prices, options.calibration);
       if (options.budgetCents !== undefined) {
         const reserved = reservations.total();
         const cap = capCheck({ budgetCents: options.budgetCents, spentCents: spent, reservedCents: reserved, nextEstimateCents: estimate });

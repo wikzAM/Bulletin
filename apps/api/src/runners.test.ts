@@ -64,6 +64,22 @@ describe("sdkRunner", () => {
     expect(usage && usage.type === "usage" ? usage.costCents : undefined).toBeCloseTo(prices.models["claude-sonnet-5-5"].input * 100, 4);
   });
 
+  it("offers the station tools it is given to the model", async () => {
+    const seen: string[][] = [];
+    const client: ModelClient = {
+      provider: "anthropic",
+      complete: async (req) => (seen.push(req.tools.map((t) => t.name)), finish),
+    };
+    const stationTools = () => ({ definitions: [{ name: "bulletin_ask", description: "d", input_schema: { type: "object" } }], call: async () => "ok" });
+    const runner = await sdkRunner(repo, join(work, "scratch"), root, { client, stationTools });
+    const unit = { id: "u1", title: "t", task: "t", files: ["README.md"], acceptance: [], needs: [], lane: "open", tier: "station" };
+    const handle = await runner.startAttempt({
+      missionId: "m1", unit: unit as never, attempt: 1, baseBranch: "main", briefingSlice: "", rules: "", model: "claude-sonnet-5-5", allowanceCents: 0,
+    });
+    for await (const e of runner.events(handle)) void e;
+    expect(seen[0]).toContain("bulletin_ask");
+  });
+
   it("refuses bedrock without a region before any call, naming the variable and no value", async () => {
     await expect(sdkRunner(repo, join(work, "scratch"), root, { env: { BULLETIN_PROVIDER: "bedrock" } })).rejects.toThrow(/AWS_REGION/);
   });

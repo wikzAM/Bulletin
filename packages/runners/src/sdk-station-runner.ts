@@ -272,7 +272,7 @@ export class SdkStationRunner implements Runner {
         }
         try {
           const content = extra?.definitions.some((d) => d.name === use.name)
-            ? await extra.call(use.name, use.input)
+            ? await untilAborted(extra.call(use.name, use.input), abort.signal)
             : await this.runTool(use.name, use.input, workdir, allowed);
           results.push({ type: "tool_result", tool_use_id: use.id, content });
         } catch (e) {
@@ -350,6 +350,16 @@ export class SdkStationRunner implements Runner {
   async cancel(handle: AttemptHandle): Promise<void> {
     this.attempts.get(handle.ref)?.abort.abort();
   }
+}
+
+/** Settles with `promise`, or rejects when the attempt is cancelled, so a tool that waits (bulletin_wait) cannot hold a cancel up. */
+function untilAborted<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
+  if (signal.aborted) return Promise.reject(new ToolError("cancelled"));
+  return new Promise<T>((resolvePromise, reject) => {
+    const onAbort = () => reject(new ToolError("cancelled"));
+    signal.addEventListener("abort", onAbort, { once: true });
+    promise.then(resolvePromise, reject).finally(() => signal.removeEventListener("abort", onAbort));
+  });
 }
 
 function summarise(input: Record<string, unknown>): string {

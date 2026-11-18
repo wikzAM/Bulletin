@@ -4,7 +4,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { loadModelsConfig, loadPricesConfig } from "@bulletin/core";
 import type { ModelClient } from "@bulletin/models";
 import type { Runner } from "@bulletin/runners";
-import { SdkStationRunner } from "@bulletin/runners/sdk-station-runner";
+import { SdkStationRunner, type SdkStationRunnerOptions } from "@bulletin/runners/sdk-station-runner";
 import { git } from "@bulletin/runners/git";
 import { ManagedAgentsRunner } from "@bulletin/runners/managed-agents-runner";
 import { sdkManagedClient } from "./managed-client";
@@ -51,6 +51,8 @@ export interface SdkRunnerDeps {
   /** Injected in tests. Without it the client for BULLETIN_PROVIDER is built from the environment. */
   client?: ModelClient;
   env?: Readonly<Record<string, string | undefined>>;
+  /** Extra tools per attempt, such as the Bulletin tools (`createStationTools` in @bulletin/bulletin-mcp). */
+  stationTools?: SdkStationRunnerOptions["stationTools"];
 }
 
 /**
@@ -69,6 +71,7 @@ export async function sdkRunner(repo: string, scratchDir: string, root: string, 
     model: client,
     allowedCommands: allowedLocalCommands,
     costOf: (model, usage) => costCents(model, usage, prices),
+    ...(deps.stationTools ? { stationTools: deps.stationTools } : {}),
   });
 }
 

@@ -171,6 +171,25 @@ describe("SdkStationRunner", () => {
     expect(events.at(-1)).toEqual({ type: "done", ok: true });
   });
 
+  it("cancel ends the attempt even while a host tool call is still pending", async () => {
+    const stationTools = () => ({
+      definitions: [{ name: "slow_tool", description: "d", input_schema: { type: "object" } }],
+      call: () => new Promise<string>(() => undefined), // never answers, like bulletin_wait with a long timeout
+    });
+    const model = scripted([toolTurn("slow_tool", {}, "a"), finishTurn()]);
+    const runner = new SdkStationRunner({ repo, scratchDir: scratch, model, stationTools });
+    const handle = await runner.startAttempt(input());
+    const started = Date.now();
+    const events: RunnerEvent[] = [];
+    for await (const e of runner.events(handle)) {
+      events.push(e);
+      if (e.type === "tool_use") setTimeout(() => void runner.cancel(handle), 50);
+    }
+    expect(Date.now() - started).toBeLessThan(20_000);
+    expect(events.at(-1)).toEqual({ type: "done", ok: false, error: "cancelled" });
+    expect(model.requests).toHaveLength(1); // it did not go back to the model
+  });
+
   it("lists files and does not list .git", async () => {
     const model = scripted([toolTurn("list_files", { path: "." }), finishTurn()]);
     await run(model);
