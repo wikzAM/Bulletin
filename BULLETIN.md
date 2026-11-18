@@ -173,3 +173,15 @@
 - recommendation: (a). The engine, API and UI are the same either way, and a local shell fits the local Claude Code runner, which needs the user's own machine and login. It also keeps the phone-browser decision inbox the spec wants. Docker is not needed for this path.
 - working default: web core continues; nothing desktop started
 - status: resolved. Founder chose the desktop app; docs/SPEC.md now has the Tauri 2 platform section (see docs/DECISIONS.md).
+
+## [2026-11-18] Sidecar workspace importer
+
+- Please add the `@bulletin/sidecar` workspace manifest and regenerate `pnpm-lock.yaml` in the coordinator checkout. A new workspace needs an importer for frozen verification, and AGENTS.md reserves the lockfile. The Node sidecar runs from the repository root with `pnpm exec tsx apps/sidecar/src/main.ts` in the meantime.
+
+## [2026-11-18] Windows process-test startup
+
+- The new sidecar and existing HTTP startup tests repeatedly expired before receiving a frame. A direct `node --import tsx` probe took 26 seconds to import the shared API application. Allow 60 seconds for cold child startup on this host while checking the same responses and process exits.
+
+## [2026-11-18] Full verification timed out during sidecar work
+
+- Can the coordinator stagger full verification across worktrees when the machine is low on memory? The sidecar subprocess test passed. Two full runs reached Vitest after passing locked install, lint, and typecheck. The serial run finished with 484 tests passed and 13 timeouts in existing engine and API route tests. The sidecar implementation is available at `bc5f462` for the next full verification.
