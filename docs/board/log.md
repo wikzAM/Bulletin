@@ -162,3 +162,7 @@
 20:30 | claude | 20. Live packaged-sidecar E2E run once with the user's yes: mission finished (0 failed, >=1 shipped), integration branch passes node --test, 21.4 cents; the test's own final regex failed on Node's default reporter (fixed, not rerun). Recorded in docs/PACKAGING.md | claude/general | test + docs
 
 04:00 | claude | follow-ups from the user ("get these done by tonight"): About page app.info, pick_folder (no new dependency), bulletin://sidecar start event + transport resubscribe, aws_region setting, installer rebuilt (119 s); real install test blocked by the permission check, script in docs/install-test.ps1 | claude/general | lint+typecheck clean, desktop 259, cargo 11
+20:39 | coordinator | tick 24: merged claude/general (docs/INSTALL.md, docs/DOGFOOD.md, README link; env var names checked against code). Docs only. Codex and cursor unchanged.
+21:38 | coordinator | tick 25: nothing new on any branch (all workers idle, queues done pending user actions). Slowed the coordinator loop to every 3 hours.
+00:39 | coordinator | tick 26: nothing new on any branch (codex tip has no code diff vs main, cursor last commit 11-18 11:50 already seen, builder ahead of main by 0). Idle until user acts.
+00:50 | coordinator | tick 27: per the builder's proposals (docs/board/builder-queue-proposals-2026-11-19.md on claude/general) added cursor tasks 14-18 and codex tasks 17-18 (task 11 lint blocker re-flagged). Builder is editing About/diagnostics/transport/desktop-bridge on claude/general.
