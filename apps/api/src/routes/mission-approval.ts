@@ -31,6 +31,7 @@ function runnerEventSink(log: EventLog, missionId: string, startup: BulletinEven
 export function registerMissionApproval(
   app: FastifyInstance,
   log: EventLog,
+  planUpdates: Set<string>,
   startMission?: MissionStarter,
   pricing?: MissionPricing,
 ): void {
@@ -44,6 +45,8 @@ export function registerMissionApproval(
     if (active.has(id) || events.some(({ type }) => type === "plan.approved" || type === "mission.finished")) {
       return reply.code(409).send({ error: "Mission already approved" });
     }
+
+    if (planUpdates.has(id)) return reply.code(409).send({ error: "Mission plan update in progress" });
 
     const proposed = events.findLast((event) => event.type === "plan.proposed");
     const execution = missionExecution(created, proposed, events);
@@ -73,12 +76,15 @@ export function registerMissionApproval(
 
     const controller = new AbortController();
     active.set(id, controller);
+    planUpdates.add(id);
     let approved: BulletinEvent;
     try {
       approved = await log.emit({ mission_id: id, type: "plan.approved" });
     } catch (error) {
       active.delete(id);
       throw error;
+    } finally {
+      planUpdates.delete(id);
     }
     const sink = runnerEventSink(log, id, [created, proposed, approved]);
     void Promise.resolve()

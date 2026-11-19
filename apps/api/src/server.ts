@@ -99,8 +99,9 @@ export function buildServer(events: EventLog = new MemoryEventLog(), options: Se
   registerMissionRoutes(app, events, options.missionEventFeed);
   registerMissionDecisions(app, events, options.resolveHeldMission);
   registerMissionRules(app, events, options.readGit);
-  registerMissionPlanning(app, events, briefings, options.modelCall);
-  registerMissionApproval(app, events, options.startMission, pricing);
+  const planUpdates = new Set<string>();
+  registerMissionPlanning(app, events, briefings, planUpdates, options.modelCall);
+  registerMissionApproval(app, events, planUpdates, options.startMission, pricing);
   registerQuestionRoutes(app, events, options.questionWorkflow ?? new QuestionWorkflow(events, options.questionStore ?? new MemoryQuestionStore()), options.answererCall);
 
   return app;

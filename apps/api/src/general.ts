@@ -13,6 +13,7 @@ export interface GeneralInput {
   rules: string;
   lessons: string;
   validation: ValidationContext;
+  feedback?: string;
 }
 
 export type GeneralResult = { ok: true; plan: Plan; attempts: number } | { ok: false; errors: string[]; attempts: number };
@@ -43,7 +44,7 @@ export const PLAN_SCHEMA_HINT = [
 
 /** Goal text in, validated plan out. One retry, with the validator's errors as feedback. */
 export async function runGeneral(input: GeneralInput, call: ModelCall, maxAttempts = 2): Promise<GeneralResult> {
-  let feedback: string | undefined;
+  let feedback = input.feedback;
   let errors: string[] = [];
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     const user = renderGeneralTask({ ...input, briefing: `${input.briefing}
@@ -62,7 +63,10 @@ ${PLAN_SCHEMA_HINT}`, feedback });
     } catch (e) {
       errors = [(e as Error).message];
     }
-    feedback = errors.map((e) => `- ${e}`).join("\n");
+    const validationFeedback = errors.map((e) => `- ${e}`).join("\n");
+    feedback = input.feedback
+      ? `${input.feedback}\n\nVALIDATION ERRORS:\n${validationFeedback}`
+      : validationFeedback;
   }
   return { ok: false, errors, attempts: maxAttempts };
 }

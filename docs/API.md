@@ -93,7 +93,7 @@ include the additional fields shown on those endpoints.
 - `400 Bad Request`. `Invalid request` for malformed JSON, parameters, or fields. `Invalid event cursor` for malformed SSE cursors.
 - `401 Unauthorized`. `Unauthorized` when the API requires a bearer token and the request credentials are invalid or absent.
 - `404 Not Found`. `Route not found`, `Mission not found`, `Briefing not found`, `Question not found`, `Open decision not found`, or `Mission integration branch not found`.
-- `409 Conflict`. `Briefing is incomplete`, `Briefing is not awaiting this answer`, `Mission already approved`, `Mission has no plan to approve`, `Plan exceeds mission budget`, `Mission is not running`, `Mission has not finished`, `Decision resolution in progress`, `Question already answered`, `Auto-answer already in progress`, or `Mission has no completed Briefing`.
+- `409 Conflict`. `Briefing is incomplete`, `Briefing is not awaiting this answer`, `Mission already approved`, `Mission has no plan to approve`, `Mission has no plan to revise`, `Mission already revised`, `Mission is no longer awaiting approval`, `Mission plan update in progress`, `Plan exceeds mission budget`, `Mission is not running`, `Mission has not finished`, `Decision resolution in progress`, `Question already answered`, `Auto-answer already in progress`, or `Mission has no completed Briefing`.
 - `413 Payload Too Large`. `Payload Too Large` when the body exceeds the server's request limit.
 - `415 Unsupported Media Type`. `Unsupported Media Type` when the server cannot parse the requested content type.
 - `422 Unprocessable Entity`. `Repository unavailable`, `Mission planning failed`, or `Plan cannot be priced`.
@@ -381,6 +381,27 @@ JSON. The `unit_id` field is `null` for mission-level events. The payload is
 whatever the event producer wrote. The `EVENT_TYPES` export in `@bulletin/core`
 lists the available event names.
 
+## `POST /missions/:id/revise`
+
+Send `{"comment":"Make seed generation deterministic."}` while a mission is
+waiting for plan approval. The General receives the current Briefing (or goal),
+the previous plan, the comment, and context from the mission's saved base ref.
+Returns `200 OK` with `mission_id`, the validated replacement `plan`, and
+`attempts`, in the same shape as the create response.
+
+Success appends a `plan.proposed` event carrying `plan`, `units`, `revision: 1`,
+and the trimmed `comment`. The mission stays in `planning`. Approval uses the
+latest proposal. Each mission can record one successful revision. Failed
+planning requests leave the existing proposal and revision allowance intact.
+
+- `400 Bad Request` for an invalid body, including a blank comment.
+- `404 Not Found` with `{"error":"Mission not found"}` for an unknown mission.
+- `409 Conflict` with `{"error":"Mission already revised"}` after the revision was recorded.
+- `409 Conflict` with `{"error":"Mission is no longer awaiting approval"}` if the mission is approved or finished.
+- `409 Conflict` with `{"error":"Mission has no plan to revise"}` when there is no valid proposal.
+- `409 Conflict` with `{"error":"Mission plan update in progress"}` while another revision or approval is in progress.
+- Repository and model failures use the same `422` and `503` responses as `POST /missions`.
+
 ## `POST /missions/:id/approve`
 
 Approves the current proposal and starts the configured mission runner in the
@@ -395,6 +416,7 @@ saved budget. It stops starting work and publishes `mission.finished` with
 
 - `409 Conflict` with `{"error":"Mission has no plan to approve"}` if the mission has no full proposal or lacks repository metadata.
 - `409 Conflict` with `{"error":"Mission already approved"}` if execution has already been approved or has finished.
+- `409 Conflict` with `{"error":"Mission plan update in progress"}` while a revision is in progress.
 - `409 Conflict` with `{"error":"Plan exceeds mission budget","budget_cents":500,"estimated_cents":1150,"spent_cents":10,"shortfall_cents":660}`
   when the baseline Treasury fare estimate plus recorded spend exceeds the
   mission budget. The mission stays in planning. An exact fit can run.
