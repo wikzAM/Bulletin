@@ -2,9 +2,11 @@ import { LaneSchema, type BulletinEvent, type EventType, type Lane, type UnitSta
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import type { EventLog } from "../store/event-log";
+import { endsMissionExecution, isInterrupted, lastMissionExecution } from "../store/mission-state";
 import type { MissionEventFeed } from "./mission-event-feed";
 import { registerMissionEventStream } from "./mission-events";
-import { readLedgerCharge, readMissionBudget, roundCents } from "./mission-ledger";
+import { missionLimits, readLedgerCharge, roundCents } from "./mission-ledger";
+import { renderMissionReceipt } from "./mission-receipt";
 import { validateIdParams } from "./request-validation";
 
 const missionStatus = z.enum(["interview", "planning", "running", "finished", "failed", "interrupted", "paused"]);
@@ -39,6 +41,9 @@ const missionStatuses: Partial<Record<EventType, MissionStatus>> = {
   "briefing.versioned": "planning",
   "plan.proposed": "planning",
   "plan.approved": "running",
+  "mission.resumed": "running",
+  "wave.started": "running",
+  "mission.interrupted": "interrupted",
   "mission.finished": "finished",
 };
 
@@ -79,7 +84,7 @@ function listMissions(events: readonly BulletinEvent[]): MissionSummary[] {
   return [...missions.values()];
 }
 
-function missionProgress(events: readonly BulletinEvent[]) {
+export function missionProgress(events: readonly BulletinEvent[]) {
   const units = new Map<string, MissionUnit>();
   const ledgerByUnit = new Map<string, LedgerTotal>();
   const ledger = { cost_cents: 0, charges: 0 };
@@ -248,7 +253,7 @@ export function registerMissionRoutes(app: FastifyInstance, log: EventLog, feed?
     const created = events.find((event) => event.type === "mission.created");
     if (!created) return reply.code(404).send({ error: "Mission not found" });
 
-    const budgetCents = readMissionBudget(created.payload.budget_cents);
+    const { budgetCents } = missionLimits(created, events);
     const { units, ledger, ledgerByUnit } = missionProgress(events);
     return {
       mission_id: id,
@@ -267,9 +272,26 @@ export function registerMissionRoutes(app: FastifyInstance, log: EventLog, feed?
     const events = log.events.filter((event) => event.mission_id === request.params.id);
     const created = events.find(({ type }) => type === "mission.created");
     if (!created) return reply.code(404).send({ error: "Mission not found" });
-    const finished = events.findLast(({ type }) => type === "mission.finished");
-    if (!finished) return reply.code(409).send({ error: "Mission has not finished" });
+    const finished = lastMissionExecution(events);
+    if (!finished || !endsMissionExecution(finished)) return reply.code(409).send({ error: "Mission has not finished" });
     return finishedReport(events, created, finished);
+  });
+
+  app.get<{ Params: { id: string } }>("/missions/:id/receipt.md", { preValidation: validateIdParams }, async (request, reply) => {
+    const events = log.events.filter((event) => event.mission_id === request.params.id);
+    const created = events.find(({ type }) => type === "mission.created");
+    if (!created) return reply.code(404).send({ error: "Mission not found" });
+    const finished = lastMissionExecution(events);
+    if (finished?.type !== "mission.finished" || isInterrupted(finished)) {
+      return reply.code(409).send({ error: "Mission has not finished" });
+    }
+
+    const history = events.filter(({ id }) => id <= finished.id);
+    const receipt = renderMissionReceipt(finishedReport(history, created, finished), history);
+    return reply
+      .type("text/markdown; charset=utf-8")
+      .header("Content-Disposition", 'attachment; filename="receipt.md"')
+      .send(receipt);
   });
 
   registerMissionEventStream(app, log, feed);

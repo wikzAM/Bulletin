@@ -55,6 +55,8 @@ it("boots on an assigned port and durably marks unfinished missions interrupted 
       await log.emit({ mission_id: "planned", type: "plan.proposed" });
       await log.emit({ mission_id: "complete", type: "mission.created" });
       await log.emit({ mission_id: "complete", type: "mission.finished" });
+      await log.emit({ mission_id: "active", type: "mission.created" });
+      await log.emit({ mission_id: "active", type: "plan.approved", payload: { owner_pid: process.pid } });
       await log.emit({ mission_id: "orphan", type: "unit.started" });
     } finally {
       await log.close();
@@ -65,17 +67,16 @@ it("boots on an assigned port and durably marks unfinished missions interrupted 
       { id: "restored", status: "interrupted", repo: "/repos/demo", base: "main", created_at: expect.any(String) },
       { id: "planned", status: "interrupted", repo: null, base: null, created_at: expect.any(String) },
       { id: "complete", status: "finished", repo: null, base: null, created_at: expect.any(String) },
+      { id: "active", status: "running", repo: null, base: null, created_at: expect.any(String) },
     ] });
     expect(await listFromBoot(directory)).toEqual(missions);
 
     const recovered = await SqliteEventLog.open(database);
     try {
-      expect(recovered.events.filter(({ type }) => type === "mission.finished").map(({ mission_id, payload }) => ({ mission_id, payload })))
-        .toEqual([
-          { mission_id: "complete", payload: {} },
-          { mission_id: "restored", payload: { interrupted: true } },
-          { mission_id: "planned", payload: { interrupted: true } },
-        ]);
+      expect(recovered.events.filter(({ type }) => type === "mission.finished").map(({ mission_id }) => mission_id))
+        .toEqual(["complete"]);
+      expect(recovered.events.filter(({ type }) => type === "mission.interrupted").map(({ mission_id }) => mission_id))
+        .toEqual(["restored", "planned"]);
     } finally {
       await recovered.close();
     }

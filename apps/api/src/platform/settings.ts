@@ -4,16 +4,24 @@ import { join } from "node:path";
 /** Thrown for a key or value the settings file does not allow. The message never contains the offending value. */
 export class SettingsError extends Error {}
 
-export type SettingValue = string | boolean;
+export type SettingValue = string | boolean | number;
+export const MAX_DEFAULT_BUDGET_CENTS = 100_000;
+export const MAX_UNIT_ALLOWANCE_CENTS = 10_000;
 export type Settings = Record<string, SettingValue>;
 
 const PROVIDERS = ["claude-code", "anthropic-key", "bedrock"];
+
+function validCents(value: unknown, cap: number): boolean {
+  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0 && value <= cap;
+}
 
 /** The only settings that exist. Anything else (an API key, a token) is refused, so none can end up in the file. */
 const VALIDATORS: Record<string, (value: unknown) => boolean> = {
   provider: (value) => typeof value === "string" && PROVIDERS.includes(value),
   repo_path: (value) => typeof value === "string" && value.length <= 1024 && !value.includes("\0"),
   setup_complete: (value) => typeof value === "boolean",
+  default_budget_cents: (value) => validCents(value, MAX_DEFAULT_BUDGET_CENTS),
+  unit_allowance_cents: (value) => validCents(value, MAX_UNIT_ALLOWANCE_CENTS),
   // A region name such as us-east-1 or us-gov-west-1 (Bedrock).
   aws_region: (value) => typeof value === "string" && /^[a-z]{2}(?:-[a-z]+)+-[0-9]$/.test(value),
 };

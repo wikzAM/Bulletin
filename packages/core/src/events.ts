@@ -3,6 +3,8 @@ import { z } from "zod";
 /** Every state change is one of these, appended to the event log (spec section 13). */
 export const EVENT_TYPES = [
   "mission.created",
+  "mission.interrupted",
+  "mission.resumed",
   "briefing.versioned",
   "plan.proposed",
   "plan.approved",

@@ -8,6 +8,7 @@ import { registerConfig, type ConfigSource } from "./routes/config";
 import { registerMissionApproval, type MissionPricing, type MissionStarter } from "./routes/mission-approval";
 import { registerMissionDecisions, type HeldMissionResolver } from "./routes/mission-decisions";
 import type { MissionEventFeed } from "./routes/mission-event-feed";
+import type { ReadBudgetDefaults } from "./routes/mission-ledger";
 import { registerMissionPlanning } from "./routes/mission-planning";
 import { registerMissionRules, type ReadGit } from "./routes/mission-rules";
 import { registerMissionRoutes } from "./routes/missions";
@@ -28,6 +29,7 @@ export interface ServerOptions {
   pricing?: MissionPricing;
   questionStore?: QuestionStore;
   questionWorkflow?: QuestionWorkflow;
+  readBudgetDefaults?: ReadBudgetDefaults;
   readGit?: ReadGit;
   resolveHeldMission?: HeldMissionResolver;
   startMission?: MissionStarter;
@@ -95,7 +97,7 @@ export function buildServer(events: EventLog = new MemoryEventLog(), options: Se
   const missionShutdown = options.missionShutdown ?? new AbortController();
   app.addHook("preClose", async () => { missionShutdown.abort(); });
   app.get("/health", async () => ({ status: "ok", service: "api" }));
-  registerConfig(app, options.config);
+  registerConfig(app, options.config, options.readBudgetDefaults);
   const briefings = options.briefingStore ?? new MemoryBriefingStore();
   const pricing = options.pricing ?? (options.config && { prices: options.config.prices, tiers: options.config.models.tiers });
   registerBriefings(app, briefings, options.interviewerCall);
@@ -103,8 +105,8 @@ export function buildServer(events: EventLog = new MemoryEventLog(), options: Se
   registerMissionDecisions(app, events, options.resolveHeldMission);
   registerMissionRules(app, events, options.readGit);
   const planUpdates = new Set<string>();
-  registerMissionPlanning(app, events, briefings, planUpdates, options.modelCall);
-  registerMissionApproval(app, events, planUpdates, missionShutdown.signal, options.startMission, pricing);
+  registerMissionPlanning(app, events, briefings, planUpdates, options.modelCall, options.readBudgetDefaults);
+  registerMissionApproval(app, events, planUpdates, missionShutdown.signal, options.startMission, pricing, options.readBudgetDefaults);
   registerQuestionRoutes(app, events, options.questionWorkflow ?? new QuestionWorkflow(events, options.questionStore ?? new MemoryQuestionStore()), options.answererCall);
 
   return app;

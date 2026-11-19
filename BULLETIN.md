@@ -379,3 +379,9 @@ RED touched a locked file: pnpm-lock.yaml
 - recommendation: (a). The queue assigns the sidecar setting to the builder, and Cursor does not own `apps/api`.
 - working default: (a). The field is visible, the payload is tested, and an empty region is not sent. Continue is not blocked on a region.
 - status: RESOLVED 2026-11-19: main now has the `aws_region` setting (coordinator tick 28). The setup screen still sends it in its own call.
+
+## [2026-11-19] Desktop action for interrupted projects
+
+- Question. Where should the desktop offer to resume an interrupted project with an approved plan?
+- Options. Display Resume in the interrupted-project banner, or keep resume available from the API while the desktop work is queued.
+- Recommendation. Use the existing banner and subscribe from the last event ID after a successful resume request.

@@ -7,14 +7,14 @@ import { runGeneral, type ModelCall } from "../general";
 import type { BriefingStore } from "../store/briefing-store";
 import type { EventLog } from "../store/event-log";
 import { missionExecution } from "./mission-execution";
-import { DEFAULT_MISSION_BUDGET_CENTS } from "./mission-ledger";
+import { DEFAULT_MISSION_BUDGET_CENTS, type ReadBudgetDefaults } from "./mission-ledger";
 import { identifier, validateIdParams } from "./request-validation";
 
 const missionBody = z.strictObject({
   goal: z.string().trim().min(1),
   repo: z.string().trim().min(1),
   briefing_id: identifier.optional(),
-  budget_cents: z.number().int().nonnegative().default(DEFAULT_MISSION_BUDGET_CENTS),
+  budget_cents: z.number().int().nonnegative().optional(),
 });
 const revisionBody = z.strictObject({ comment: z.string().trim().min(1) });
 export const allowedLocalCommands = ["pnpm *", "npm *", "node *"] as const;
@@ -56,6 +56,7 @@ export function registerMissionPlanning(
   briefings: BriefingStore,
   planUpdates: Set<string>,
   modelCall?: ModelCall,
+  readBudgetDefaults?: ReadBudgetDefaults,
 ): void {
   app.post("/missions", async (request, reply) => {
     const parsed = missionBody.safeParse(request.body);
@@ -85,7 +86,10 @@ export function registerMissionPlanning(
     const mission_id = randomUUID();
     const { attempts } = result;
     const plan = briefing ? { ...result.plan, briefing_version: 1 } : result.plan;
-    await log.emit({ mission_id, type: "mission.created", payload: { goal, repo, base, budget_cents } });
+    const budget = budget_cents ?? (await readBudgetDefaults?.())?.budgetCents ?? DEFAULT_MISSION_BUDGET_CENTS;
+    await log.emit({ mission_id, type: "mission.created", payload: {
+      goal, repo, base, budget_cents: budget, ...(budget_cents === undefined ? { budget_defaulted: true } : {}),
+    } });
     if (briefing) {
       await log.emit({ mission_id, type: "briefing.versioned", payload: { briefing_id, version: 1, markdown: briefing.markdown } });
     }

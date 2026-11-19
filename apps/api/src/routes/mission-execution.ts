@@ -1,6 +1,6 @@
 import { PlanSchema, type BulletinEvent, type Plan } from "@bulletin/core";
 import { z } from "zod";
-import { readMissionBudget } from "./mission-ledger";
+import { missionLimits } from "./mission-ledger";
 
 const metadataSchema = z.object({
   repo: z.string().min(1),
@@ -15,6 +15,7 @@ export interface MissionExecution {
   briefing?: string;
   plan: Plan;
   budgetCents?: number;
+  unitAllowanceCents?: number;
 }
 
 export function missionExecution(
@@ -28,7 +29,7 @@ export function missionExecution(
 
   const { repo, base, goal } = metadata.data;
   const markdown = history.findLast(({ type }) => type === "briefing.versioned")?.payload.markdown;
-  const budgetCents = readMissionBudget(created.payload.budget_cents);
+  const { budgetCents, unitAllowanceCents } = missionLimits(created, history);
   return {
     missionId: created.mission_id,
     repo,
@@ -36,5 +37,6 @@ export function missionExecution(
     briefing: typeof markdown === "string" ? markdown : goal,
     plan: plan.data,
     ...(budgetCents === null ? {} : { budgetCents }),
+    ...(unitAllowanceCents === null ? {} : { unitAllowanceCents }),
   };
 }

@@ -9,6 +9,8 @@ const LANE_SET: Record<Lane, true> = { open: true, gated: true, closed: true };
 
 const EVENT_TYPE_SET: Record<EventType, true> = {
   "mission.created": true,
+  "mission.interrupted": true,
+  "mission.resumed": true,
   "briefing.versioned": true,
   "plan.proposed": true,
   "plan.approved": true,

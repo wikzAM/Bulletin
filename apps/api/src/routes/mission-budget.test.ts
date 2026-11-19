@@ -88,3 +88,31 @@ it.each([
     await app.close();
   }
 });
+
+it.each([
+  { label: "applies defaults at approval", savedBudget: 500, defaulted: true,
+    payload: undefined, budgetCents: 1200, unitAllowanceCents: 40 },
+  { label: "keeps an explicit creation budget", savedBudget: 1160, defaulted: false,
+    payload: {}, budgetCents: 1160, unitAllowanceCents: 40 },
+  { label: "applies explicit approval overrides", savedBudget: 500, defaulted: false,
+    payload: { budget_cents: 1300, unit_allowance_cents: 0 }, budgetCents: 1300, unitAllowanceCents: 0 },
+])("$label and saves the effective limits", async ({ savedBudget, defaulted, payload, budgetCents, unitAllowanceCents }) => {
+  const log = await missionWithBudget(savedBudget);
+  if (defaulted) log.events[0]!.payload.budget_defaulted = true;
+  const startMission = vi.fn<MissionStarter>(async () => {});
+  const app = buildServer(log, {
+    startMission, pricing,
+    readBudgetDefaults: async () => ({ budgetCents: 1200, unitAllowanceCents: 40 }),
+  });
+  try {
+    const approval = await app.inject({ method: "POST", url: "/missions/demo/approve", payload });
+    expect(approval.statusCode).toBe(202);
+    expect(startMission).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ budgetCents, unitAllowanceCents }));
+    expect(log.events.at(-1)).toMatchObject({ type: "plan.approved", payload: {
+      budget_cents: budgetCents, unit_allowance_cents: unitAllowanceCents,
+    } });
+    expect((await app.inject("/missions/demo/treasury")).json()).toMatchObject({ budget_cents: budgetCents });
+  } finally {
+    await app.close();
+  }
+});

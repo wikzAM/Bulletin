@@ -3,8 +3,9 @@ import { join, resolve } from "node:path";
 import { loadModelsConfig, loadPricesConfig } from "@bulletin/core";
 import { modelCallFactory, type ModelCall } from "./general";
 import { appDataDirectory } from "./platform/paths";
+import { SettingsStore } from "./platform/settings";
 import { createGeneralCall } from "./routes/general-model";
-import { DEFAULT_UNIT_ALLOWANCE_CENTS } from "./routes/mission-ledger";
+import { DEFAULT_MISSION_BUDGET_CENTS, DEFAULT_UNIT_ALLOWANCE_CENTS, readMissionBudget } from "./routes/mission-ledger";
 import { allowedLocalCommands } from "./routes/mission-planning";
 import { QuestionWorkflow } from "./routes/question-workflow";
 import { MemoryQuestionStore } from "./routes/questions-store";
@@ -37,6 +38,7 @@ export async function createApplication(options: ApplicationOptions = {}) {
     BULLETIN_SANDBOX_REPO: process.env.BULLETIN_SANDBOX_REPO,
   }, root);
   const appData = appDataDirectory();
+  const settings = new SettingsStore(appData);
   const defaultScratch = resourceDirectory ? join(appData, "scratch") : ".bulletin-scratch";
   const dataDirectory = resolve(root, process.env.BULLETIN_SCRATCH_DIR ?? defaultScratch, "api");
   const models = loadModelsConfig(join(root, "config/models.json"));
@@ -56,7 +58,9 @@ export async function createApplication(options: ApplicationOptions = {}) {
   });
   const questionWorkflow = new QuestionWorkflow(log, new MemoryQuestionStore());
 
-  async function engineOptions({ missionId, repo }: { missionId: string; repo: string }) {
+  async function engineOptions({ missionId, repo, unitAllowanceCents }: {
+    missionId: string; repo: string; unitAllowanceCents?: number;
+  }) {
     const scratchDir = join(dataDirectory, missionId);
     const runner = process.env.BULLETIN_RUNNER === "sdk"
       ? await createRunner(repo, scratchDir, { stationTools: await questionWorkflow.stationTools(answererCall) })
@@ -64,7 +68,7 @@ export async function createApplication(options: ApplicationOptions = {}) {
     return {
       scratchDir, runner, prices, tiers: models.tiers, allowedCommands: allowedLocalCommands,
       testCommand: options.testCommand,
-      unitAllowanceCents: DEFAULT_UNIT_ALLOWANCE_CENTS,
+      unitAllowanceCents: unitAllowanceCents ?? DEFAULT_UNIT_ALLOWANCE_CENTS,
     };
   }
 
@@ -77,6 +81,13 @@ export async function createApplication(options: ApplicationOptions = {}) {
     modelCall,
     missionShutdown,
     questionWorkflow,
+    async readBudgetDefaults() {
+      const stored = await settings.get();
+      return {
+        budgetCents: readMissionBudget(stored.default_budget_cents) ?? DEFAULT_MISSION_BUDGET_CENTS,
+        unitAllowanceCents: readMissionBudget(stored.unit_allowance_cents) ?? DEFAULT_UNIT_ALLOWANCE_CENTS,
+      };
+    },
     async startMission(mission) {
       const [{ runMission }, options] = await Promise.all([
         import("./orchestrator/run-mission"),

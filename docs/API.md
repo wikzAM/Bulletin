@@ -49,8 +49,9 @@ Relative scratch paths resolve from the repository root. JSONL logs rotate at
 16 MiB into numbered sibling files. Recovery discards an incomplete final line
 in the active segment and reports the location of corruption in archived segments.
 
-At startup, every stored mission without a `mission.finished` event receives
-one with `payload.interrupted: true`. Its earlier events remain available.
+At startup, a stored mission with unfinished work and no live owner receives
+one `mission.interrupted` event for that interruption. Earlier events remain
+available.
 
 ## Server configuration
 
@@ -109,7 +110,8 @@ Returns `200 OK` with `{"status":"ok","service":"api"}`.
 
 Returns `200 OK` with the configured model names for each role and tier,
 default lane patterns, sorted names of models in the price table, and default
-spending limits in cents. The response includes only these settings.
+spending limits in cents. Saved app settings override the built-in limits
+shown below. The response includes only these settings.
 
 ```json
 {
@@ -192,8 +194,9 @@ The limit must be a non-negative safe integer written in decimal digits.
 
 `repo` and `base` come from `mission.created` and are `null` when absent.
 Status starts at `interview`, advances to `planning` on `briefing.versioned` or
-`plan.proposed`, advances to `running` on `plan.approved`, and becomes `finished`
-on `mission.finished`. A `mission.finished` event with `payload.status` set to
+`plan.proposed`, advances to `running` on `plan.approved` or `mission.resumed`,
+and becomes `finished` on `mission.finished`. A `mission.interrupted` event sets
+the status to `interrupted`. A `mission.finished` event with `payload.status` set to
 `failed` sets the mission status to `failed`. A `mission.finished` event with
 `payload.interrupted: true` sets it to `interrupted`. A finish event with
 `payload.paused: true` sets it to `paused`.
@@ -201,8 +204,9 @@ on `mission.finished`. A `mission.finished` event with `payload.status` set to
 ## `POST /missions`
 
 Send `{"goal":"Seed the demo with test data","repo":"D:/repos/todo-app"}`.
-Set `budget_cents` to a non-negative integer to choose a budget. The default
-for new API missions is `500` cents.
+Set `budget_cents` to a non-negative integer to choose a budget. Without an
+explicit budget, the proposal uses the current app default (built-in `500`
+cents) and approval reads that default again.
 Include `briefing_id` to plan against a completed interview. A missing
 Briefing returns `404` with `{"error":"Briefing not found"}`. A Briefing in
 progress returns `409` with `{"error":"Briefing is incomplete"}`.
@@ -293,17 +297,17 @@ unit. Units use the same discovery order as mission detail.
 ```
 
 Totals use the same charge rules as `GET /missions/:id`. A charge with no
-`unit_id` contributes to the mission total only. The budget comes from a
-non-negative safe integer `budget_cents` in the `mission.created` payload. When the
+`unit_id` contributes to the mission total only. The budget comes from
+`plan.approved` when present and otherwise from `mission.created`. When the
 log has no budget, `budget_cents` and `remaining_cents` are `null`.
 `remaining_cents` can be negative when spend exceeds the budget. Spend and
 remaining budget are rounded to four decimal places in cents.
 
 ## `GET /missions/:id/report`
 
-Returns the final recorded mission report after `mission.finished`, including
-after a stop, budget pause, or interruption. An unfinished mission returns
-`409 Conflict` with `{"error":"Mission has not finished"}`.
+Returns the report through the latest finish or interruption event. A mission
+with execution still in progress returns `409 Conflict` with
+`{"error":"Mission has not finished"}`.
 
 ```json
 {
@@ -346,6 +350,23 @@ either as the rule text or in the generated `Cut units so this cannot recur:`
 format. The engine checks the rule before promoting the current lesson and
 saves the result on `unit.sent_back`. Older events without that flag appear in
 the list. Only confirmed matches count toward the total.
+
+## `GET /missions/:id/receipt.md`
+
+Downloads the finished mission's receipt as UTF-8 Markdown. The response
+is `200 OK` with `Content-Type: text/markdown; charset=utf-8` and attachment
+filename `receipt.md`. It includes shipped tasks, held tasks and the reasons
+they need approval, total cost in cents, human touches, and repeat returns.
+
+The receipt uses the same finish event and metrics as the report. Task IDs
+are limited to short, plain identifiers, with numbered labels for other IDs.
+Hold reasons use the recorded lane or approval kind. Repository paths, file
+contents, credentials, Briefing text, raw reasons, and check output stay out
+of the receipt.
+
+- `404 Not Found` with `{"error":"Mission not found"}` for an unknown mission.
+- `409 Conflict` with `{"error":"Mission has not finished"}` while the mission is
+  running or interrupted.
 
 ## `GET /missions/:id/events?after=<event id>`
 
@@ -405,10 +426,21 @@ planning requests leave the existing proposal and revision allowance intact.
 ## `POST /missions/:id/approve`
 
 Approves the current proposal and starts the configured mission runner in the
-background. Omit the body or send `{}`. Returns `202 Accepted` with
+background. Omit the body, send `{}`, or supply `budget_cents` and/or
+`unit_allowance_cents` to override those limits for this mission. Returns `202 Accepted` with
 `{"mission_id":"demo","status":"running"}`. Follow the mission stream for
 execution progress. The API publishes `plan.approved` once and the runner
 publishes execution events to the same log.
+
+Approval uses the budget supplied in its body first, then an explicit
+budget saved at mission creation, then the current app default. The unit
+allowance defaults to the saved app setting or `200` cents. An allowance
+of zero removes the per-attempt cap. The mission budget still applies.
+Approval overrides must be integers from `0` through `100000` cents for
+`budget_cents` and `0` through `10000` cents for `unit_allowance_cents`.
+Invalid values return `400 Bad Request` with `{"error":"Invalid request"}`.
+The effective limits are recorded on `plan.approved` for the Treasury and
+any resumed execution.
 
 The engine emits `budget.paused` when recorded execution spend reaches the
 saved budget. It stops starting work and publishes `mission.finished` with
@@ -426,6 +458,25 @@ saved budget. It stops starting work and publishes `mission.finished` with
 
 If the runner throws before finishing, `mission.finished` carries
 `{"status":"failed","error":"Mission execution failed"}` in its payload.
+
+## `POST /missions/:id/resume`
+
+Send an empty body or `{}` for an interrupted mission with an approved plan.
+Returns `202 Accepted` with `{"mission_id":"demo","status":"running"}` and
+publishes `mission.resumed`. Follow the event stream from the last event ID
+for progress.
+
+Resume keeps the integration branch and carries over recorded spend. Merged
+units do not run again. Held units stay held for approval. Remaining units
+can run when their dependencies have merged, using new attempt numbers.
+A mission that was interrupted before approval can still use the approval
+route.
+
+- `400 Bad Request` for an invalid body.
+- `404 Not Found` with `{"error":"Mission not found"}` for an unknown mission.
+- `409 Conflict` with `{"error":"Mission is not interrupted"}` if the mission is running or finished.
+- `409 Conflict` with `{"error":"Mission has no approved plan to resume"}` if the interrupted mission lacks a valid approved plan.
+- `503 Service Unavailable` with `{"error":"Mission runner not configured"}` when execution is unavailable.
 
 ## `POST /missions/:id/stop`
 
