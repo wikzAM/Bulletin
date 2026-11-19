@@ -362,3 +362,13 @@ RED touched a locked file: pnpm-lock.yaml
 
 - Commit b7fd4a2 keeps first-run provider settings in the startup entry point and uses the shared sidecar runtime. Lint, typecheck, and 37 focused tests passed. Full verification reported 991 passed, 4 failed, and 3 existing skips. The four failures were the recurring 10-second graph report setup hook.
 - Main at 177d1fe contains the same startup fix. Merging it into codex/warroom-api conflicted on the append-only docs/board/log.md because both branches added a status line. Aborted the merge per the Worker loop. The coordinator can preserve both status lines on the next integration.
+
+## [2026-11-19] Repeat-return reporting for earlier missions
+
+- Question. Should reports reconstruct repeat returns for missions recorded before the engine saved a point-in-time rule match?
+- Options. Keep legacy send-backs visible and count confirmed matches, or add a separate Git-based reconstruction for repositories with a trustworthy rules history.
+- Recommendation. Count confirmed matches for now. This keeps the report reproducible after rules change or a repository moves. Historical entries retain their unit IDs and reasons.
+
+## [2026-11-19] Task 17 verification
+
+- The repeat-return fixture and engine tests passed on 22ed27c. Full verification reported 996 passed, one failure, and three existing skips. The existing report setup hook exceeded 10 seconds and cleanup hit Windows EPERM. Task 18 covers that fixture.
