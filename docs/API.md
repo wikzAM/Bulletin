@@ -343,9 +343,9 @@ approval is absent. Unusable timestamps yield `null`.
 returns of the same unit. A missing reason is `null`. `repeat_returns` counts
 returns for which the reason already matched a line in `.bulletin/rules.md`,
 either as the rule text or in the generated `Cut units so this cannot recur:`
-format. The engine records the match on `unit.sent_back` before the current
-lesson can add a rule. Older events without that flag appear in the list.
-Only confirmed matches count toward the total.
+format. The engine checks the rule before promoting the current lesson and
+saves the result on `unit.sent_back`. Older events without that flag appear in
+the list. Only confirmed matches count toward the total.
 
 ## `GET /missions/:id/events?after=<event id>`
 

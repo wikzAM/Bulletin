@@ -177,3 +177,5 @@
 2026-11-19 03:41 -0500 | Codex | Desktop 15. Mission event stream lifecycle; already integrated | codex/warroom-api@e99acb8 | verify green on 5b95950 (995 passed, three existing skips)
 2026-11-19 03:41 -0500 | Codex | Desktop 16. Team sync groundwork; already integrated | codex/warroom-api@fe4a766 | verify green on 5b95950 (995 passed, three existing skips)
 2026-11-19 03:47 -05:00 | Codex | Desktop 17. Repeat returns and send-back reasons | codex/warroom-api@22ed27c | verify red (report hook timeout and cleanup, Task 18)
+2026-11-19 03:52 -0500 | Codex | Desktop 17. Repeat-return report and engine tests | codex/warroom-api@22ed27c | verify green on 2bc0087 (1,005 passed, three existing skips)
+2026-11-19 03:52 -0500 | Codex | Desktop 18. Per-file fixture deadlines and retrying temp cleanup | codex/warroom-api@2bc0087 | verify green (1,005 passed, three existing skips)
