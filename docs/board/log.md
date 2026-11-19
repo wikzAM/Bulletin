@@ -160,3 +160,5 @@
 19:43 | claude | 25. docs/INSTALL.md (checked against installer script, tauri.conf, code), linked from README; 26. docs/DOGFOOD.md (steps, where each metric is read, repeat-return method tested on a seeded db, results table). Found: About page calls missing data_folder command; installer dir = data dir (BULLETIN.md) | claude/general | docs only
 
 20:30 | claude | 20. Live packaged-sidecar E2E run once with the user's yes: mission finished (0 failed, >=1 shipped), integration branch passes node --test, 21.4 cents; the test's own final regex failed on Node's default reporter (fixed, not rerun). Recorded in docs/PACKAGING.md | claude/general | test + docs
+
+04:00 | claude | follow-ups from the user ("get these done by tonight"): About page app.info, pick_folder (no new dependency), bulletin://sidecar start event + transport resubscribe, aws_region setting, installer rebuilt (119 s); real install test blocked by the permission check, script in docs/install-test.ps1 | claude/general | lint+typecheck clean, desktop 259, cargo 11

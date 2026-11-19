@@ -245,6 +245,20 @@ Run once, with the user's go-ahead ("Yes, run it"), on the machine's Claude Code
   `ℹ pass N` by default, so the run was reported as failed after the mission itself had succeeded. The assertion now accepts
   both. The run was not repeated, because it spends money; the corrected assertion has been checked only against the output above.
 
+## Rebuild after the first-run work (2026-11-19, queue task 21, build part only)
+
+`pnpm run sidecar:prepare` then `pnpm run tauri:build`, incremental, on the same machine: the build took 119 s. NSIS installer
+`Bulletin_0.1.0_x64-setup.exe` 24.55 MiB, MSI `Bulletin_0.1.0_x64_en-US.msi` 36.32 MiB. This build includes the `app.info` method,
+the `pick_folder` command, the `bulletin://sidecar` start event and the `aws_region` setting. `pnpm run lint` and
+`pnpm run typecheck` pass on the tree; `cargo test` passes 11 tests in the app and the 2 library tests.
+
+**The real install and uninstall test has not been run.** The permission check refused the command that would run
+`/S /D=<scratch>`, launch the installed app and run `uninstall.exe /S` (it writes the per-user uninstall and install-location
+registry entries and a Start menu shortcut outside the scratch folder), so it waits for the user's own go-ahead. A script for it is ready
+(a baseline of the HKCU Uninstall, `HKCU\Software\bulletin` and Run keys, the Start menu, the desktop, the real data folder and the
+WebView folder; scratch data and WebView folders through `BULLETIN_DATA_DIR` and `WEBVIEW2_USER_DATA_FOLDER`; a diff against the
+baseline after the uninstall). A silent uninstall does not show the "delete application data" box, so it deletes nothing outside the install folder.
+
 ## Signing
 
 Installers and `bulletin-sidecar.exe` are unsigned. Windows SmartScreen will warn. Code signing needs a certificate that does
