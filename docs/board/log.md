@@ -163,3 +163,9 @@
 00:39 | coordinator | tick 26: nothing new on any branch (codex tip has no code diff vs main, cursor last commit 11-18 11:50 already seen, builder ahead of main by 0). Idle until user acts.
 00:50 | coordinator | tick 27: per the builder's proposals (docs/board/builder-queue-proposals-2026-11-19.md on claude/general) added cursor tasks 14-18 and codex tasks 17-18 (task 11 lint blocker re-flagged). Builder is editing About/diagnostics/transport/desktop-bridge on claude/general.
 2026-11-18 18:44 EST | Codex | Sidecar startup reconciled after merging provider settings; existing stored-provider contract and full desktop flow pass | codex/warroom-api@b7fd4a2 | lint, typecheck and 37 targeted tests green; full verify pending
+2026-11-19 03:41 -0500 | Codex | Desktop 11. Application test type import; already integrated | codex/warroom-api@091428e | verify green on 5b95950 (995 passed, three existing skips)
+2026-11-19 03:41 -0500 | Codex | Desktop 12. Question answers version the Briefing and release stations; already integrated | codex/warroom-api@831a708 | verify green on 5b95950 (995 passed, three existing skips)
+2026-11-19 03:41 -0500 | Codex | Desktop 13. Mission report metrics; already integrated | codex/warroom-api@ea61d20 | verify green on 5b95950 (995 passed, three existing skips)
+2026-11-19 03:41 -0500 | Codex | Desktop 14. Desktop flow through the sidecar; already integrated | codex/warroom-api@0e72230 | verify green on 5b95950 (995 passed, three existing skips)
+2026-11-19 03:41 -0500 | Codex | Desktop 15. Mission event stream lifecycle; already integrated | codex/warroom-api@e99acb8 | verify green on 5b95950 (995 passed, three existing skips)
+2026-11-19 03:41 -0500 | Codex | Desktop 16. Team sync groundwork; already integrated | codex/warroom-api@fe4a766 | verify green on 5b95950 (995 passed, three existing skips)
