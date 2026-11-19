@@ -234,7 +234,7 @@ describe("graph engine: M1 acceptance", () => {
       unit("u2", "src/b.ts", { needs: [{ unit: "u1", reads: "a constant in src/a.ts" }] }),
     ];
     const tiersSeen: string[] = [];
-    const { report } = await run(units, (input) => {
+    const { report, events } = await run(units, (input) => {
       tiersSeen.push(`${input.attempt}:${input.model}`);
       return { files: { "src/a.ts": "BROKEN\n" } };
     });
@@ -242,6 +242,19 @@ describe("graph engine: M1 acceptance", () => {
     expect(report.attempts.filter((a) => a.unitId === "u1")).toHaveLength(3);
     // Stations climb the ladder only on the third attempt.
     expect(tiersSeen).toEqual(["1:model-a", "2:model-a", "3:model-b"]);
+    // The second return promotes the lesson. Only the third takes place with that rule already present.
+    expect(events.events.filter(({ type }) => type === "unit.sent_back").map(({ payload }) => payload.repeat_return))
+      .toEqual([false, false, true]);
+  });
+
+  it("marks the first send-back as a repeat when the base already contains a matching rule", async () => {
+    writeRepoFile(".bulletin/rules.md", "# Rules\r\n- Cut units so this cannot recur: tests failed\r\n");
+    sh(repo, "add", ".bulletin/rules.md");
+    sh(repo, "commit", "-q", "-m", "record existing rule");
+
+    const { events } = await run([unit("u1", "src/a.ts")], () => ({ files: { "src/a.ts": "BROKEN\n" } }), { maxAttempts: 1 });
+    expect(events.events.find(({ type }) => type === "unit.sent_back")?.payload)
+      .toMatchObject({ attempt: 1, reason: "tests failed", repeat_return: true });
   });
 
   it("writes one lesson line per send-back, and promotes a reason seen twice into rules", async () => {

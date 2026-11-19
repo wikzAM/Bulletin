@@ -30,6 +30,7 @@ it("projects the final report from a recorded run and ignores later activity", a
     expect(res.statusCode).toBe(200);
     expect(res.json()).toEqual({
       mission_id: "demo", shipped: ["seed"], held: ["review"], failed: ["send-back"], blocked: ["publish"],
+      repeat_returns: 0, sent_back: [{ unit_id: "send-back", reason: "merge conflict" }],
       attempts: 4, model_calls: 3, cost_cents: 3, cost_per_green_unit_cents: 1.5,
       touches: 1, touch_rate: 1, auto_answer_rate: null, elapsed_ms: 25_000,
     });
@@ -114,6 +115,39 @@ it("counts an open hold as zero human touches even when an older finish payload 
     const response = await app.inject("/missions/demo/report");
     expect(response.statusCode).toBe(200);
     expect(response.json()).toMatchObject({ held: ["seed"], touches: 0, touch_rate: null, auto_answer_rate: null });
+  } finally {
+    await app.close();
+  }
+});
+
+it("lists send-backs in event order and counts only rules that already matched at the return", async () => {
+  const log = new MemoryEventLog();
+  const mission_id = "demo";
+  const sentBack = (unit_id: string, payload?: Record<string, unknown>, mission = mission_id) =>
+    log.emit({ mission_id: mission, type: "unit.sent_back", unit_id, payload });
+
+  await log.emit({ mission_id, type: "mission.created" });
+  await sentBack("legacy", { reason: "merge conflict" });
+  await sentBack("seed", { reason: "tests failed", repeat_return: false });
+  await sentBack("seed", { reason: "tests failed", repeat_return: true });
+  await sentBack("review", { reason: "tests failed", repeat_return: true }, "other");
+  await sentBack("missing-reason");
+  await log.emit({ mission_id, type: "mission.finished" });
+  await sentBack("later", { reason: "merge conflict", repeat_return: true });
+
+  const app = buildServer(log);
+  try {
+    const response = await app.inject("/missions/demo/report");
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({
+      repeat_returns: 1,
+      sent_back: [
+        { unit_id: "legacy", reason: "merge conflict" },
+        { unit_id: "seed", reason: "tests failed" },
+        { unit_id: "seed", reason: "tests failed" },
+        { unit_id: "missing-reason", reason: null },
+      ],
+    });
   } finally {
     await app.close();
   }

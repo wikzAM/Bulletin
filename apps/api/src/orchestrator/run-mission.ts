@@ -205,17 +205,23 @@ export async function runMission(options: MissionOptions): Promise<MissionReport
     }
   };
 
-  const recordLesson = (unit: Unit, reason: string) =>
+  const recordSendBack = (unit: Unit, attempt: number, reason: string) =>
     exclusive(async () => {
       await mkdir(join(integDir, ".bulletin"), { recursive: true });
       const read = async (path: string) => readFile(join(integDir, path), "utf8").catch(() => "");
       const lessons = appendLesson(await read(LESSONS_PATH), lessonLine(unit.id, unit.title, reason));
       await writeFile(join(integDir, LESSONS_PATH), lessons, "utf8");
       const rules = await read(RULES_PATH);
+      const ruleReason = reason.replace(/[\r\n]+/g, " ").trim();
+      const repeatReturn = rules.split(/\r?\n/).some((line) => {
+        const rule = line.trim().replace(/^[-*+]\s+/, "");
+        return rule === ruleReason || rule === `Cut units so this cannot recur: ${ruleReason}`;
+      });
       const promoted = promoteLessons(lessons, rules);
       if (promoted !== rules) await writeFile(join(integDir, RULES_PATH), promoted, "utf8");
       await git(integDir, "add", "-A", ".bulletin");
       await git(integDir, "commit", "-q", "-m", `lesson: ${unit.id} came back for ${reason}`);
+      await emit("unit.sent_back", unit.id, { attempt, reason, repeat_return: repeatReturn });
     });
 
   const merge = (unit: Unit, branch: string) =>
@@ -358,9 +364,8 @@ export async function runMission(options: MissionOptions): Promise<MissionReport
       }
 
       lastReason = verdict.reason;
-      await recordLesson(unit, verdict.reason);
+      await recordSendBack(unit, attempt, verdict.reason);
       packet = formatSendBack({ unitId: unit.id, attempt, maxAttempts, verdict, files: unit.files });
-      await emit("unit.sent_back", unit.id, { attempt, reason: verdict.reason });
       if (afterRed(attempt, maxAttempts) === "fail") break;
     }
 
