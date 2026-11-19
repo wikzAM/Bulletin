@@ -343,3 +343,17 @@ RED touched a locked file: pnpm-lock.yaml
 ## [2026-11-18] M5 team groundwork verification
 
 - Task 16 passed all six mission role tests. Full verification with one worker passed install, lint, and typecheck, then reported 984 passed, 4 failed, and 3 existing skips. The same 10-second graph report setup hook failed in all four cases, including with reduced concurrency.
+
+## [2026-11-19] About page always says "unreachable" in the app: it calls a Tauri command that does not exist (queue task 25)
+- question: `apps/desktop/src/pages/AboutPage.tsx` calls `invoke("data_folder")` after a successful `health`. `src-tauri` has no `data_folder` command, so the call rejects and the whole block falls into its `catch`, which sets the sidecar status to "unreachable" even though the sidecar answered. The data folder line shows "(browser)". So the diagnostics page misreports a healthy app.
+- options: (a) add a `data_folder` command to `src-tauri/src/main.rs` returning the same folder the sidecar uses (`BULLETIN_DATA_DIR`, else `%LOCALAPPDATA%\Bulletin`) and test it; (b) change the page to catch `data_folder` separately and fall back to a sidecar-provided value (e.g. add the folder to `health` or a new sidecar method)
+- recommendation: (b) with a sidecar method, because the sidecar already owns the data-directory rule (`appDataDirectory`), so Rust does not need a second copy of it. Small, but it touches the About page, which I was not asked to change. docs/INSTALL.md does not rely on the About page.
+- working default: leave as is
+- status: open
+
+## [2026-11-19] The installer's default folder is the data folder (queue task 25)
+- question: The per-user installer defaults to `%LOCALAPPDATA%\Bulletin`, and the sidecar keeps `events.sqlite`, `settings.json` and `scratch\` in `%LOCALAPPDATA%\Bulletin` too. They share one folder. Nothing breaks (the uninstaller deletes only its own files and removes the folder only if empty, so data survives an uninstall and a reinstall), but it mixes program files and user data, and "delete the app" cannot also mean "delete the data".
+- options: (a) leave and document it (done in docs/INSTALL.md); (b) point the app's data at `%LOCALAPPDATA%\Bulletin\data` by default, with a migration for any existing `events.sqlite`; (c) change the installer's default folder (`%LOCALAPPDATA%\Programs\Bulletin`, the usual per-user location) in `tauri.conf.json`
+- recommendation: (c). It is one setting and leaves the data where existing dev machines already have it. It changes where new installs go, so it is the coordinator's call.
+- working default: (a)
+- status: open
