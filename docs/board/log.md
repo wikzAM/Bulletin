@@ -187,3 +187,4 @@
 2026-11-19 07:16 -05:00 | Codex | Desktop 19. Commander plan revision route and contract | codex/warroom-api@ca5f391 | verify green (1,024 passed, three existing skips)
 2026-11-19 07:16 -05:00 | Codex | Desktop 20. Default verify on the clean tree matching main | codex/warroom-api@77d1a06 | verify green (1,017 passed, three existing skips)
 2026-11-19 07:26 -05:00 | Codex | Desktop 21. EOF and shutdown RPC abort missions and close SQLite within five seconds | codex/warroom-api@ed2b660 | verify green (1,027 passed, three existing skips), 14 Rust tests and packaged Windows smoke green
+09:55 | coordinator | tick 30: merged codex/warroom-api (revise route, sidecar shutdown, default verify record). lint + typecheck clean; apps/api+sidecar+desktop 551 tests pass (1 skipped); cargo check ok at codex tip. Cursor idle since 04:09 (tasks 19-21 untouched, likely out of usage); builder branch has nothing new. Codex queue was empty, refilled 22-24.
