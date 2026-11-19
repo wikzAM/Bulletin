@@ -86,3 +86,17 @@ it("serializes concurrent changes so none is lost", async () => {
   await Promise.all([store.set({ provider: "bedrock" }), store.set({ repo_path: "D:\\x" }), store.set({ setup_complete: false })]);
   expect(await store.get()).toEqual({ provider: "bedrock", repo_path: "D:\\x", setup_complete: false });
 });
+
+it("validates, persists, and clears the spending defaults", async () => {
+  const store = new SettingsStore(directory);
+  const limits = { default_budget_cents: 100_000, unit_allowance_cents: 10_000 };
+  expect(await store.set(limits)).toEqual(limits);
+  for (const values of [
+    { default_budget_cents: -1 }, { default_budget_cents: "500" }, { default_budget_cents: 100_001 },
+    { unit_allowance_cents: 1.5 }, { unit_allowance_cents: true }, { unit_allowance_cents: 10_001 },
+  ]) {
+    await expect(store.set(values)).rejects.toBeInstanceOf(SettingsError);
+  }
+  expect(await new SettingsStore(directory).get()).toEqual(limits);
+  expect(await store.set({ default_budget_cents: null, unit_allowance_cents: 0 })).toEqual({ unit_allowance_cents: 0 });
+});

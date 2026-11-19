@@ -5,7 +5,7 @@ import type { EventLog } from "../store/event-log";
 import { endsMissionExecution, lastMissionExecution } from "../store/mission-state";
 import type { MissionEventFeed } from "./mission-event-feed";
 import { registerMissionEventStream } from "./mission-events";
-import { readLedgerCharge, readMissionBudget, roundCents } from "./mission-ledger";
+import { missionLimits, readLedgerCharge, roundCents } from "./mission-ledger";
 import { validateIdParams } from "./request-validation";
 
 const missionStatus = z.enum(["interview", "planning", "running", "finished", "failed", "interrupted", "paused"]);
@@ -252,7 +252,7 @@ export function registerMissionRoutes(app: FastifyInstance, log: EventLog, feed?
     const created = events.find((event) => event.type === "mission.created");
     if (!created) return reply.code(404).send({ error: "Mission not found" });
 
-    const budgetCents = readMissionBudget(created.payload.budget_cents);
+    const { budgetCents } = missionLimits(created, events);
     const { units, ledger, ledgerByUnit } = missionProgress(events);
     return {
       mission_id: id,

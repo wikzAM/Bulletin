@@ -110,7 +110,8 @@ Returns `200 OK` with `{"status":"ok","service":"api"}`.
 
 Returns `200 OK` with the configured model names for each role and tier,
 default lane patterns, sorted names of models in the price table, and default
-spending limits in cents. The response includes only these settings.
+spending limits in cents. Saved app settings override the built-in limits
+shown below. The response includes only these settings.
 
 ```json
 {
@@ -203,8 +204,9 @@ the status to `interrupted`. A `mission.finished` event with `payload.status` se
 ## `POST /missions`
 
 Send `{"goal":"Seed the demo with test data","repo":"D:/repos/todo-app"}`.
-Set `budget_cents` to a non-negative integer to choose a budget. The default
-for new API missions is `500` cents.
+Set `budget_cents` to a non-negative integer to choose a budget. Without an
+explicit budget, the proposal uses the current app default (built-in `500`
+cents) and approval reads that default again.
 Include `briefing_id` to plan against a completed interview. A missing
 Briefing returns `404` with `{"error":"Briefing not found"}`. A Briefing in
 progress returns `409` with `{"error":"Briefing is incomplete"}`.
@@ -295,8 +297,8 @@ unit. Units use the same discovery order as mission detail.
 ```
 
 Totals use the same charge rules as `GET /missions/:id`. A charge with no
-`unit_id` contributes to the mission total only. The budget comes from a
-non-negative safe integer `budget_cents` in the `mission.created` payload. When the
+`unit_id` contributes to the mission total only. The budget comes from
+`plan.approved` when present and otherwise from `mission.created`. When the
 log has no budget, `budget_cents` and `remaining_cents` are `null`.
 `remaining_cents` can be negative when spend exceeds the budget. Spend and
 remaining budget are rounded to four decimal places in cents.
@@ -407,10 +409,21 @@ planning requests leave the existing proposal and revision allowance intact.
 ## `POST /missions/:id/approve`
 
 Approves the current proposal and starts the configured mission runner in the
-background. Omit the body or send `{}`. Returns `202 Accepted` with
+background. Omit the body, send `{}`, or supply `budget_cents` and/or
+`unit_allowance_cents` to override those limits for this mission. Returns `202 Accepted` with
 `{"mission_id":"demo","status":"running"}`. Follow the mission stream for
 execution progress. The API publishes `plan.approved` once and the runner
 publishes execution events to the same log.
+
+Approval uses the budget supplied in its body first, then an explicit
+budget saved at mission creation, then the current app default. The unit
+allowance defaults to the saved app setting or `200` cents. An allowance
+of zero removes the per-attempt cap. The mission budget still applies.
+Approval overrides must be integers from `0` through `100000` cents for
+`budget_cents` and `0` through `10000` cents for `unit_allowance_cents`.
+Invalid values return `400 Bad Request` with `{"error":"Invalid request"}`.
+The effective limits are recorded on `plan.approved` for the Treasury and
+any resumed execution.
 
 The engine emits `budget.paused` when recorded execution spend reaches the
 saved budget. It stops starting work and publishes `mission.finished` with

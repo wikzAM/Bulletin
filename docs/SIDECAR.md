@@ -225,12 +225,16 @@ key is rejected with `-32602` so that nothing secret can be saved here:
 | `provider` | `claude-code`, `anthropic-key` or `bedrock` |
 | `repo_path` | a string, at most 1024 characters |
 | `setup_complete` | a boolean |
+| `default_budget_cents` | integer cents from 0 through 100000, built-in default 500 |
+| `unit_allowance_cents` | integer cents from 0 through 10000, built-in default 200 |
 
 `settings.get` takes no parameters and returns `{"settings":{...}}` holding the
 keys that are set. `settings.set` takes `values`, an object of keys to new
 values; `null` removes a key. The file is replaced atomically and the result is
 the full settings object after the change. Settings are app configuration, not
 mission state, so changes do not appear in any mission's event log.
+Approving a project uses these defaults wherever the request or project
+does not set a limit. Removing either setting restores the built-in value.
 
 ```json
 {"jsonrpc":"2.0","id":6,"method":"settings.set","params":{"values":{"provider":"bedrock","repo_path":null}}}

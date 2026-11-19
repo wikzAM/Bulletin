@@ -172,6 +172,14 @@ it("proxies Fastify requests and closes a finished mission replay over stdio", a
       expect(await receive()).toMatchObject({ id: 21, result: { subscription_id: 2 } });
       send(22, "unsubscribe", { subscription_id: 2 });
       expect(await receive()).toMatchObject({ id: 22, result: { unsubscribed: false } });
+      send(23, "settings.set", { values: { default_budget_cents: 750, unit_allowance_cents: 125 } });
+      expect(await receive()).toMatchObject({ id: 23, result: { settings: { default_budget_cents: 750, unit_allowance_cents: 125 } } });
+      send(24, "settings.get");
+      expect(await receive()).toMatchObject({ id: 24, result: { settings: { default_budget_cents: 750, unit_allowance_cents: 125 } } });
+      send(25, "request", { method: "GET", path: "/config" });
+      expect(await receive()).toMatchObject({ id: 25, result: { status: 200, body: {
+        limits: { default_budget_cents: 750, unit_allowance_cents: 125 },
+      } } });
       // No frame carries a secret value or anything from `claude auth status` beyond the login flag.
       const everything = raw.join("|");
       expect(everything).not.toContain(sentinel);
