@@ -14,6 +14,8 @@ const VALIDATORS: Record<string, (value: unknown) => boolean> = {
   provider: (value) => typeof value === "string" && PROVIDERS.includes(value),
   repo_path: (value) => typeof value === "string" && value.length <= 1024 && !value.includes("\0"),
   setup_complete: (value) => typeof value === "boolean",
+  // A region name such as us-east-1 or us-gov-west-1 (Bedrock).
+  aws_region: (value) => typeof value === "string" && /^[a-z]{2}(?:-[a-z]+)+-[0-9]$/.test(value),
 };
 
 export const SETTING_KEYS = Object.keys(VALIDATORS);

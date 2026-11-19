@@ -1,29 +1,14 @@
 import { useEffect, useState } from "react";
 import pkg from "../../package.json";
 import { copy } from "../lib/copy";
-import { buildDiagnosticsText, type DiagnosticsInfo } from "../lib/diagnostics";
-import { createDesktopBridge } from "../lib/desktop-bridge";
+import { buildDiagnosticsText, loadDiagnostics, type DiagnosticsInfo } from "../lib/diagnostics";
 import { detectTransportKind } from "../lib/transport";
 import { PageShell } from "./PageStates";
 
-async function loadDiagnostics(): Promise<DiagnosticsInfo> {
-  let sidecarStatus: string;
-  let dataFolder = "(browser)";
-  try {
-    if (detectTransportKind() === "tauri") {
-      const { invoke } = await import("@tauri-apps/api/core");
-      const health = await invoke<{ status?: string }>("rpc", { method: "health", params: {} });
-      sidecarStatus = health?.status ?? "ok";
-      dataFolder = (await invoke<string>("data_folder", {})) || dataFolder;
-    } else {
-      sidecarStatus = "mock (browser)";
-      const bridge = await createDesktopBridge();
-      void bridge;
-    }
-  } catch {
-    sidecarStatus = "unreachable";
-  }
-  return { appVersion: pkg.version, sidecarStatus, dataFolder };
+async function readDiagnostics(): Promise<DiagnosticsInfo> {
+  if (detectTransportKind() !== "tauri") return loadDiagnostics({ appVersion: pkg.version, kind: "http" });
+  const { invoke } = await import("@tauri-apps/api/core");
+  return loadDiagnostics({ appVersion: pkg.version, kind: "tauri", invoke: (cmd, args) => invoke<unknown>(cmd, args) });
 }
 
 export function AboutPage() {
@@ -32,7 +17,7 @@ export function AboutPage() {
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
-    void loadDiagnostics().then(setInfo);
+    void readDiagnostics().then(setInfo);
   }, []);
 
   const copyText = async () => {

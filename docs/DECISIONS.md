@@ -303,3 +303,7 @@ Desktop project page layout: spending meter top-right, decisions in a sticky rig
 - The sidecar reads the provider only at start, so `bridge.setSettings` restarts it (new Tauri command `restart_sidecar`) when the provider changed. The setup page saves provider, folder and completion on Continue; a failure there is swallowed so first run is never blocked, and the local copy of "setup done" is still written.
 - Not done: the Bedrock region. `AWS_REGION` is still read from the environment, and the setup page has no field for it.
 - Caution: the SDK runner and the real Anthropic/Bedrock clients have only run against fakes in this repository, so a first real run with your own key is the first time they meet the API.
+
+- 2026-11-19: Folder picker is a hidden PowerShell `FolderBrowserDialog` run by a `pick_folder` Tauri command (src-tauri/src/folder.rs) instead of `tauri-plugin-dialog`. Why: no new Rust or npm dependency, no lockfile change, and the person can still type a path. The cost is the older-looking Windows dialog and one process spawn.
+- 2026-11-19: The Bedrock region is a setting (`aws_region`, validated as a region name) that the sidecar maps to `AWS_REGION` at start when the environment does not set it. Why: a person installing from an .exe cannot be asked to set Windows environment variables.
+- 2026-11-19: The sidecar's data folder is reported by a sidecar method (`app.info`), not a second copy of the folder rule in Rust. Why: `appDataDirectory` is the only place that knows the rule.
