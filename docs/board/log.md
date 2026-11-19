@@ -193,3 +193,4 @@
 2026-11-19 10:31 -05:00 | Codex | Desktop 24. Markdown receipt with hold reasons and no raw repository or event text | codex/warroom-api@526ed53 | verify green (1,036 passed, three existing skips), 14 Rust tests green
 12:55 | coordinator | tick 31: merged codex/warroom-api (crash resume + mission.interrupted/resumed events, budget defaults, Markdown receipt; small matching edits in packages/core and the desktop/web war-table reducers). lint + typecheck clean; apps+packages 1033 tests pass (3 skipped). Cursor idle since 04:09 (19-21 untouched); builder nothing new. Codex queue refilled 25-27.
 15:40 | coordinator | tick 32: nothing new on any branch (codex 25-27 and cursor 19-21 untouched, builder idle). Queues stay as they are; workers likely out of usage or need a re-prompt.
+18:40 | coordinator | tick 33: nothing new on any branch (codex 25-27, cursor 19-21 untouched, builder idle).
