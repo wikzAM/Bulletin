@@ -166,3 +166,5 @@
 21:38 | coordinator | tick 25: nothing new on any branch (all workers idle, queues done pending user actions). Slowed the coordinator loop to every 3 hours.
 00:39 | coordinator | tick 26: nothing new on any branch (codex tip has no code diff vs main, cursor last commit 11-18 11:50 already seen, builder ahead of main by 0). Idle until user acts.
 00:50 | coordinator | tick 27: per the builder's proposals (docs/board/builder-queue-proposals-2026-11-19.md on claude/general) added cursor tasks 14-18 and codex tasks 17-18 (task 11 lint blocker re-flagged). Builder is editing About/diagnostics/transport/desktop-bridge on claude/general.
+
+03:40 | claude | 21. Real NSIS install/uninstall run in a scratch folder with the user's go-ahead: installs per-user without admin, installed app + sidecar start, silent uninstall removes files, shortcuts and Uninstall entry; leaves HKCUSoftwareulletinBulletin (removed by hand). Recorded in docs/PACKAGING.md | claude/general | docs + script

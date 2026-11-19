@@ -252,12 +252,20 @@ Run once, with the user's go-ahead ("Yes, run it"), on the machine's Claude Code
 the `pick_folder` command, the `bulletin://sidecar` start event and the `aws_region` setting. `pnpm run lint` and
 `pnpm run typecheck` pass on the tree; `cargo test` passes 11 tests in the app and the 2 library tests.
 
-**The real install and uninstall test has not been run.** The permission check refused the command that would run
-`/S /D=<scratch>`, launch the installed app and run `uninstall.exe /S` (it writes the per-user uninstall and install-location
-registry entries and a Start menu shortcut outside the scratch folder), so it waits for the user's own go-ahead. A script for it is ready
-(a baseline of the HKCU Uninstall, `HKCU\Software\bulletin` and Run keys, the Start menu, the desktop, the real data folder and the
-WebView folder; scratch data and WebView folders through `BULLETIN_DATA_DIR` and `WEBVIEW2_USER_DATA_FOLDER`; a diff against the
-baseline after the uninstall). A silent uninstall does not show the "delete application data" box, so it deletes nothing outside the install folder.
+### The real install and uninstall test (run 2026-11-19 with the user's go-ahead)
+
+`docs/install-test.ps1`: baseline snapshot, `Bulletin_0.1.0_x64-setup.exe /S /D=<scratch>`, launch the installed app with scratch
+`BULLETIN_DATA_DIR` and `WEBVIEW2_USER_DATA_FOLDER`, `uninstall.exe /S`, compare with the baseline.
+
+| Step | Result |
+| --- | --- |
+| Install (per-user, no admin prompt) | exit 0 in 3 s. Files: `bulletin-desktop.exe`, `bulletin-sidecar.exe`, `uninstall.exe`, `configmodels.json`, `configprices.json` |
+| Written outside the scratch folder | HKCU Uninstall entry `Bulletin`; `HKCUSoftwareulletinBulletin` (install location); Start menu `Bulletin.lnk`; desktop `Bulletin.lnk`. Nothing in the Run keys. No admin rights needed. |
+| Launch | the installed app started, its sidecar (from the install folder) ran and wrote `events.sqlite` to the scratch data folder within 3 s; the sidecar ended when the app was stopped |
+| Silent uninstall | exit 0; the install folder was gone within 5 s; the Uninstall entry, Start menu and desktop shortcuts were removed; the real data folder and the WebView folder were not touched |
+| **Left behind** | **`HKCUSoftwareulletinBulletin`, whose value is the install folder.** The script removes it only when the "delete application data" box is ticked, so every uninstall that does not tick it leaves it. A later install reads it to offer the old folder as its default. The test removed it by hand to restore the baseline. |
+
+Not exercised: the interactive installer pages, the MSI, a reinstall over an existing install, the first-run screen in the installed app (the window was not driven), or an update.
 
 ## Signing
 

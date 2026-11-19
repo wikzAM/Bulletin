@@ -285,7 +285,7 @@ RED touched a locked file: pnpm-lock.yaml
 - options: (a) run `/S /D=<scratch>` then `uninstall.exe /S` and compare the registry, Start Menu and desktop with the baseline in docs/PACKAGING.md; (b) skip the real install and rely on the mirrored-layout test already recorded there (the release exe started its bundled sidecar from a scratch folder with the installer's exact file layout); (c) run it on the Windows CI runner instead
 - recommendation: (c) for a fully clean proof, otherwise (a) with the baseline comparison. It is user-level and reversible, but it is a change to the user's machine and not mine to decide.
 - working default: (b); everything else continues
-- status: open
+- status: RESOLVED 2026-11-19: option (a), run on the user's go-ahead ("Yes, run it"). Result in docs/PACKAGING.md. One finding: the uninstaller leaves HKCUSoftwareulletinBulletin (the install location) unless the delete-app-data box is ticked, so a later install defaults to the old folder. It can be fixed with an installer hook (NSIS_HOOK_POSTUNINSTALL) if wanted; not done.
 
 ## [2026-11-19] Folder picker for first-run setup needs a Tauri dialog plugin (queue task 24)
 - question: `desktop-bridge.ts` calls a Tauri command `pick_folder` that does not exist in src-tauri, so "Choose folder" returns nothing in the packaged app (the person can still type a path; `repo.inspect` checks it). A real picker needs `tauri-plugin-dialog` (a new Rust crate plus `@tauri-apps/plugin-dialog`, a capability entry, a Cargo.lock and pnpm-lock.yaml change).
