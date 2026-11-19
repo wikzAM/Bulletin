@@ -351,6 +351,23 @@ format. The engine checks the rule before promoting the current lesson and
 saves the result on `unit.sent_back`. Older events without that flag appear in
 the list. Only confirmed matches count toward the total.
 
+## `GET /missions/:id/receipt.md`
+
+Downloads the finished mission's receipt as UTF-8 Markdown. The response
+is `200 OK` with `Content-Type: text/markdown; charset=utf-8` and attachment
+filename `receipt.md`. It includes shipped tasks, held tasks and the reasons
+they need approval, total cost in cents, human touches, and repeat returns.
+
+The receipt uses the same finish event and metrics as the report. Task IDs
+are limited to short, plain identifiers, with numbered labels for other IDs.
+Hold reasons use the recorded lane or approval kind. Repository paths, file
+contents, credentials, Briefing text, raw reasons, and check output stay out
+of the receipt.
+
+- `404 Not Found` with `{"error":"Mission not found"}` for an unknown mission.
+- `409 Conflict` with `{"error":"Mission has not finished"}` while the mission is
+  running or interrupted.
+
 ## `GET /missions/:id/events?after=<event id>`
 
 Returns `200 OK` with `Content-Type: text/event-stream; charset=utf-8`.

@@ -2,10 +2,11 @@ import { LaneSchema, type BulletinEvent, type EventType, type Lane, type UnitSta
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import type { EventLog } from "../store/event-log";
-import { endsMissionExecution, lastMissionExecution } from "../store/mission-state";
+import { endsMissionExecution, isInterrupted, lastMissionExecution } from "../store/mission-state";
 import type { MissionEventFeed } from "./mission-event-feed";
 import { registerMissionEventStream } from "./mission-events";
 import { missionLimits, readLedgerCharge, roundCents } from "./mission-ledger";
+import { renderMissionReceipt } from "./mission-receipt";
 import { validateIdParams } from "./request-validation";
 
 const missionStatus = z.enum(["interview", "planning", "running", "finished", "failed", "interrupted", "paused"]);
@@ -274,6 +275,23 @@ export function registerMissionRoutes(app: FastifyInstance, log: EventLog, feed?
     const finished = lastMissionExecution(events);
     if (!finished || !endsMissionExecution(finished)) return reply.code(409).send({ error: "Mission has not finished" });
     return finishedReport(events, created, finished);
+  });
+
+  app.get<{ Params: { id: string } }>("/missions/:id/receipt.md", { preValidation: validateIdParams }, async (request, reply) => {
+    const events = log.events.filter((event) => event.mission_id === request.params.id);
+    const created = events.find(({ type }) => type === "mission.created");
+    if (!created) return reply.code(404).send({ error: "Mission not found" });
+    const finished = lastMissionExecution(events);
+    if (finished?.type !== "mission.finished" || isInterrupted(finished)) {
+      return reply.code(409).send({ error: "Mission has not finished" });
+    }
+
+    const history = events.filter(({ id }) => id <= finished.id);
+    const receipt = renderMissionReceipt(finishedReport(history, created, finished), history);
+    return reply
+      .type("text/markdown; charset=utf-8")
+      .header("Content-Disposition", 'attachment; filename="receipt.md"')
+      .send(receipt);
   });
 
   registerMissionEventStream(app, log, feed);
