@@ -191,3 +191,4 @@
 2026-11-19 10:20 -05:00 | Codex | Desktop 22. Resume after a sidecar crash, including an unlogged Git merge | codex/warroom-api@052c8ba | verify green (1,030 passed, three existing skips)
 2026-11-19 10:26 -05:00 | Codex | Desktop 23. Validated spend settings and persisted effective approvals | codex/warroom-api@f120d67 | verify green (1,034 passed, three existing skips)
 2026-11-19 10:31 -05:00 | Codex | Desktop 24. Markdown receipt with hold reasons and no raw repository or event text | codex/warroom-api@526ed53 | verify green (1,036 passed, three existing skips), 14 Rust tests green
+12:55 | coordinator | tick 31: merged codex/warroom-api (crash resume + mission.interrupted/resumed events, budget defaults, Markdown receipt; small matching edits in packages/core and the desktop/web war-table reducers). lint + typecheck clean; apps+packages 1033 tests pass (3 skipped). Cursor idle since 04:09 (19-21 untouched); builder nothing new. Codex queue refilled 25-27.
