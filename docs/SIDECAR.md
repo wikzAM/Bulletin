@@ -3,7 +3,7 @@
 The sidecar reads UTF-8 JSON-RPC 2.0 messages from stdin and writes messages
 to stdout, one JSON object per line. Diagnostics go to stderr. Each line is
 an individual request or notification. A request ID is echoed in the response.
-Multiple requests can be in flight. Close stdin to shut down the sidecar.
+Multiple requests can be in flight. Close stdin or call `shutdown` to stop the sidecar.
 
 From the repository root, launch it with `pnpm exec tsx apps/sidecar/src/main.ts`.
 
@@ -76,6 +76,21 @@ Returns the health object from `GET /health`.
 ```json
 {"jsonrpc":"2.0","id":1,"method":"health"}
 {"jsonrpc":"2.0","id":1,"result":{"status":"ok","service":"api"}}
+```
+
+## `shutdown`
+
+Takes no parameters. Returns `{"status":"shutting_down"}` and starts shutdown.
+Closing stdin has the same effect without a response. The sidecar aborts
+running missions, waits for them to finish within the shutdown window, and
+closes SQLite before exiting with code 0 within five seconds. If a runner
+does not finish in time, the sidecar closes SQLite with its committed events.
+When the desktop quits, the native supervisor closes the sidecar's stdin and
+allows it this shutdown window.
+
+```json
+{"jsonrpc":"2.0","id":1,"method":"shutdown"}
+{"jsonrpc":"2.0","id":1,"result":{"status":"shutting_down"}}
 ```
 
 ## `request`

@@ -10,6 +10,7 @@ type RpcId = string | number | null;
 type Application = Awaited<ReturnType<typeof createApplication>>;
 type Subscription = { missionId: string; after: number };
 const keychain = new EnvKeychain();
+const shutdownGraceMs = 4_500;
 
 function record(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -58,7 +59,7 @@ async function proxy(app: Application["app"], params: Record<string, unknown>) {
   return { status: response.statusCode, body: raw === "" ? null : contentType.includes("json") ? JSON.parse(raw) : raw };
 }
 
-export async function runSidecar({ app, log }: Application) {
+export async function runSidecar({ app, log, stopMissions }: Application) {
   const input = createInterface({ input: process.stdin, crlfDelay: Infinity });
   const desktop = createDesktopMethods({ dataDirectory: appDataDirectory(), keychain });
   const feed = new MissionEventFeed(log);
@@ -66,11 +67,25 @@ export async function runSidecar({ app, log }: Application) {
   const pending = new Set<Promise<void>>();
   let nextSubscription = 1;
   let shuttingDown = false;
+  let shutdownDeadline: NodeJS.Timeout | undefined;
 
   function fail() {
     process.exitCode = 1;
+    stop();
+  }
+
+  function stop() {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    shutdownDeadline = setTimeout(() => {
+      // SQLite commits each append before publishing it. Close the connection
+      // even if a runner or an in-flight request never returned after abort.
+      void log.close().catch(fail).finally(() => process.exit(process.exitCode ?? 0));
+    }, shutdownGraceMs);
+    stopMissions();
     input.close();
-    process.stdin.pause();
+    // A paused Windows pipe keeps the process alive while the client is connected.
+    process.stdin.destroy();
   }
 
   async function dispatch(method: string, params: Record<string, unknown>, newSubscriptions: Map<number, Subscription>) {
@@ -79,6 +94,10 @@ export async function runSidecar({ app, log }: Application) {
         return (await proxy(app, { method: "GET", path: "/health" })).body;
       case "request":
         return proxy(app, params);
+      case "shutdown":
+        if (Object.keys(params).length) throw new RpcError(-32602, "Shutdown takes no parameters");
+        stop();
+        return { status: "shutting_down" };
       case "subscribe": {
         const { mission_id, after = 0 } = params;
         if (typeof mission_id !== "string" || mission_id.trim().length === 0 || !integer(after, 0)) {
@@ -145,22 +164,28 @@ export async function runSidecar({ app, log }: Application) {
     await response;
   }
   input.on("line", (line) => {
+    if (shuttingDown) return;
     const task = handle(line).catch(fail).finally(() => { pending.delete(task); });
     pending.add(task);
   });
-  const stop = () => { input.close(); process.stdin.pause(); };
   process.stdout.on("error", fail);
   process.once("SIGINT", stop);
   process.once("SIGTERM", stop);
   try {
     await new Promise<void>((resolve) => input.once("close", resolve));
   } finally {
-    shuttingDown = true;
+    stop();
     subscriptions.clear();
-    await Promise.all([...pending, feed.close()]);
-    await app.close();
-    process.stdout.removeListener("error", fail);
-    process.removeListener("SIGINT", stop);
-    process.removeListener("SIGTERM", stop);
+    try {
+      await Promise.all([...pending, feed.close()]);
+    } finally {
+      await app.close();
+      // Let clean shutdown exit immediately. Keep the deadline available if a
+      // runner left another handle open.
+      shutdownDeadline?.unref();
+      process.stdout.removeListener("error", fail);
+      process.removeListener("SIGINT", stop);
+      process.removeListener("SIGTERM", stop);
+    }
   }
 }
