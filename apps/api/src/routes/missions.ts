@@ -2,6 +2,7 @@ import { LaneSchema, type BulletinEvent, type EventType, type Lane, type UnitSta
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import type { EventLog } from "../store/event-log";
+import { endsMissionExecution, lastMissionExecution } from "../store/mission-state";
 import type { MissionEventFeed } from "./mission-event-feed";
 import { registerMissionEventStream } from "./mission-events";
 import { readLedgerCharge, readMissionBudget, roundCents } from "./mission-ledger";
@@ -39,6 +40,9 @@ const missionStatuses: Partial<Record<EventType, MissionStatus>> = {
   "briefing.versioned": "planning",
   "plan.proposed": "planning",
   "plan.approved": "running",
+  "mission.resumed": "running",
+  "wave.started": "running",
+  "mission.interrupted": "interrupted",
   "mission.finished": "finished",
 };
 
@@ -79,7 +83,7 @@ function listMissions(events: readonly BulletinEvent[]): MissionSummary[] {
   return [...missions.values()];
 }
 
-function missionProgress(events: readonly BulletinEvent[]) {
+export function missionProgress(events: readonly BulletinEvent[]) {
   const units = new Map<string, MissionUnit>();
   const ledgerByUnit = new Map<string, LedgerTotal>();
   const ledger = { cost_cents: 0, charges: 0 };
@@ -267,8 +271,8 @@ export function registerMissionRoutes(app: FastifyInstance, log: EventLog, feed?
     const events = log.events.filter((event) => event.mission_id === request.params.id);
     const created = events.find(({ type }) => type === "mission.created");
     if (!created) return reply.code(404).send({ error: "Mission not found" });
-    const finished = events.findLast(({ type }) => type === "mission.finished");
-    if (!finished) return reply.code(409).send({ error: "Mission has not finished" });
+    const finished = lastMissionExecution(events);
+    if (!finished || !endsMissionExecution(finished)) return reply.code(409).send({ error: "Mission has not finished" });
     return finishedReport(events, created, finished);
   });
 

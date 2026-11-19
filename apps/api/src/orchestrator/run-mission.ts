@@ -1,5 +1,5 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import {
   DEFAULT_LANES,
   DEFAULT_LIMITS,
@@ -69,8 +69,8 @@ export interface MissionOptions {
   calibration?: Readonly<Record<string, number>>;
   events?: EventSink;
   /**
-   * Continue a mission that already finished with units held (see resolve-held.ts): start from
-   * these statuses on the existing integration branch, without re-announcing the mission or plan.
+   * Continue an interrupted mission or one that finished with units held.
+   * Resume uses the recorded state without re-announcing the mission or plan.
    */
   resume?: {
     statuses: Readonly<Record<string, UnitStatus>>;
@@ -78,6 +78,8 @@ export interface MissionOptions {
     spentCents: number;
     /** Waves already started, so wave numbers keep counting. */
     wave: number;
+    /** Present when resuming after a crash. Attempt numbers stay unique across runs. */
+    priorAttempts?: ReadonlyMap<string, number>;
   };
 }
 
@@ -142,6 +144,36 @@ async function readLanes(repo: string, ref: string): Promise<LanesConfig> {
   return LanesConfigSchema.parse(JSON.parse(r.stdout));
 }
 
+/** Reopen the mission's own scratch checkout and reconcile merges committed just before a crash. */
+async function recoverIntegration(options: MissionOptions, branch: string, directory: string): Promise<Set<string>> {
+  const { repo, baseBranch, resume } = options;
+  const branchRef = `refs/heads/${branch}`;
+  const tip = await tryGit(repo, "rev-parse", "--verify", "--quiet", branchRef);
+  if (tip.code !== 0) {
+    if ((resume?.wave ?? 0) > 0 || Object.values(resume?.statuses ?? {}).includes("merged")) {
+      throw new Error("The mission's integration branch is missing");
+    }
+    await addWorktree(repo, directory, branch, baseBranch);
+    return new Set();
+  }
+
+  const worktrees = (await git(repo, "worktree", "list", "--porcelain", "-z")).split("\0\0");
+  const normalize = (path: string) => process.platform === "win32" ? resolve(path).toLowerCase() : resolve(path);
+  const expected = normalize(directory);
+  for (const worktree of worktrees) {
+    const [location, ...fields] = worktree.split("\0");
+    if (location?.startsWith("worktree ") && fields.includes(`branch ${branchRef}`) &&
+        normalize(location.slice("worktree ".length)) === expected) {
+      await removeWorktree(repo, directory);
+      break;
+    }
+  }
+
+  const subjects = await git(repo, "log", "--first-parent", "--merges", "--format=%s", `${baseBranch}..${branchRef}`, "--");
+  await checkoutWorktree(repo, directory, branch);
+  return new Set(subjects.split(/\r?\n/));
+}
+
 /**
  * The graph engine (spec section 11): plain code, no model calls. Validates the plan, runs
  * units as their needs merge, sends RED units back alone, merges GREEN units by lane, and
@@ -173,7 +205,9 @@ export async function runMission(options: MissionOptions): Promise<MissionReport
 
   const integ = integrationBranch(missionId);
   const integDir = join(options.scratchDir, "integration");
-  if (resume) await checkoutWorktree(repo, integDir, integ);
+  let recoveredMerges: Set<string> | undefined;
+  if (resume?.priorAttempts) recoveredMerges = await recoverIntegration(options, integ, integDir);
+  else if (resume) await checkoutWorktree(repo, integDir, integ);
   else await addWorktree(repo, integDir, integ, options.baseBranch);
   const exclusive = mutex();
   const budgetStop = new AbortController();
@@ -192,6 +226,13 @@ export async function runMission(options: MissionOptions): Promise<MissionReport
   const statuses: Record<string, UnitStatus> = Object.fromEntries(
     plan.units.map((u) => [u.id, resume?.statuses[u.id] ?? "pending"]),
   );
+  if (recoveredMerges) {
+    for (const unit of plan.units) {
+      if (statuses[unit.id] === "merged" || !recoveredMerges.has(`ship ${unit.id}: ${unit.title}`)) continue;
+      statuses[unit.id] = "merged";
+      await emit("unit.merged", unit.id, { recovered: true });
+    }
+  }
   const attempts: AttemptRecord[] = [];
   const ledger: LedgerRow[] = [];
   const greens = new Set<string>();
@@ -236,13 +277,15 @@ export async function runMission(options: MissionOptions): Promise<MissionReport
     let packet: string | undefined;
     let lastReason: string | null = null;
 
-    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    const priorAttempts = resume?.priorAttempts?.get(unit.id) ?? 0;
+    for (let runAttempt = 1; runAttempt <= maxAttempts; runAttempt++) {
+      const attempt = priorAttempts + runAttempt;
       if (stopped()) {
         // A preflight pause is not a failure: the unit waits for the budget decision (see below).
         lastReason = preflightPaused && options.signal?.aborted !== true && !budgetStop.signal.aborted ? "budget paused" : "stopped";
         break;
       }
-      const tier = attemptTier(unit.tier, attempt, lastReason);
+      const tier = attemptTier(unit.tier, runAttempt, lastReason);
       const model = options.tiers[tier] ?? options.tiers[unit.tier];
       if (!model) throw new Error(`no model for tier: ${unit.tier}`);
       // Treasury preflight (spec section 12): spent + reserved + this attempt's estimate must fit the budget.
@@ -365,8 +408,8 @@ export async function runMission(options: MissionOptions): Promise<MissionReport
 
       lastReason = verdict.reason;
       await recordSendBack(unit, attempt, verdict.reason);
-      packet = formatSendBack({ unitId: unit.id, attempt, maxAttempts, verdict, files: unit.files });
-      if (afterRed(attempt, maxAttempts) === "fail") break;
+      packet = formatSendBack({ unitId: unit.id, attempt, maxAttempts: priorAttempts + maxAttempts, verdict, files: unit.files });
+      if (afterRed(runAttempt, maxAttempts) === "fail") break;
     }
 
     if (lastReason === "budget paused") {
@@ -388,7 +431,7 @@ export async function runMission(options: MissionOptions): Promise<MissionReport
     const ready = readyUnits(plan, statuses);
     if (ready.length > 0 && running.size === 0) {
       wave += 1;
-      await emit("wave.started", undefined, { wave, units: ready.map((u) => u.id) });
+      await emit("wave.started", undefined, { wave, units: ready.map((u) => u.id), owner_pid: process.pid });
     }
     for (const unit of ready) {
       if (stopped() || running.size >= parallel) break;

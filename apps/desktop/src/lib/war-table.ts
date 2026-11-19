@@ -243,15 +243,21 @@ export function applyEvent(state: WarTableState, event: BulletinEvent): WarTable
     units = { ...units, [unitId]: updateUnit(prev ?? card({ id: unitId, title: unitId, lane: "open", wave: 0 }), event) };
   }
 
+  const starting = event.type === "plan.approved" || event.type === "mission.resumed";
+  let ending = state.ending;
+  if (starting) ending = null;
+  if (event.type === "mission.interrupted") ending = "interrupted";
+  if (event.type === "mission.finished") ending = endingOf(event.payload);
+
   return {
     lastEventId: event.id,
     order,
     units,
     feed,
-    finished: state.finished || event.type === "mission.finished",
-    ending: event.type === "mission.finished" ? endingOf(event.payload) : state.ending,
-    approved: state.approved || event.type === "plan.approved",
-    paused: event.type === "budget.paused" ? true : event.type === "attempt.started" ? false : state.paused,
+    finished: ending !== null,
+    ending,
+    approved: state.approved || starting,
+    paused: starting || event.type === "attempt.started" ? false : event.type === "budget.paused" || state.paused,
   };
 }
 
@@ -285,6 +291,8 @@ const FINISHED_TEXT: Record<Ending, string> = {
 
 const MISSION_TEXT: Record<string, Describer> = {
   "mission.created": () => "Project created",
+  "mission.interrupted": () => FINISHED_TEXT.interrupted,
+  "mission.resumed": () => "Project resumed",
   "briefing.versioned": (p) => (num(p.version) ? `Requirements updated to version ${num(p.version)}` : "Requirements updated"),
   "plan.proposed": (p) => (num(p.units) ? `Plan proposed with ${num(p.units)} tasks` : "Plan proposed"),
   "plan.approved": () => "Plan approved",

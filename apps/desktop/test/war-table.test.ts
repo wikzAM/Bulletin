@@ -120,6 +120,13 @@ describe("applyEvent", () => {
     expect(s.feed[0]?.id).toBe(events[50]?.id);
   });
 
+  it("shows an interruption and clears the finished state when the project resumes", () => {
+    const interrupted = reduceEvents(units, [ev("mission.interrupted")]);
+    expect(interrupted).toMatchObject({ finished: true, ending: "interrupted" });
+    const resumed = reduceEvents(units, [ev("mission.interrupted"), ev("mission.resumed")]);
+    expect(resumed).toMatchObject({ finished: false, ending: null, approved: true });
+  });
+
   it("marks the mission finished on mission.finished", () => {
     expect(reduceEvents(units, [ev("mission.finished", null, { shipped: 1 })]).finished).toBe(true);
   });

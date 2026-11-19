@@ -49,8 +49,9 @@ Relative scratch paths resolve from the repository root. JSONL logs rotate at
 16 MiB into numbered sibling files. Recovery discards an incomplete final line
 in the active segment and reports the location of corruption in archived segments.
 
-At startup, every stored mission without a `mission.finished` event receives
-one with `payload.interrupted: true`. Its earlier events remain available.
+At startup, a stored mission with unfinished work and no live owner receives
+one `mission.interrupted` event for that interruption. Earlier events remain
+available.
 
 ## Server configuration
 
@@ -192,8 +193,9 @@ The limit must be a non-negative safe integer written in decimal digits.
 
 `repo` and `base` come from `mission.created` and are `null` when absent.
 Status starts at `interview`, advances to `planning` on `briefing.versioned` or
-`plan.proposed`, advances to `running` on `plan.approved`, and becomes `finished`
-on `mission.finished`. A `mission.finished` event with `payload.status` set to
+`plan.proposed`, advances to `running` on `plan.approved` or `mission.resumed`,
+and becomes `finished` on `mission.finished`. A `mission.interrupted` event sets
+the status to `interrupted`. A `mission.finished` event with `payload.status` set to
 `failed` sets the mission status to `failed`. A `mission.finished` event with
 `payload.interrupted: true` sets it to `interrupted`. A finish event with
 `payload.paused: true` sets it to `paused`.
@@ -301,9 +303,9 @@ remaining budget are rounded to four decimal places in cents.
 
 ## `GET /missions/:id/report`
 
-Returns the final recorded mission report after `mission.finished`, including
-after a stop, budget pause, or interruption. An unfinished mission returns
-`409 Conflict` with `{"error":"Mission has not finished"}`.
+Returns the report through the latest finish or interruption event. A mission
+with execution still in progress returns `409 Conflict` with
+`{"error":"Mission has not finished"}`.
 
 ```json
 {
@@ -426,6 +428,25 @@ saved budget. It stops starting work and publishes `mission.finished` with
 
 If the runner throws before finishing, `mission.finished` carries
 `{"status":"failed","error":"Mission execution failed"}` in its payload.
+
+## `POST /missions/:id/resume`
+
+Send an empty body or `{}` for an interrupted mission with an approved plan.
+Returns `202 Accepted` with `{"mission_id":"demo","status":"running"}` and
+publishes `mission.resumed`. Follow the event stream from the last event ID
+for progress.
+
+Resume keeps the integration branch and carries over recorded spend. Merged
+units do not run again. Held units stay held for approval. Remaining units
+can run when their dependencies have merged, using new attempt numbers.
+A mission that was interrupted before approval can still use the approval
+route.
+
+- `400 Bad Request` for an invalid body.
+- `404 Not Found` with `{"error":"Mission not found"}` for an unknown mission.
+- `409 Conflict` with `{"error":"Mission is not interrupted"}` if the mission is running or finished.
+- `409 Conflict` with `{"error":"Mission has no approved plan to resume"}` if the interrupted mission lacks a valid approved plan.
+- `503 Service Unavailable` with `{"error":"Mission runner not configured"}` when execution is unavailable.
 
 ## `POST /missions/:id/stop`
 

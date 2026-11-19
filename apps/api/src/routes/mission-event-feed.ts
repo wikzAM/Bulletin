@@ -1,5 +1,6 @@
 import type { BulletinEvent } from "@bulletin/core";
 import type { EventLog } from "../store/event-log";
+import { endsMissionExecution, startsMissionExecution } from "../store/mission-state";
 
 interface EventSink {
   event(event: BulletinEvent): void | Promise<void>;
@@ -29,8 +30,9 @@ export class MissionEventFeed {
   isFinished(missionId: string): boolean {
     while (this.observed < this.log.events.length) {
       const event = this.log.events[this.observed++];
-      if (event?.type === "mission.finished") this.finished.add(event.mission_id);
-      if (event?.type === "plan.approved" || event?.type === "wave.started") this.finished.delete(event.mission_id);
+      if (!event) continue;
+      if (endsMissionExecution(event)) this.finished.add(event.mission_id);
+      if (startsMissionExecution(event)) this.finished.delete(event.mission_id);
     }
     return this.finished.has(missionId);
   }
