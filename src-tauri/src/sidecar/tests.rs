@@ -17,9 +17,13 @@ fn forwards_events_and_restarts_exited_sidecar() {
         command
     };
     let (event_tx, event_rx) = mpsc::channel();
-    let sidecar = Sidecar::start(build_command, move |event| {
+    let sidecar = Sidecar::start(
+        build_command,
+        move |event| {
         event_tx.send(event).unwrap();
-    })
+    },
+        || {},
+    )
     .unwrap();
 
     let first = available(&sidecar);
@@ -64,7 +68,14 @@ fn restart_replaces_the_process_and_fails_calls_in_flight() {
         command.args(["-e", script]);
         command
     };
-    let sidecar = std::sync::Arc::new(Sidecar::start(build_command, |_| {}).unwrap());
+    let starts = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let counted = std::sync::Arc::clone(&starts);
+    let sidecar = std::sync::Arc::new(
+        Sidecar::start(build_command, |_| {}, move || {
+            counted.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        })
+        .unwrap(),
+    );
     let first = available(&sidecar);
 
     let waiting = {
@@ -77,6 +88,8 @@ fn restart_replaces_the_process_and_fails_calls_in_flight() {
 
     let second = available(&sidecar);
     assert_ne!(first, second);
+    // Every process the supervisor starts is announced, so the UI can subscribe again.
+    assert_eq!(starts.load(std::sync::atomic::Ordering::SeqCst), 2);
     sidecar.shutdown();
 }
 
@@ -120,9 +133,13 @@ fn speaks_the_json_rpc_contract_with_the_real_sidecar() {
         command
     };
     let (event_tx, event_rx) = mpsc::channel();
-    let sidecar = Sidecar::start(build_command, move |event| {
+    let sidecar = Sidecar::start(
+        build_command,
+        move |event| {
         event_tx.send(event).unwrap();
-    })
+    },
+        || {},
+    )
     .unwrap();
 
     assert_eq!(

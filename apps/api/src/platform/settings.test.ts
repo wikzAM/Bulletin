@@ -24,6 +24,13 @@ it("starts empty and keeps what was set across instances, in settings.json in th
   expect(JSON.parse(await readFile(join(directory, "settings.json"), "utf8"))).toEqual({ provider: "bedrock", repo_path: "D:\\work\\demo", setup_complete: true });
 });
 
+it("keeps an AWS region such as us-east-1 for Bedrock", async () => {
+  const store = new SettingsStore(directory);
+  expect(await store.set({ aws_region: "us-east-1" })).toEqual({ aws_region: "us-east-1" });
+  expect(await store.set({ aws_region: "us-gov-west-1" })).toEqual({ aws_region: "us-gov-west-1" });
+  expect(await store.set({ aws_region: null })).toEqual({});
+});
+
 it("merges changes, and null removes a key", async () => {
   const store = new SettingsStore(directory);
   await store.set({ provider: "claude-code", repo_path: "D:\\a" });
@@ -44,6 +51,8 @@ it("rejects unknown keys and bad values without changing anything, so a secret c
     { repo_path: "x".repeat(1025) },
     { repo_path: "a\0b" },
     { setup_complete: "yes" },
+    { aws_region: "us east 1" },
+    { aws_region: "../evil" },
     { provider: "bedrock", ANTHROPIC_API_KEY: "sk-ant-secret" },
   ]) {
     await expect(store.set(values as Record<string, unknown>)).rejects.toBeInstanceOf(SettingsError);

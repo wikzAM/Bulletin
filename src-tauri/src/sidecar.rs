@@ -56,12 +56,13 @@ impl Sidecar {
     pub(crate) fn start(
         command: impl Fn() -> Command + Send + 'static,
         emit: impl Fn(Value) + Send + 'static,
+        started: impl Fn() + Send + 'static,
     ) -> io::Result<Self> {
         let (messages, receiver) = mpsc::channel();
         let send = messages.clone();
         let supervisor = thread::Builder::new()
             .name("bulletin-sidecar".into())
-            .spawn(move || supervise(command, emit, receiver, send))?;
+            .spawn(move || supervise(command, emit, started, receiver, send))?;
         Ok(Self {
             messages,
             supervisor: Mutex::new(Some(supervisor)),
@@ -227,6 +228,7 @@ impl Drop for Running {
 fn supervise(
     command: impl Fn() -> Command,
     emit: impl Fn(Value),
+    started: impl Fn(),
     receiver: mpsc::Receiver<Message>,
     messages: mpsc::Sender<Message>,
 ) {
@@ -238,7 +240,10 @@ fn supervise(
         if running.is_none() && Instant::now() >= retry_at {
             generation += 1;
             match Running::start(command(), generation, &messages) {
-                Ok(child) => running = Some(child),
+                Ok(child) => {
+                    running = Some(child);
+                    started();
+                }
                 Err(error) => {
                     eprintln!("Bulletin sidecar launch failed ({:?})", error.kind());
                     retry_at = Instant::now() + RESTART_DELAY;

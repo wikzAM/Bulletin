@@ -115,12 +115,16 @@ export function createTauriTransport(opts: { invoke: TauriInvoke; listen: TauriL
       let unlisten: (() => void) | null = null;
       let subscriptionId: number | null = null;
       let timer: ReturnType<typeof setTimeout> | undefined;
+      let unlistenSidecar: (() => void) | null = null;
+      // Bumped each time the sidecar (re)starts: an answer to an older subscribe belongs to a sidecar that is gone.
+      let epoch = 0;
       const fail = (error: unknown) => onError?.(error instanceof Error ? error : new Error(String(error)));
 
       // Rust emits replayed events from its own reader thread, so some can arrive before the subscribe call
       // returns: filter by mission and event id (not by subscription id), and listen before subscribing.
       const subscribe = async (): Promise<void> => {
         if (cancelled) return;
+        const mine = epoch;
         try {
           const result = (await rpc("subscribe", { mission_id: missionId, after: last })) as { subscription_id?: unknown } | null;
           const id = result?.subscription_id;
@@ -129,9 +133,10 @@ export function createTauriTransport(opts: { invoke: TauriInvoke; listen: TauriL
             void rpc("unsubscribe", { subscription_id: id }).catch(() => undefined);
             return;
           }
+          if (mine !== epoch) return; // a restart already asked again
           subscriptionId = id;
         } catch (error) {
-          if (cancelled) return;
+          if (cancelled || mine !== epoch) return;
           if (error instanceof RpcError && error.code === SIDECAR_UNAVAILABLE) {
             // Starting or restarting: ask again from the last event delivered.
             timer = setTimeout(() => void subscribe(), retryDelay);
@@ -154,6 +159,23 @@ export function createTauriTransport(opts: { invoke: TauriInvoke; listen: TauriL
             return;
           }
           unlisten = stop;
+          return opts.listen("bulletin://sidecar", () => {
+            // Rust started a new sidecar process: it knows nothing of this subscription (and its ids start again at 1,
+            // so the old id must not be unsubscribed). Ask again from the last event delivered.
+            if (cancelled) return;
+            epoch += 1;
+            subscriptionId = null;
+            clearTimeout(timer);
+            void subscribe();
+          });
+        })
+        .then((stopSidecar) => {
+          if (!stopSidecar) return;
+          if (cancelled) {
+            stopSidecar();
+            return;
+          }
+          unlistenSidecar = stopSidecar;
           return subscribe();
         })
         .catch(fail);
@@ -163,6 +185,8 @@ export function createTauriTransport(opts: { invoke: TauriInvoke; listen: TauriL
         clearTimeout(timer);
         unlisten?.();
         unlisten = null;
+        unlistenSidecar?.();
+        unlistenSidecar = null;
         if (subscriptionId !== null) {
           void rpc("unsubscribe", { subscription_id: subscriptionId }).catch(() => undefined);
           subscriptionId = null;

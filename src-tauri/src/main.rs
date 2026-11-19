@@ -1,5 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod folder;
 mod secrets;
 mod sidecar;
 
@@ -49,6 +50,15 @@ fn secret_set(state: State<'_, Desktop>, name: String, value: String) -> Result<
 #[tauri::command]
 fn restart_sidecar(state: State<'_, Desktop>) {
     state.sidecar.restart();
+}
+
+/// Shows the system folder dialog. Resolves to the chosen path, or `null` when cancelled or unavailable.
+#[tauri::command]
+async fn pick_folder() -> Option<String> {
+    tauri::async_runtime::spawn_blocking(folder::pick)
+        .await
+        .ok()
+        .flatten()
 }
 
 #[tauri::command]
@@ -111,10 +121,15 @@ fn main() {
             let secrets: Arc<dyn SecretStore> = Arc::new(OsSecretStore);
             let launch_secrets = Arc::clone(&secrets);
             let handle = app.handle().clone();
+            let announce = app.handle().clone();
             let sidecar = Sidecar::start(
                 move || sidecar_command(&resource_dir, &bundled, launch_secrets.as_ref()),
                 move |event| {
                     let _ = handle.emit("bulletin://event", event);
+                },
+                // A new process knows no subscriptions: tell the UI so it subscribes again (docs/SIDECAR.md).
+                move || {
+                    let _ = announce.emit("bulletin://sidecar", "started");
                 },
             )?;
             app.manage(Desktop {
@@ -127,7 +142,8 @@ fn main() {
             rpc,
             secret_set,
             secret_has,
-            restart_sidecar
+            restart_sidecar,
+            pick_folder
         ])
         .build(tauri::generate_context!())
         .expect("could not initialize Bulletin desktop");

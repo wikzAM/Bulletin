@@ -11,4 +11,5 @@ export function applyProviderSettings(env: NodeJS.Dict<string>, settings: Settin
   if (!provider) return;
   if (!env.BULLETIN_PROVIDER?.trim()) env.BULLETIN_PROVIDER = provider;
   if (!env.BULLETIN_RUNNER?.trim()) env.BULLETIN_RUNNER = "sdk";
+  if (provider === "bedrock" && typeof settings.aws_region === "string" && !env.AWS_REGION?.trim()) env.AWS_REGION = settings.aws_region;
 }

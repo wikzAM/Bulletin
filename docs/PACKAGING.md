@@ -229,6 +229,44 @@ Nothing here turns updates on. It prepares the configuration and the build switc
    `TAURI_SIGNING_PRIVATE_KEY` set in the environment. The build then also produces `.sig` signature files next to the installers.
 6. Releases made without step 5 contain no updater and keep working as before.
 
+## Live end-to-end through the packaged sidecar (2026-11-19, queue task 20)
+
+Run once, with the user's go-ahead ("Yes, run it"), on the machine's Claude Code login (no API key):
+`BULLETIN_LIVE_E2E=1 pnpm exec vitest run packages/packaging/src/live-e2e.test.ts`.
+
+- **Executable:** `src-tauri/binaries/bulletin-sidecar-x86_64-pc-windows-msvc.exe`, built 2026-11-18 16:08 (before the first-run
+  methods, so this run did not exercise those). `BULLETIN_RUNNER=claude` was set by the test; data went to a scratch folder.
+- **Result:** the prepared sidecar planned a mission for the demo goal against a fresh clone of `D:/bulletin-demo`, was approved,
+  and emitted `mission.finished` with no failed units and at least one shipped (11 events, mission `22bbcce1-1328-4cb3-9516-c1ed22ab6f6e`).
+- **Cost:** 21.4 cents (the estimate was about 15).
+- **Wall time:** 141 s for the test body, 145 s in all.
+- **The integration branch passes the demo's own check:** `node --test` on it printed `tests 1, pass 1, fail 0`.
+- **A test bug found by the run:** the final assertion looked for `# pass N` (the TAP reporter's format), but this Node prints
+  `ℹ pass N` by default, so the run was reported as failed after the mission itself had succeeded. The assertion now accepts
+  both. The run was not repeated, because it spends money; the corrected assertion has been checked only against the output above.
+
+## Rebuild after the first-run work (2026-11-19, queue task 21, build part only)
+
+`pnpm run sidecar:prepare` then `pnpm run tauri:build`, incremental, on the same machine: the build took 119 s. NSIS installer
+`Bulletin_0.1.0_x64-setup.exe` 24.55 MiB, MSI `Bulletin_0.1.0_x64_en-US.msi` 36.32 MiB. This build includes the `app.info` method,
+the `pick_folder` command, the `bulletin://sidecar` start event and the `aws_region` setting. `pnpm run lint` and
+`pnpm run typecheck` pass on the tree; `cargo test` passes 11 tests in the app and the 2 library tests.
+
+### The real install and uninstall test (run 2026-11-19 with the user's go-ahead)
+
+`docs/install-test.ps1`: baseline snapshot, `Bulletin_0.1.0_x64-setup.exe /S /D=<scratch>`, launch the installed app with scratch
+`BULLETIN_DATA_DIR` and `WEBVIEW2_USER_DATA_FOLDER`, `uninstall.exe /S`, compare with the baseline.
+
+| Step | Result |
+| --- | --- |
+| Install (per-user, no admin prompt) | exit 0 in 3 s. Files: `bulletin-desktop.exe`, `bulletin-sidecar.exe`, `uninstall.exe`, `configmodels.json`, `configprices.json` |
+| Written outside the scratch folder | HKCU Uninstall entry `Bulletin`; `HKCUSoftwareulletinBulletin` (install location); Start menu `Bulletin.lnk`; desktop `Bulletin.lnk`. Nothing in the Run keys. No admin rights needed. |
+| Launch | the installed app started, its sidecar (from the install folder) ran and wrote `events.sqlite` to the scratch data folder within 3 s; the sidecar ended when the app was stopped |
+| Silent uninstall | exit 0; the install folder was gone within 5 s; the Uninstall entry, Start menu and desktop shortcuts were removed; the real data folder and the WebView folder were not touched |
+| **Left behind** | **`HKCUSoftwareulletinBulletin`, whose value is the install folder.** The script removes it only when the "delete application data" box is ticked, so every uninstall that does not tick it leaves it. A later install reads it to offer the old folder as its default. The test removed it by hand to restore the baseline. |
+
+Not exercised: the interactive installer pages, the MSI, a reinstall over an existing install, the first-run screen in the installed app (the window was not driven), or an update.
+
 ## Signing
 
 Installers and `bulletin-sidecar.exe` are unsigned. Windows SmartScreen will warn. Code signing needs a certificate that does
