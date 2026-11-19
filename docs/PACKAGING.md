@@ -229,6 +229,22 @@ Nothing here turns updates on. It prepares the configuration and the build switc
    `TAURI_SIGNING_PRIVATE_KEY` set in the environment. The build then also produces `.sig` signature files next to the installers.
 6. Releases made without step 5 contain no updater and keep working as before.
 
+## Live end-to-end through the packaged sidecar (2026-11-19, queue task 20)
+
+Run once, with the user's go-ahead ("Yes, run it"), on the machine's Claude Code login (no API key):
+`BULLETIN_LIVE_E2E=1 pnpm exec vitest run packages/packaging/src/live-e2e.test.ts`.
+
+- **Executable:** `src-tauri/binaries/bulletin-sidecar-x86_64-pc-windows-msvc.exe`, built 2026-11-18 16:08 (before the first-run
+  methods, so this run did not exercise those). `BULLETIN_RUNNER=claude` was set by the test; data went to a scratch folder.
+- **Result:** the prepared sidecar planned a mission for the demo goal against a fresh clone of `D:/bulletin-demo`, was approved,
+  and emitted `mission.finished` with no failed units and at least one shipped (11 events, mission `22bbcce1-1328-4cb3-9516-c1ed22ab6f6e`).
+- **Cost:** 21.4 cents (the estimate was about 15).
+- **Wall time:** 141 s for the test body, 145 s in all.
+- **The integration branch passes the demo's own check:** `node --test` on it printed `tests 1, pass 1, fail 0`.
+- **A test bug found by the run:** the final assertion looked for `# pass N` (the TAP reporter's format), but this Node prints
+  `ℹ pass N` by default, so the run was reported as failed after the mission itself had succeeded. The assertion now accepts
+  both. The run was not repeated, because it spends money; the corrected assertion has been checked only against the output above.
+
 ## Signing
 
 Installers and `bulletin-sidecar.exe` are unsigned. Windows SmartScreen will warn. Code signing needs a certificate that does

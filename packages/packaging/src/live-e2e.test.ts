@@ -76,7 +76,8 @@ describe.runIf(live)("packaged sidecar, live", () => {
     const checkout = join(work, "integration");
     execFileSync("git", ["worktree", "add", "-q", "--detach", checkout, `bulletin/${id}/integration`], { cwd: clone, windowsHide: true });
     const out = execFileSync("node", ["--test"], { cwd: checkout, encoding: "utf8", windowsHide: true });
-    expect(out).toMatch(/# pass [1-9]/);
-    expect(out).toMatch(/# fail 0/);
+    // Node prints "# pass N" with the tap reporter and "ℹ pass N" with the default one.
+    expect(out).toMatch(/(?:#|ℹ) pass [1-9]/);
+    expect(out).toMatch(/(?:#|ℹ) fail 0/);
   });
 });
