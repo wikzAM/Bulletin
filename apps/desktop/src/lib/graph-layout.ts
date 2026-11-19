@@ -2,7 +2,7 @@ import { copy } from "./copy";
 import type { PlannedUnit } from "./types";
 
 /** Sizes in SVG user units. */
-export const GRAPH = { nodeWidth: 180, nodeHeight: 44, gapX: 64, gapY: 16, pad: 8, maxLabel: 24 } as const;
+export const GRAPH = { nodeWidth: 180, nodeHeight: 58, gapX: 64, gapY: 18, pad: 8, maxLabel: 24 } as const;
 
 export interface GraphNode {
   id: string;

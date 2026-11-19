@@ -11,6 +11,8 @@ export interface SetupDraft {
   repoPath: string;
   /** True after secret_set succeeded for the chosen provider (or not required). */
   secretSaved: boolean;
+  /** AWS region, only sent when the provider is Amazon Bedrock. */
+  awsRegion?: string;
 }
 
 export interface ChecklistItem {
@@ -27,6 +29,11 @@ export function secretNameForProvider(provider: ApiProvider): string | null {
 
 export function needsSecret(provider: ApiProvider | null): boolean {
   return provider !== null && secretNameForProvider(provider) !== null;
+}
+
+/** The region field is only for Amazon Bedrock. */
+export function showsAwsRegion(provider: ApiProvider | null): boolean {
+  return provider === "bedrock";
 }
 
 export function checklistItems(draft: SetupDraft): ChecklistItem[] {

@@ -372,3 +372,10 @@ RED touched a locked file: pnpm-lock.yaml
 ## [2026-11-19] Task 17 verification
 
 - The repeat-return fixture and engine tests passed on 22ed27c. Full verification reported 996 passed, one failure, and three existing skips. The existing report setup hook exceeded 10 seconds and cleanup hit Windows EPERM. Task 18 covers that fixture.
+
+## [2026-11-19] Bedrock region is not an allowed setting yet (cursor task 15)
+- question: The setup screen now sends `setSettings({ aws_region })` in its own call when Amazon Bedrock is chosen and the person typed a region. `apps/api/src/platform/settings.ts` only allows `provider`, `repo_path`, and `setup_complete`, so the real sidecar rejects `aws_region` with "Unknown setting". The provider save still happens first. Who adds the key?
+- options: (a) the builder adds `aws_region` to the settings allowlist (string, length cap, no null byte) on claude/general, as the queue already says; (b) Cursor edits `settings.ts` now; (c) drop the region until the allowlist exists
+- recommendation: (a). The queue assigns the sidecar setting to the builder, and Cursor does not own `apps/api`.
+- working default: (a). The field is visible, the payload is tested, and an empty region is not sent. Continue is not blocked on a region.
+- status: RESOLVED 2026-11-19: main now has the `aws_region` setting (coordinator tick 28). The setup screen still sends it in its own call.

@@ -21,7 +21,7 @@ export function App() {
     <DesktopChrome>
       <div className="desktop-shell min-h-screen bg-[var(--bg)] text-[var(--fg)]">
         <TitleBar />
-        <header className="shell-nav flex items-baseline gap-4 border-b border-[var(--border)] bg-[var(--card)] px-8 py-3">
+        <header className="shell-nav flex flex-wrap items-baseline gap-4 border-b border-[var(--border)] bg-[var(--card)] px-8 py-3">
           <nav className="flex flex-wrap gap-4 text-sm" aria-label={copy.nav.label}>
             <Link to="/">{copy.nav.projects}</Link>
             <Link to="/questions">{copy.nav.questions}</Link>

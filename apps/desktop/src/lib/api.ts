@@ -16,6 +16,8 @@ import {
   toTreasuryInfo,
 } from "./api-adapters";
 import { EVENT_TYPE_LIST, parseEventData } from "./guards";
+import { interpretReport, type ReportOutcome } from "./report";
+import { createDefaultTransport } from "./transport";
 import { mockAnswerBriefing, mockApproveMission, mockCreateMission, mockEvents, mockStartBriefing, mockMissions, mockQuestions, mockResolveDecision, mockRules, mockSettings, mockSpend, mockStopMission, mockSummaries, mockTreasury } from "./mock";
 import type { ProjectSpend } from "./spend";
 import type { ApproveResult, CreateMissionResponse, MissionDetail, MissionSummary, Question, ResolveResult, SettingsInfo, StopResult, TreasuryInfo } from "./types";
@@ -24,8 +26,9 @@ import type { ApproveResult, CreateMissionResponse, MissionDetail, MissionSummar
  * The only module that talks to the API (routes in docs/API.md). With VITE_API_URL unset,
  * it serves lib/mock.ts instead.
  */
-// process.env first so vitest can stub VITE_API_URL; import.meta.env is used in the Vite UI build.
-const API_URL = (process.env.VITE_API_URL ?? import.meta.env?.VITE_API_URL ?? "").replace(/\/$/, "");
+// process.env first so vitest can stub VITE_API_URL; the browser has no process, so the Vite env is the fallback.
+const fromProcess = typeof process === "undefined" ? undefined : process.env.VITE_API_URL;
+const API_URL = (fromProcess ?? import.meta.env?.VITE_API_URL ?? "").replace(/\/$/, "");
 
 export const usingMock = API_URL === "";
 
@@ -56,6 +59,14 @@ export async function listMissions(): Promise<MissionSummary[]> {
 export async function getMission(id: string): Promise<MissionDetail | null> {
   if (usingMock) return mockMissions.find((m) => m.id === id) ?? null;
   return toMissionDetail(await getJson(`/missions/${encodeURIComponent(id)}`));
+}
+
+/** GET /missions/:id/report through the transport. Unfinished projects are not available yet. */
+export async function getReport(id: string): Promise<ReportOutcome> {
+  if (usingMock) return { kind: "not_available" };
+  const transport = await createDefaultTransport(API_URL);
+  const res = await transport.request("GET", `/missions/${encodeURIComponent(id)}/report`);
+  return interpretReport(res.status, res.body);
 }
 
 export async function getTreasury(id: string): Promise<TreasuryInfo | null> {

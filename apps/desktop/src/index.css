@@ -823,6 +823,25 @@ ul.lesson-list li:first-child {
   gap: 1rem;
   align-items: start;
 }
+.plan-flow .react-flow__edge-text,
+.plan-flow .react-flow__edge-textbg {
+  opacity: 0;
+}
+.plan-flow .react-flow__edge:hover .react-flow__edge-text,
+.plan-flow .react-flow__edge:focus .react-flow__edge-text,
+.plan-flow .react-flow__edge:hover .react-flow__edge-textbg,
+.plan-flow .react-flow__edge:focus .react-flow__edge-textbg {
+  opacity: 1;
+}
+.unit-flow-node {
+  overflow: hidden;
+}
+.unit-flow-node strong {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .war-board {
   display: flex;
   flex-direction: column;
@@ -905,10 +924,11 @@ ul.lesson-list li:first-child {
 
 /* Desktop chrome */
 .desktop-shell {
-  min-width: 960px;
+  min-width: 0;
 }
 .title-bar {
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
   gap: 0.75rem;
   padding: 0.55rem 1rem;

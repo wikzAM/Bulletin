@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useReducer, useState } from "react";
+import { initialRestartNotice, reduceRestartNotice } from "../lib/sidecar-notice";
 import type { BulletinEvent } from "@bulletin/core";
 import { approveMission, listQuestions, stopMission, subscribeEvents, type ConnectionState } from "../lib/api";
 import type { Question } from "../lib/types";
@@ -147,6 +148,7 @@ export function WarTable({
 }) {
   const [state, dispatch] = useReducer(applyEvent, units, initialState);
   const [connection, setConnection] = useState<ConnectionState>("connecting");
+  const [restart, noteRestart] = useReducer(reduceRestartNotice, initialRestartNotice);
   const heldCount = heldForYou(state, {}).length;
   const [drawerOpen, setDrawerOpen] = useState(heldCount > 0);
   const [revisionsUsed, setRevisionsUsed] = useState(0);
@@ -157,6 +159,29 @@ export function WarTable({
     () => subscribeEvents(missionId, { onEvent: (e: BulletinEvent) => dispatch(e), onState: setConnection }),
     [missionId],
   );
+
+  useEffect(() => {
+    noteRestart({ type: "connection", state: connection });
+  }, [connection]);
+
+  useEffect(() => {
+    const internals = (globalThis as { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__;
+    if (internals === undefined) return;
+    let stop: (() => void) | undefined;
+    let cancel = false;
+    void import("@tauri-apps/api/event").then(async ({ listen }) => {
+      const unlisten = await listen<{ status?: string }>("bulletin://sidecar", (ev) => {
+        const status = ev.payload && typeof ev.payload.status === "string" ? ev.payload.status : "";
+        noteRestart({ type: "sidecar", source: "bulletin://sidecar", status });
+      });
+      if (cancel) unlisten();
+      else stop = unlisten;
+    });
+    return () => {
+      cancel = true;
+      stop?.();
+    };
+  }, [missionId]);
 
   useEffect(() => {
     void listQuestions()
@@ -181,6 +206,11 @@ export function WarTable({
 
   return (
     <div className="war-shell">
+      {restart.notice ? (
+        <p className="notice" role="status">
+          {restart.notice}
+        </p>
+      ) : null}
       {canApprove(status, state) && (
         <PlanReview
           units={units}

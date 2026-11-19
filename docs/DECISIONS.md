@@ -304,6 +304,13 @@ Desktop project page layout: spending meter top-right, decisions in a sticky rig
 - Not done: the Bedrock region. `AWS_REGION` is still read from the environment, and the setup page has no field for it.
 - Caution: the SDK runner and the real Anthropic/Bedrock clients have only run against fakes in this repository, so a first real run with your own key is the first time they meet the API.
 
+## 2026-11-19, cursor/web-shell: project report page (queue task 14)
+
+- The report page reads `GET /missions/:id/report` through `createDefaultTransport` and shows the documented counts. A 409, a missing body, or a null rate/cost/elapsed value is the sentence "not available yet". Mock mode (no API URL) shows that same sentence instead of invented numbers. Reason: the route only exists after the project finishes, and a sample report would look like a real result.
+- The Bedrock region is a second `setSettings({ aws_region })` after the provider save, and an empty region is not sent. The field does not block Continue. Main now allows `aws_region`, so the second call is no longer rejected.
+- "No commits yet" means `repo.inspect` reported `file_count` 0. The sidecar has no separate commit count; a repository with no tracked files is the empty case the screen can see.
+- A sidecar `started` event shows a restart notice only after the project stream has already been live, and the next live connection clears it. The transport resubscribe stays with the builder; this file only owns the notice. The first `started` during connect stays quiet so opening a project is not a restart.
+- The shell no longer forces a 960px width. At 900px that floor plus a vertical scrollbar made a horizontal scrollbar. Task cards are 58px tall so the status line fits, and the upstream task name on an arrow shows only while the pointer is on that arrow. `api.ts` reads `process.env` only when `process` exists, because the browser page was blank without that guard.
 - 2026-11-19: Folder picker is a hidden PowerShell `FolderBrowserDialog` run by a `pick_folder` Tauri command (src-tauri/src/folder.rs) instead of `tauri-plugin-dialog`. Why: no new Rust or npm dependency, no lockfile change, and the person can still type a path. The cost is the older-looking Windows dialog and one process spawn.
 - 2026-11-19: The Bedrock region is a setting (`aws_region`, validated as a region name) that the sidecar maps to `AWS_REGION` at start when the environment does not set it. Why: a person installing from an .exe cannot be asked to set Windows environment variables.
 - 2026-11-19: The sidecar's data folder is reported by a sidecar method (`app.info`), not a second copy of the folder rule in Rust. Why: `appDataDirectory` is the only place that knows the rule.

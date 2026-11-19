@@ -7,9 +7,11 @@ import {
   needsSecret,
   secretNameForProvider,
   setupReady,
+  showsAwsRegion,
   type ApiProvider,
   type SetupDraft,
 } from "../lib/setup";
+import { repoInspectionLines } from "../lib/repo-inspection";
 import { createLocalSettingsStore } from "../lib/window-settings";
 import { PageLoading, PageShell } from "./PageStates";
 import { saveSetup } from "./SetupPage.settings";
@@ -24,6 +26,7 @@ export function SetupPage() {
   const [secret, setSecret] = useState("");
   const [saving, setSaving] = useState(false);
   const [savedNotice, setSavedNotice] = useState(false);
+  const [repoNote, setRepoNote] = useState<string[]>([]);
 
   useEffect(() => {
     void createDesktopBridge().then(async (b) => {
@@ -34,6 +37,7 @@ export function SetupPage() {
         provider: null,
         repoPath: "",
         secretSaved: false,
+        awsRegion: "",
       });
     });
   }, []);
@@ -64,9 +68,24 @@ export function SetupPage() {
     }
   };
 
+  const lookAtRepo = async (path: string) => {
+    const trimmed = path.trim();
+    if (!bridge || !trimmed) {
+      setRepoNote([]);
+      return;
+    }
+    try {
+      setRepoNote(repoInspectionLines(await bridge.inspectRepo(trimmed)));
+    } catch {
+      setRepoNote([t.repoInspectFailed]);
+    }
+  };
+
   const pickRepo = async () => {
     const path = await bridge.pickFolder();
-    if (path) setDraft((d) => (d ? { ...d, repoPath: path } : d));
+    if (!path) return;
+    setDraft((d) => (d ? { ...d, repoPath: path } : d));
+    await lookAtRepo(path);
   };
 
   const finish = async () => {
@@ -108,6 +127,19 @@ export function SetupPage() {
         ))}
       </fieldset>
 
+      {showsAwsRegion(draft.provider) && (
+        <div className="setup-region">
+          <label htmlFor="aws-region">{t.regionLabel}</label>
+          <p className="muted">{t.regionHint}</p>
+          <input
+            id="aws-region"
+            value={draft.awsRegion ?? ""}
+            placeholder={t.regionPlaceholder}
+            onChange={(e) => setDraft((d) => (d ? { ...d, awsRegion: e.target.value } : d))}
+          />
+        </div>
+      )}
+
       <div className="setup-repo">
         <label htmlFor="repo-path">{t.repoLabel}</label>
         <div className="setup-repo-row">
@@ -116,11 +148,17 @@ export function SetupPage() {
             value={draft.repoPath}
             placeholder={t.repoPlaceholder}
             onChange={(e) => setDraft((d) => (d ? { ...d, repoPath: e.target.value } : d))}
+            onBlur={(e) => void lookAtRepo(e.target.value)}
           />
           <button type="button" className="secondary" onClick={() => void pickRepo()}>
             {t.repoBrowse}
           </button>
         </div>
+        {repoNote.length > 0 ? (
+          <p className="muted" role="status">
+            {repoNote.join(" ")}
+          </p>
+        ) : null}
       </div>
 
       {needsSecret(draft.provider) && (
