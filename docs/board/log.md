@@ -160,3 +160,4 @@
 19:43 | claude | 25. docs/INSTALL.md (checked against installer script, tauri.conf, code), linked from README; 26. docs/DOGFOOD.md (steps, where each metric is read, repeat-return method tested on a seeded db, results table). Found: About page calls missing data_folder command; installer dir = data dir (BULLETIN.md) | claude/general | docs only
 20:39 | coordinator | tick 24: merged claude/general (docs/INSTALL.md, docs/DOGFOOD.md, README link; env var names checked against code). Docs only. Codex and cursor unchanged.
 21:38 | coordinator | tick 25: nothing new on any branch (all workers idle, queues done pending user actions). Slowed the coordinator loop to every 3 hours.
+00:39 | coordinator | tick 26: nothing new on any branch (codex tip has no code diff vs main, cursor last commit 11-18 11:50 already seen, builder ahead of main by 0). Idle until user acts.
