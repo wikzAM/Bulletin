@@ -169,3 +169,13 @@
 
 03:40 | claude | 21. Real NSIS install/uninstall run in a scratch folder with the user's go-ahead: installs per-user without admin, installed app + sidecar start, silent uninstall removes files, shortcuts and Uninstall entry; leaves HKCUSoftwareulletinBulletin (removed by hand). Recorded in docs/PACKAGING.md | claude/general | docs + script
 03:42 | coordinator | tick 28: merged claude/general (app.info, pick_folder, sidecar started event + transport resubscribe, aws_region, live E2E, install-test script). lint + typecheck clean on combined tree; 69 targeted tests pass; cargo check ok in D:\wt-claude (main checkout lacks the gitignored sidecar binary resource). Codex and cursor only merged main (no new work); board queues 14-18 / 17-18 waiting.
+2026-11-18 18:44 EST | Codex | Sidecar startup reconciled after merging provider settings; existing stored-provider contract and full desktop flow pass | codex/warroom-api@b7fd4a2 | lint, typecheck and 37 targeted tests green; full verify pending
+2026-11-19 03:41 -0500 | Codex | Desktop 11. Application test type import; already integrated | codex/warroom-api@091428e | verify green on 5b95950 (995 passed, three existing skips)
+2026-11-19 03:41 -0500 | Codex | Desktop 12. Question answers version the Briefing and release stations; already integrated | codex/warroom-api@831a708 | verify green on 5b95950 (995 passed, three existing skips)
+2026-11-19 03:41 -0500 | Codex | Desktop 13. Mission report metrics; already integrated | codex/warroom-api@ea61d20 | verify green on 5b95950 (995 passed, three existing skips)
+2026-11-19 03:41 -0500 | Codex | Desktop 14. Desktop flow through the sidecar; already integrated | codex/warroom-api@0e72230 | verify green on 5b95950 (995 passed, three existing skips)
+2026-11-19 03:41 -0500 | Codex | Desktop 15. Mission event stream lifecycle; already integrated | codex/warroom-api@e99acb8 | verify green on 5b95950 (995 passed, three existing skips)
+2026-11-19 03:41 -0500 | Codex | Desktop 16. Team sync groundwork; already integrated | codex/warroom-api@fe4a766 | verify green on 5b95950 (995 passed, three existing skips)
+2026-11-19 03:47 -05:00 | Codex | Desktop 17. Repeat returns and send-back reasons | codex/warroom-api@22ed27c | verify red (report hook timeout and cleanup, Task 18)
+2026-11-19 03:52 -0500 | Codex | Desktop 17. Repeat-return report and engine tests | codex/warroom-api@22ed27c | verify green on 2bc0087 (1,005 passed, three existing skips)
+2026-11-19 03:52 -0500 | Codex | Desktop 18. Per-file fixture deadlines and retrying temp cleanup | codex/warroom-api@2bc0087 | verify green (1,005 passed, three existing skips)

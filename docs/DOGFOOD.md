@@ -20,8 +20,8 @@ start. Aim for something that splits into roughly 5 to 15 tasks. Do not use the 
 3. Note the starting commit: `git rev-parse HEAD`.
 4. Write the goal in one or two sentences and keep the exact text.
 5. Decide the spending limit you are willing to lose, and write it down. The default is shown on **Settings**.
-6. Check whether the project already has `.bulletin\rules.md` (rules Bulletin learned in earlier runs). If it does not,
-   the "repeat returns" number below will be 0 by definition on this run; say so in the notes.
+6. Note whether the project started with an existing `.bulletin\rules.md`. A rule can also be promoted
+   during the run and match a later send-back.
 
 ## During the run
 
@@ -68,38 +68,7 @@ you can read straight from the recorded history:
 | **Touch rate** | under 0.3, trending to 0.1 | `touch_rate` in the report. The Receipt shows `touches` and the shipped count, so touches ÷ shipped gives the same figure. | Human touches ÷ tasks shipped. A touch is a decision you resolved or an edit after the first requirements and plan; approving the plan counts as one touch; a human answer and the requirements version it creates count as one. |
 | **Auto-answer rate** | over 70% | `auto_answer_rate` in the report (not on the Receipt). | Questions the agents asked that were answered from the requirements or from an earlier answer, ÷ all questions, including ones still waiting. |
 | **Cost per green unit** | tracked, falling across runs | `cost_per_green_unit_cents` in the report. The Receipt's **spent** divided by tasks that passed is close, but the report's figure counts held tasks as passed and does not count a pass that was sent back after a failed merge. | Total recorded model spend ÷ distinct tasks that passed their checks, in cents. |
-| **Repeat returns** | trending to zero | Not in the report; count by hand (below). | Tasks sent back for a reason that was already written as a rule in `rules.md`. |
-
-### Counting repeat returns
-
-1. List every send-back with its reason. Save this as `sent-back.mjs` (Node 24 or newer), then run it:
-
-   ```powershell
-   @'
-   import { DatabaseSync } from "node:sqlite";
-   const [file, mission] = process.argv.slice(2);
-   const db = new DatabaseSync(file, { readOnly: true });
-   const rows = db.prepare("select id, unit_id, payload from events where mission_id = ? and type = 'unit.sent_back' order by id").all(mission);
-   for (const row of rows) console.log(row.id, row.unit_id, JSON.parse(row.payload).reason);
-   console.log(rows.length + " sent back");
-   '@ | Set-Content sent-back.mjs
-   node sent-back.mjs "$env:LOCALAPPDATA\Bulletin\events.sqlite" <project id>
-   ```
-
-   (Use your `BULLETIN_DATA_DIR` instead of `%LOCALAPPDATA%\Bulletin` if you set one. The file is only read. Delete
-   `sent-back.mjs` afterwards.)
-2. Open the project's **Lessons** page (or `curl.exe http://127.0.0.1:4000/missions/<project id>/rules`). Lessons are
-   written each time a task is sent back; a reason that comes back twice is promoted to a rule in `rules.md`.
-3. To see when each rule appeared, in the project folder:
-
-   ```powershell
-   git log --format="%h %s" bulletin/<project id>/integration -- .bulletin/rules.md .bulletin/lessons.md
-   ```
-
-4. A send-back is a **repeat return** if its reason matches a rule that already existed when it happened: a rule
-   from an earlier run, or one promoted earlier in this run. Count those. If the project had no rules at the start, the
-   first send-back for each reason is never a repeat, so this run's figure can only be above 0 if the same reason came
-   back after being promoted. The number becomes meaningful from the second run on.
+| **Repeat returns** | trending to zero | `repeat_returns` in the report. The `sent_back` list has each unit ID and its reason, in order. | Send-backs whose reason matched a rule already present in `rules.md` when the unit was returned. A rule promoted by the current send-back can count on later returns. |
 
 ## Also record (not targets)
 

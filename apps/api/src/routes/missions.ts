@@ -182,12 +182,19 @@ function finishedReport(events: readonly BulletinEvent[], created: BulletinEvent
   const shipped = unitsWith("merged");
   const held = unitsWith("held");
   const green = new Set<string>();
+  const sentBack: Array<{ unit_id: string; reason: string | null }> = [];
+  let repeatReturns = 0;
   let attempts = 0;
-  for (const { unit_id, type } of history) {
+  for (const { unit_id, type, payload } of history) {
     if (type === "attempt.ended") attempts++;
     if (unit_id === null) continue;
     if (type === "pass.green") green.add(unit_id);
     if (type === "pass.red" || type === "unit.sent_back") green.delete(unit_id);
+    if (type === "unit.sent_back") {
+      const reason = typeof payload.reason === "string" ? payload.reason : null;
+      sentBack.push({ unit_id, reason });
+      if (reason !== null && payload.repeat_return === true) repeatReturns++;
+    }
   }
 
   const cost = roundCents(ledger.cost_cents);
@@ -206,6 +213,8 @@ function finishedReport(events: readonly BulletinEvent[], created: BulletinEvent
     failed: unitsWith("failed"),
     blocked: unitsWith("blocked"),
     attempts,
+    repeat_returns: repeatReturns,
+    sent_back: sentBack,
     model_calls: ledger.charges,
     cost_cents: cost,
     cost_per_green_unit_cents: green.size ? roundCents(cost / green.size) : null,

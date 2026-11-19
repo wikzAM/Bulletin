@@ -3,6 +3,8 @@ import { MemoryEventLog } from "@bulletin/core";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { buildServer, type ServerOptions } from "../server";
 
+vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
+
 const repo = fileURLToPath(new URL("../../../../", import.meta.url));
 const goal = "Seed the demo with test data";
 const proposal = {

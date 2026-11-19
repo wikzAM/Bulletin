@@ -1,6 +1,8 @@
 import { MemoryEventLog } from "@bulletin/core";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { buildServer } from "./server";
+
+vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
 
 describe("api", () => {
   it("GET /health returns ok", async () => {

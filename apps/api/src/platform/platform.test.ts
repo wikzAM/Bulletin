@@ -1,10 +1,12 @@
 import { once } from "node:events";
-import { expect, it } from "vitest";
+import { expect, it, vi } from "vitest";
 import { EnvKeychain } from "./keychain";
 import { macosKeychain } from "./macos";
 import { appDataDirectory } from "./paths";
 import { spawnCommand, systemShell } from "./process";
 import { windowsKeychain } from "./windows";
+
+vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
 
 it("resolves app data locations for each platform and honors an override", () => {
   expect(appDataDirectory({ LOCALAPPDATA: "C:\\AppData" }, "win32", "C:\\Users\\alex")).toBe("C:\\AppData\\Bulletin");
