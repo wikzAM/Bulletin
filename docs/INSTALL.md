@@ -76,8 +76,8 @@ click it the first time.
 2. **Choose how model calls are paid for:** *Claude Code login*, *Anthropic API key*, or *Amazon Bedrock*.
 3. **Paste your secret** if you chose a key or Bedrock: *Anthropic API key* takes the key; *Amazon Bedrock* takes the
    bearer token. Click **Save secret**. The field clears and the value is not shown again.
-4. **Repository folder.** Type the folder path (for example `D:\work\my-project`). The **Choose folder** button does
-   not open a folder window yet, so type or paste the path.
+4. **Repository folder.** Type the folder path (for example `D:\work\my-project`) or click **Choose folder** to pick it in
+   a Windows folder window (cancelling leaves the field as it was).
 5. **Continue.** This saves your choices and restarts Bulletin's helper program, which only reads the provider when it
    starts. After a moment the app is ready.
 
@@ -96,7 +96,7 @@ What each choice needs:
 | --- | --- |
 | Claude Code login | `claude` on your `PATH` and signed in. No key stored. |
 | Anthropic API key | The key saved on the first-run screen (`ANTHROPIC_API_KEY`). |
-| Amazon Bedrock | The token saved on the first-run screen (`AWS_BEARER_TOKEN_BEDROCK`), and a Windows environment variable `AWS_REGION` such as `us-east-1`. The app cannot set the region for you yet. |
+| Amazon Bedrock | The token saved on the first-run screen (`AWS_BEARER_TOKEN_BEDROCK`), and a Windows environment variable `AWS_REGION` such as `us-east-1`. The first-run screen has no region box yet; the sidecar also accepts an `aws_region` setting, which the screen will offer. |
 
 With a key or Bedrock, Bulletin calls the model service directly for the planner and for the building agents. With
 the Claude Code login, everything goes through `claude`. If you set the environment variables `BULLETIN_PROVIDER`

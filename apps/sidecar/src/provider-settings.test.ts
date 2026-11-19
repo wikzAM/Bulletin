@@ -33,3 +33,17 @@ it("never overrides what the environment already says; a blank value counts as u
   applyProviderSettings(blank, { provider: "bedrock" });
   expect(blank).toEqual({ BULLETIN_PROVIDER: "bedrock", BULLETIN_RUNNER: "sdk" });
 });
+
+it("passes the Bedrock region saved on first run to AWS_REGION, unless the environment already sets one", () => {
+  const fresh: NodeJS.Dict<string> = {};
+  applyProviderSettings(fresh, { provider: "bedrock", aws_region: "eu-west-1" });
+  expect(fresh).toEqual({ BULLETIN_PROVIDER: "bedrock", BULLETIN_RUNNER: "sdk", AWS_REGION: "eu-west-1" });
+
+  const explicit: NodeJS.Dict<string> = { AWS_REGION: "us-east-1" };
+  applyProviderSettings(explicit, { provider: "bedrock", aws_region: "eu-west-1" });
+  expect(explicit.AWS_REGION).toBe("us-east-1");
+
+  const notBedrock: NodeJS.Dict<string> = {};
+  applyProviderSettings(notBedrock, { provider: "anthropic-key", aws_region: "eu-west-1" });
+  expect(notBedrock.AWS_REGION).toBeUndefined();
+});

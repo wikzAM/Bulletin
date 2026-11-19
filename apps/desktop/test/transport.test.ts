@@ -82,17 +82,21 @@ function fakeTauri(handlers: Record<string, (params: Record<string, unknown>) =>
     if (!handler) throw { code: -32601, message: "Method not found" };
     return handler(params);
   });
-  const listen = vi.fn(async (_event: string, handler: (event: { payload: unknown }) => void) => {
-    listeners.add(handler);
+  const sidecarListeners = new Set<(event: { payload: unknown }) => void>();
+  const listen = vi.fn(async (name: string, handler: (event: { payload: unknown }) => void) => {
+    const set = name === "bulletin://sidecar" ? sidecarListeners : listeners;
+    set.add(handler);
     return () => {
-      listeners.delete(handler);
+      set.delete(handler);
       unlisten();
     };
   });
+  /** Rust says "started" each time it (re)starts the sidecar. */
+  const sidecarStarted = () => sidecarListeners.forEach((l) => l({ payload: "started" }));
   /** Rust emits the notification's params: { subscription_id, event }. */
   const emit = (event: BulletinEvent | Record<string, unknown>, subscriptionId = 1) =>
     listeners.forEach((l) => l({ payload: { subscription_id: subscriptionId, event } }));
-  return { invoke, listen, calls, emit, unlisten, listeners };
+  return { invoke, listen, calls, emit, unlisten, listeners, sidecarStarted };
 }
 
 describe("Tauri transport", () => {
@@ -141,7 +145,7 @@ describe("Tauri transport", () => {
     expect(onEvent.mock.calls.map(([e]) => e.id)).toEqual([3, 5]);
 
     stop();
-    expect(host.unlisten).toHaveBeenCalledTimes(1);
+    expect(host.unlisten).toHaveBeenCalledTimes(2); // the event listener and the sidecar-restart listener
     await vi.waitFor(() => expect(host.calls.map((c) => c.method)).toEqual(["subscribe", "unsubscribe"]));
     expect(host.calls[1]!.params).toEqual({ subscription_id: 1 });
     host.emit({ ...sample, id: 9 });
@@ -196,6 +200,26 @@ describe("Tauri transport", () => {
     host.emit({ ...sample, id: 6 });
     expect(onEvent).toHaveBeenCalledTimes(1);
     expect(host.calls.map((c) => c.params.after)).toEqual([0, 0, 0]);
+  });
+
+  it("when the sidecar restarts it subscribes again from the last event delivered, and stops cleanly", async () => {
+    let ids = 0;
+    const host = fakeTauri({ subscribe: () => ({ subscription_id: ++ids }), unsubscribe: () => ({ ok: true }) });
+    const t = createTauriTransport({ ...host, retryDelayMs: 1 });
+    const onEvent = vi.fn();
+    const stop = t.subscribe("m1", 0, onEvent);
+    await vi.waitFor(() => expect(host.calls.map((c) => c.method)).toEqual(["subscribe"]));
+    host.emit({ ...sample, id: 7 });
+    host.sidecarStarted();
+    await vi.waitFor(() => expect(host.calls.map((c) => c.method)).toEqual(["subscribe", "subscribe"]));
+    expect(host.calls[1]!.params).toEqual({ mission_id: "m1", after: 7 });
+    // The old subscription died with the old sidecar; its id is not unsubscribed (ids restart at 1 on a new sidecar).
+    host.emit({ ...sample, id: 7 }, 1);
+    host.emit({ ...sample, id: 8 }, 1);
+    expect(onEvent.mock.calls.map((c) => (c[0] as BulletinEvent).id)).toEqual([7, 8]);
+    stop();
+    await vi.waitFor(() => expect(host.calls.at(-1)).toEqual({ method: "unsubscribe", params: { subscription_id: 2 } }));
+    expect(host.listeners.size).toBe(0);
   });
 
   it("reports a subscribe the sidecar refuses, and stops retrying after stop()", async () => {

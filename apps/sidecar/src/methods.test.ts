@@ -39,7 +39,12 @@ const rejects = async (promise: Promise<unknown>, code: number, message?: RegExp
 };
 
 it("exposes exactly the desktop methods", () => {
-  expect(Object.keys(methods().table).sort()).toEqual(["env.check", "repo.inspect", "secret.has", "secret.set", "settings.get", "settings.set"]);
+  expect(Object.keys(methods().table).sort()).toEqual(["app.info", "env.check", "repo.inspect", "secret.has", "secret.set", "settings.get", "settings.set"]);
+});
+
+it("app.info reports the folder the sidecar keeps its data in", async () => {
+  const { table } = methods();
+  expect(await table["app.info"]!({})).toEqual({ data_folder: directory });
 });
 
 it("env.check returns the environment report", async () => {

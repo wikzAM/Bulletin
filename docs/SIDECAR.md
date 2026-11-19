@@ -28,7 +28,7 @@ object as the Tauri event payload. Register the listener before subscribing.
 
 The Tauri process supervises the child. A child exit rejects outstanding calls
 with code `-32000` and triggers a restart. Reissue reads as needed and reconnect
-subscriptions with the last event ID received. Confirm the outcome of an
+subscriptions with the last event ID received. Each time the supervisor starts a sidecar process (the first start, a crash restart, and `restart_sidecar`) it emits the Tauri event `bulletin://sidecar` with the payload `"started"`. A new process knows no subscriptions, and its subscription ids start again at 1, so on that event subscribe again from the last event ID received and do not unsubscribe the old id. The desktop transport does this. Confirm the outcome of an
 interrupted write before retrying it. On Windows, Bulletin puts the sidecar in
 a Job Object before it starts so it can stop the sidecar and its descendants
 together.
@@ -121,6 +121,14 @@ again with the last event ID your client processed.
 Send `subscription_id`. The result is `{"unsubscribed":true}` for an active
 subscription and `{"unsubscribed":false}` otherwise. Notifications already
 sent can still arrive before the response.
+
+## `app.info`
+
+Takes no parameters. Returns `{"data_folder":"<path>"}`, the folder where the sidecar keeps `events.sqlite`, `settings.json` and `scratch` (`BULLETIN_DATA_DIR`, else `%LOCALAPPDATA%Bulletin`). The About page shows it.
+
+```json
+{"jsonrpc":"2.0","id":1,"method":"app.info"}
+```
 
 ## `env.check`
 

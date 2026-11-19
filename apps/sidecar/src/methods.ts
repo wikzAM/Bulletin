@@ -35,6 +35,8 @@ export function createDesktopMethods(deps: DesktopMethodDeps): Record<string, Me
   const inspectRepo = deps.inspectRepo ?? ((path: string) => defaultInspectRepo(path, { env }));
 
   return {
+    "app.info": async () => ({ data_folder: deps.dataDirectory }),
+
     "env.check": () => checkEnvironment(),
 
     "repo.inspect": async ({ path }) => {
