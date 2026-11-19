@@ -25,6 +25,10 @@ docker compose up
 
 `GET http://localhost:4000/health` returns `{"status":"ok","service":"api"}`.
 
+## Install the desktop app
+
+The Windows app and its first project are described in [docs/INSTALL.md](docs/INSTALL.md).
+
 ## Try it without Docker
 
 ```bash
