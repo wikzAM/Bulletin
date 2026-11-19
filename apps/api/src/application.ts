@@ -68,12 +68,14 @@ export async function createApplication(options: ApplicationOptions = {}) {
     };
   }
 
+  const missionShutdown = new AbortController();
   const app = buildServer(log, {
     answererCall,
     briefingStore,
     config: { models, prices },
     interviewerCall: options.interviewerCall ?? (interviewer ? createCall(interviewer.model) : undefined),
     modelCall,
+    missionShutdown,
     questionWorkflow,
     async startMission(mission) {
       const [{ runMission }, options] = await Promise.all([
@@ -87,7 +89,7 @@ export async function createApplication(options: ApplicationOptions = {}) {
         import("./orchestrator/resolve-held"),
         engineOptions(held),
       ]);
-      return (await resolveHeld({ ...held, ...options })).outcome;
+      return (await resolveHeld({ ...held, ...options, signal: missionShutdown.signal })).outcome;
     },
   });
   app.addHook("onClose", async () => {
@@ -100,5 +102,5 @@ export async function createApplication(options: ApplicationOptions = {}) {
     await app.close();
     throw error;
   }
-  return { app, log };
+  return { app, log, stopMissions: () => missionShutdown.abort() };
 }

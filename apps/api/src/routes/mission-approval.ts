@@ -31,10 +31,14 @@ function runnerEventSink(log: EventLog, missionId: string, startup: BulletinEven
 export function registerMissionApproval(
   app: FastifyInstance,
   log: EventLog,
+  planUpdates: Set<string>,
+  shutdownSignal: AbortSignal,
   startMission?: MissionStarter,
   pricing?: MissionPricing,
 ): void {
   const active = new Map<string, AbortController>();
+  const running = new Set<Promise<unknown>>();
+  app.addHook("preClose", async () => { await Promise.all(running); });
   app.post<{ Params: { id: string } }>("/missions/:id/approve", { preValidation: validateIdParams }, async (request, reply) => {
     if (!emptyBody.safeParse(request.body).success) return reply.code(400).send({ error: "Invalid request" });
     const { id } = request.params;
@@ -44,6 +48,8 @@ export function registerMissionApproval(
     if (active.has(id) || events.some(({ type }) => type === "plan.approved" || type === "mission.finished")) {
       return reply.code(409).send({ error: "Mission already approved" });
     }
+
+    if (planUpdates.has(id)) return reply.code(409).send({ error: "Mission plan update in progress" });
 
     const proposed = events.findLast((event) => event.type === "plan.proposed");
     const execution = missionExecution(created, proposed, events);
@@ -73,16 +79,20 @@ export function registerMissionApproval(
 
     const controller = new AbortController();
     active.set(id, controller);
+    planUpdates.add(id);
     let approved: BulletinEvent;
     try {
       approved = await log.emit({ mission_id: id, type: "plan.approved" });
     } catch (error) {
       active.delete(id);
       throw error;
+    } finally {
+      planUpdates.delete(id);
     }
     const sink = runnerEventSink(log, id, [created, proposed, approved]);
-    void Promise.resolve()
-      .then(() => startMission({ ...execution, events: sink, signal: controller.signal }))
+    const signal = AbortSignal.any([controller.signal, shutdownSignal]);
+    const run = Promise.resolve()
+      .then(() => startMission({ ...execution, events: sink, signal }))
       .catch(async (error: unknown) => {
         request.log.error({ err: error }, "Mission execution failed");
         if (log.events.some((event) => event.mission_id === id && event.type === "mission.finished")) return;
@@ -94,7 +104,11 @@ export function registerMissionApproval(
           request.log.error({ err: appendError }, "Could not record mission failure");
         }
       })
-      .finally(() => active.delete(id));
+      .finally(() => {
+        active.delete(id);
+        running.delete(run);
+      });
+    running.add(run);
 
     return reply.code(202).send({ mission_id: id, status: "running" });
   });

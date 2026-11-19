@@ -13,6 +13,7 @@ mod tests;
 
 const RESTART_DELAY: Duration = Duration::from_millis(500);
 const CHECK_INTERVAL: Duration = Duration::from_millis(100);
+const SHUTDOWN_GRACE: Duration = Duration::from_secs(5);
 
 #[derive(Debug, Serialize)]
 pub(crate) struct RpcError {
@@ -187,6 +188,18 @@ impl Running {
         }
     }
 
+    fn close_stdin_and_wait(&mut self) {
+        drop(self.input.take());
+        let deadline = Instant::now() + SHUTDOWN_GRACE;
+        while matches!(self.child.child_mut().try_wait(), Ok(None)) {
+            let remaining = deadline.saturating_duration_since(Instant::now());
+            if remaining.is_zero() {
+                break;
+            }
+            thread::sleep(CHECK_INTERVAL.min(remaining));
+        }
+    }
+
     fn receive(&mut self, line: &str, emit: &impl Fn(Value)) {
         let Ok(mut frame) = serde_json::from_str::<Value>(line) else {
             return;
@@ -292,7 +305,13 @@ fn supervise(
                 running = None;
                 retry_at = Instant::now();
             }
-            Ok(Message::Shutdown) | Err(mpsc::RecvTimeoutError::Disconnected) => return,
+            Ok(Message::Shutdown) => {
+                if let Some(child) = &mut running {
+                    child.close_stdin_and_wait();
+                }
+                return;
+            }
+            Err(mpsc::RecvTimeoutError::Disconnected) => return,
         }
     }
 }

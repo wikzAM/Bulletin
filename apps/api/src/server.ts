@@ -24,6 +24,7 @@ export interface ServerOptions {
   interviewerCall?: ModelCall;
   modelCall?: ModelCall;
   missionEventFeed?: MissionEventFeed;
+  missionShutdown?: AbortController;
   pricing?: MissionPricing;
   questionStore?: QuestionStore;
   questionWorkflow?: QuestionWorkflow;
@@ -91,6 +92,8 @@ export function buildServer(events: EventLog = new MemoryEventLog(), options: Se
     }
   });
 
+  const missionShutdown = options.missionShutdown ?? new AbortController();
+  app.addHook("preClose", async () => { missionShutdown.abort(); });
   app.get("/health", async () => ({ status: "ok", service: "api" }));
   registerConfig(app, options.config);
   const briefings = options.briefingStore ?? new MemoryBriefingStore();
@@ -99,8 +102,9 @@ export function buildServer(events: EventLog = new MemoryEventLog(), options: Se
   registerMissionRoutes(app, events, options.missionEventFeed);
   registerMissionDecisions(app, events, options.resolveHeldMission);
   registerMissionRules(app, events, options.readGit);
-  registerMissionPlanning(app, events, briefings, options.modelCall);
-  registerMissionApproval(app, events, options.startMission, pricing);
+  const planUpdates = new Set<string>();
+  registerMissionPlanning(app, events, briefings, planUpdates, options.modelCall);
+  registerMissionApproval(app, events, planUpdates, missionShutdown.signal, options.startMission, pricing);
   registerQuestionRoutes(app, events, options.questionWorkflow ?? new QuestionWorkflow(events, options.questionStore ?? new MemoryQuestionStore()), options.answererCall);
 
   return app;

@@ -43,6 +43,33 @@ fn forwards_events_and_restarts_exited_sidecar() {
     assert!(sidecar.call("health".into(), None).is_err());
 }
 
+#[test]
+fn allows_the_sidecar_to_finish_on_stdin_eof() {
+    let directory = tempfile::tempdir().unwrap();
+    let marker = directory.path().join("shutdown.txt");
+    let child_marker = marker.clone();
+    let script = r#"
+            const input = require('node:readline').createInterface({ input: process.stdin });
+            input.on('line', line => {
+                const { id } = JSON.parse(line);
+                console.log(JSON.stringify({ jsonrpc: '2.0', id, result: 'ready' }));
+            });
+            input.on('close', () => setTimeout(() => {
+                require('node:fs').writeFileSync(process.argv[1], 'closed');
+            }, 100));
+    "#;
+    let build_command = move || {
+        let mut command = Command::new("node");
+        command.args(["-e", script]).arg(&child_marker);
+        command
+    };
+    let sidecar = Sidecar::start(build_command, |_| {}, || {}).unwrap();
+
+    assert_eq!(available(&sidecar), json!("ready"));
+    sidecar.shutdown();
+    assert_eq!(std::fs::read_to_string(&marker).unwrap(), "closed");
+}
+
 fn available(sidecar: &Sidecar) -> Value {
     let deadline = Instant::now() + Duration::from_secs(30);
     loop {
