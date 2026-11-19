@@ -1,4 +1,4 @@
-import { mkdtemp, rm, rmdir } from "node:fs/promises";
+import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -6,6 +6,8 @@ import { MemoryEventLog } from "@bulletin/core";
 import { expect, it, vi } from "vitest";
 import { buildServer } from "../server";
 import { JsonlBriefingStore } from "../store/briefing-store";
+
+vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
 
 const markdown = [
   "# Briefing: Demo seed", "## Goal", "Seed demo data.", "## Users", "Local developers.",
@@ -58,8 +60,7 @@ it("asks one question at a time, persists the interview, and accepts a skip", as
   } finally {
     await app.close();
     await store.close();
-    await rm(path, { force: true });
-    await rmdir(directory);
+    await rm(directory, { recursive: true, force: true, maxRetries: 20, retryDelay: 250 });
   }
 });
 

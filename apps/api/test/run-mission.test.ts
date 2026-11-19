@@ -5,7 +5,7 @@ import { dirname, join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // These tests run real git and child processes; 5s is too tight on a loaded Windows machine.
-vi.setConfig({ testTimeout: 60_000 });
+vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
 import { MemoryEventLog, type PricesConfig } from "@bulletin/core";
 import { StubRunner, type StubScript } from "@bulletin/runners/stub-runner";
 import { formatReport, runMission, type MissionReport } from "../src/orchestrator/run-mission";
@@ -70,7 +70,7 @@ afterEach(() => {
   } catch {
     /* the repo may already be gone */
   }
-  rmSync(root, { recursive: true, force: true });
+  rmSync(root, { recursive: true, force: true, maxRetries: 20, retryDelay: 250 });
 });
 
 const unit = (id: string, file: string, extra: Record<string, unknown> = {}) => ({
