@@ -194,3 +194,4 @@
 12:55 | coordinator | tick 31: merged codex/warroom-api (crash resume + mission.interrupted/resumed events, budget defaults, Markdown receipt; small matching edits in packages/core and the desktop/web war-table reducers). lint + typecheck clean; apps+packages 1033 tests pass (3 skipped). Cursor idle since 04:09 (19-21 untouched); builder nothing new. Codex queue refilled 25-27.
 15:40 | coordinator | tick 32: nothing new on any branch (codex 25-27 and cursor 19-21 untouched, builder idle). Queues stay as they are; workers likely out of usage or need a re-prompt.
 18:40 | coordinator | tick 33: nothing new on any branch (codex 25-27, cursor 19-21 untouched, builder idle).
+21:40 | coordinator | tick 34: nothing new on any branch (same as tick 33; workers idle, awaiting user re-prompt).
