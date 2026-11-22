@@ -62,12 +62,14 @@ export async function createApplication(options: ApplicationOptions = {}) {
     missionId: string; repo: string; unitAllowanceCents?: number;
   }) {
     const scratchDir = join(dataDirectory, missionId);
+    const { max_parallel_stations } = await settings.get();
     const runner = process.env.BULLETIN_RUNNER === "sdk"
       ? await createRunner(repo, scratchDir, { stationTools: await questionWorkflow.stationTools(answererCall) })
       : await createRunner(repo, scratchDir);
     return {
       scratchDir, runner, prices, tiers: models.tiers, allowedCommands: allowedLocalCommands,
       testCommand: options.testCommand,
+      parallel: typeof max_parallel_stations === "number" ? max_parallel_stations : undefined,
       unitAllowanceCents: unitAllowanceCents ?? DEFAULT_UNIT_ALLOWANCE_CENTS,
     };
   }

@@ -239,6 +239,7 @@ key is rejected with `-32602` so that nothing secret can be saved here:
 | `setup_complete` | a boolean |
 | `default_budget_cents` | integer cents from 0 through 100000, built-in default 500 |
 | `unit_allowance_cents` | integer cents from 0 through 10000, built-in default 200 |
+| `max_parallel_stations` | integer from 1 through 8, built-in default 4 |
 
 `settings.get` takes no parameters and returns `{"settings":{...}}` holding the
 keys that are set. `settings.set` takes `values`, an object of keys to new
@@ -247,6 +248,10 @@ the full settings object after the change. Settings are app configuration, not
 mission state, so changes do not appear in any mission's event log.
 Approving a project uses these defaults wherever the request or project
 does not set a limit. Removing either setting restores the built-in value.
+
+The scheduler reads `max_parallel_stations` when each mission run starts and
+uses it as the cap on active stations. Changes apply to the next run, including
+when a mission resumes. Removing the setting restores the configured default.
 
 ```json
 {"jsonrpc":"2.0","id":6,"method":"settings.set","params":{"values":{"provider":"bedrock","repo_path":null}}}
