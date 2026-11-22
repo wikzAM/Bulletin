@@ -211,3 +211,6 @@
 15:40 | coordinator | tick 48: nothing new on any branch (workers idle; awaiting user re-prompt).
 18:40 | coordinator | tick 49: nothing new on any branch (workers idle; awaiting user re-prompt).
 21:40 | coordinator | tick 50: nothing new on any branch (workers idle; awaiting user re-prompt).
+2026-11-21 23:10 -05:00 | Codex | Desktop 25. SQLite schema version and downgrade guard | codex/warroom-api@d62a552 | verify green (1,039 passed, three existing skips)
+2026-11-21 23:14 -05:00 | Codex | Desktop 26. Saved parallel station limit and full-wave concurrency fixture | codex/warroom-api@eef2074 | verify green (1,041 passed, three existing skips)
+2026-11-21 23:18 -05:00 | Codex | Desktop 27. Replayable archive and unarchive with default list filtering | codex/warroom-api@47041f2 | verify green (1,043 passed, three existing skips), 14 Rust tests green

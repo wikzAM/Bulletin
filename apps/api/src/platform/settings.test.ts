@@ -100,3 +100,14 @@ it("validates, persists, and clears the spending defaults", async () => {
   expect(await new SettingsStore(directory).get()).toEqual(limits);
   expect(await store.set({ default_budget_cents: null, unit_allowance_cents: 0 })).toEqual({ unit_allowance_cents: 0 });
 });
+
+it("stores a bounded integer station limit and can remove it", async () => {
+  const store = new SettingsStore(directory);
+  for (const invalid of [0, 9, 1.5, "2", true]) {
+    await expect(store.set({ max_parallel_stations: invalid })).rejects.toThrow("Invalid value for setting max_parallel_stations");
+  }
+  expect(await store.set({ max_parallel_stations: 8 })).toEqual({ max_parallel_stations: 8 });
+  expect(await store.set({ max_parallel_stations: 1 })).toEqual({ max_parallel_stations: 1 });
+  expect(await new SettingsStore(directory).get()).toEqual({ max_parallel_stations: 1 });
+  expect(await store.set({ max_parallel_stations: null })).toEqual({});
+});

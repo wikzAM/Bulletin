@@ -171,6 +171,10 @@ invalid output persists after a retry, the response is `502 Bad Gateway` with
 
 Returns `200 OK` with missions ordered by their creation event, oldest first.
 An empty log returns `{"missions":[]}`.
+Archived missions are hidden by default. Use `?archived=1` to include them
+alongside unarchived missions or `?archived=0` for the default behavior. Archived
+entries carry `"archived":true` here and in mission detail. The archive and
+status filters both apply before the limit.
 
 Use `status` to filter to one of `interview`, `planning`, `running`, `finished`,
 `failed`, `interrupted`, or `paused`. Use `limit` to keep the first N matching
@@ -276,6 +280,23 @@ attempt, and pass events.
 `ledger.charges` counts events with a finite numeric `payload.cost_cents` in
 `ledger.charged`. `ledger.cost_cents` sums those costs, rounded to four decimal
 places in cents. Both fields start at zero.
+
+## `POST /missions/:id/archive`
+
+Send an empty body or `{}`. Returns `200 OK` with
+`{"mission_id":"demo","archived":true}` and records `mission.archived` on the
+first transition to archived. Repeating the request returns the same state.
+Mission detail, reports, and event history remain available by ID.
+
+## `POST /missions/:id/unarchive`
+
+Send an empty body or `{}`. Returns `200 OK` with
+`{"mission_id":"demo","archived":false}` and records `mission.unarchived` when
+an archived mission returns to the default list. Repeating the request
+returns the same state.
+
+Both operations return `400 Bad Request` for an invalid body and
+`404 Not Found` for an unknown mission.
 
 ## `GET /missions/:id/treasury`
 

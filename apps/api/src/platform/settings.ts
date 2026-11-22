@@ -22,6 +22,7 @@ const VALIDATORS: Record<string, (value: unknown) => boolean> = {
   setup_complete: (value) => typeof value === "boolean",
   default_budget_cents: (value) => validCents(value, MAX_DEFAULT_BUDGET_CENTS),
   unit_allowance_cents: (value) => validCents(value, MAX_UNIT_ALLOWANCE_CENTS),
+  max_parallel_stations: (value) => typeof value === "number" && Number.isInteger(value) && value >= 1 && value <= 8,
   // A region name such as us-east-1 or us-gov-west-1 (Bedrock).
   aws_region: (value) => typeof value === "string" && /^[a-z]{2}(?:-[a-z]+)+-[0-9]$/.test(value),
 };

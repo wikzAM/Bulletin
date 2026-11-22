@@ -11,6 +11,8 @@ const EVENT_TYPE_SET: Record<EventType, true> = {
   "mission.created": true,
   "mission.interrupted": true,
   "mission.resumed": true,
+  "mission.archived": true,
+  "mission.unarchived": true,
   "briefing.versioned": true,
   "plan.proposed": true,
   "plan.approved": true,
