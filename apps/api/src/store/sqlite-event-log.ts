@@ -5,8 +5,8 @@ import { BulletinEventSchema, type BulletinEvent, type NewEvent } from "@bulleti
 import type { EventLog } from "./event-log";
 import { JsonlEventLog } from "./jsonl-event-log";
 
-const schema = `
-  PRAGMA busy_timeout = 5000;
+// The one-based position of each SQL script is its schema version.
+const migrations = [`
   CREATE TABLE IF NOT EXISTS events (
     id INTEGER PRIMARY KEY AUTOINCREMENT CHECK (id BETWEEN 1 AND 9007199254740991),
     mission_id TEXT NOT NULL,
@@ -22,7 +22,54 @@ const schema = `
   CREATE TRIGGER IF NOT EXISTS events_no_replace BEFORE INSERT ON events
     WHEN EXISTS (SELECT 1 FROM events WHERE id = NEW.id)
     BEGIN SELECT RAISE(ABORT, 'events table is append-only'); END;
-`;
+`];
+
+const selectEvents = "SELECT id, mission_id, ts, type, unit_id, payload FROM events ORDER BY id";
+
+export class UnsupportedSqliteSchemaError extends Error {
+  constructor() {
+    super("This database requires a newer version of Bulletin.");
+  }
+}
+
+function migrate(db: DatabaseSync): void {
+  db.exec("PRAGMA busy_timeout = 5000");
+  db.exec("BEGIN IMMEDIATE");
+  try {
+    const versionTable = db.prepare("SELECT 1 FROM sqlite_schema WHERE type = 'table' AND name = 'schema_version'").get();
+    let version = 0;
+    if (versionTable) {
+      const versions = db.prepare("SELECT version FROM schema_version LIMIT 2").all();
+      const recorded = versions[0]?.version;
+      if (versions.length !== 1 || typeof recorded !== "number" || !Number.isSafeInteger(recorded) || recorded < 0) {
+        throw new Error("This database has an invalid Bulletin schema version.");
+      }
+      if (recorded > migrations.length) throw new UnsupportedSqliteSchemaError();
+      version = recorded;
+    } else {
+      db.exec(`
+        CREATE TABLE schema_version (
+          singleton INTEGER PRIMARY KEY CHECK (singleton = 1),
+          version INTEGER NOT NULL CHECK (version >= 0)
+        ) STRICT;
+      `);
+    }
+    for (const migration of migrations.slice(version)) db.exec(migration);
+    if (!versionTable || version < migrations.length) {
+      // A legacy table must have the event columns before it is marked as migrated.
+      db.prepare(selectEvents);
+      db.prepare(`
+        INSERT INTO schema_version (singleton, version) VALUES (1, ?)
+        ON CONFLICT (singleton) DO UPDATE SET version = excluded.version
+      `).run(migrations.length);
+    }
+    db.exec("COMMIT");
+  } catch (error) {
+    db.exec("ROLLBACK");
+    throw error;
+  }
+}
+
 
 async function importLegacy(db: DatabaseSync, path: string): Promise<void> {
   const hasEvents = db.prepare("SELECT 1 FROM events LIMIT 1");
@@ -63,9 +110,9 @@ export class SqliteEventLog implements EventLog {
     await mkdir(dirname(path), { recursive: true });
     const db = new DatabaseSync(path);
     try {
-      db.exec(schema);
+      migrate(db);
       if (legacyPath) await importLegacy(db, legacyPath);
-      const records = db.prepare("SELECT id, mission_id, ts, type, unit_id, payload FROM events ORDER BY id").all();
+      const records = db.prepare(selectEvents).all();
       const events = records.map((row) => BulletinEventSchema.parse({ ...row, payload: JSON.parse(String(row.payload)) }));
       return new SqliteEventLog(db, events);
     } catch (error) {

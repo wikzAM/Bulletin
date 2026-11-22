@@ -25,6 +25,74 @@ afterEach(async () => {
   await rmdir(directory);
 });
 
+it("records the current schema version for a fresh database", async () => {
+  log = await SqliteEventLog.open(database);
+  const db = new DatabaseSync(database);
+  try {
+    expect(db.prepare("SELECT version FROM schema_version").all()).toEqual([{ version: 1 }]);
+  } finally {
+    db.close();
+  }
+});
+
+it("upgrades an unversioned database without changing its events or next ID", async () => {
+  const db = new DatabaseSync(database);
+  try {
+    db.exec(`
+      CREATE TABLE events (
+        id INTEGER PRIMARY KEY AUTOINCREMENT CHECK (id BETWEEN 1 AND 9007199254740991),
+        mission_id TEXT NOT NULL,
+        ts TEXT NOT NULL,
+        type TEXT NOT NULL,
+        unit_id TEXT,
+        payload TEXT NOT NULL CHECK (json_valid(payload))
+      ) STRICT;
+      INSERT INTO events VALUES (8, 'demo', '2026-11-19T15:00:00Z', 'mission.created', NULL, '{}');
+    `);
+  } finally {
+    db.close();
+  }
+
+  log = await SqliteEventLog.open(database);
+  expect(log.events).toEqual([{
+    id: 8, mission_id: "demo", ts: "2026-11-19T15:00:00Z", type: "mission.created", unit_id: null, payload: {},
+  }]);
+  expect((await log.emit({ mission_id: "demo", type: "mission.finished" })).id).toBe(9);
+
+  const upgraded = new DatabaseSync(database);
+  try {
+    expect(upgraded.prepare("SELECT version FROM schema_version").all()).toEqual([{ version: 1 }]);
+    expect(() => upgraded.exec("DELETE FROM events")).toThrow(/append.only/i);
+  } finally {
+    upgraded.close();
+  }
+});
+
+it("refuses a database from a newer Bulletin without changing its schema", async () => {
+  const db = new DatabaseSync(database);
+  try {
+    db.exec(`
+      CREATE TABLE schema_version (version INTEGER NOT NULL);
+      INSERT INTO schema_version VALUES (99);
+      CREATE TABLE future_events (body TEXT);
+      INSERT INTO future_events VALUES ('keep this');
+    `);
+  } finally {
+    db.close();
+  }
+
+  const open = async () => { log = await SqliteEventLog.open(database); };
+  await expect(open()).rejects.toThrow("This database requires a newer version of Bulletin.");
+  const reopened = new DatabaseSync(database);
+  try {
+    expect(reopened.prepare("SELECT version FROM schema_version").all()).toEqual([{ version: 99 }]);
+    expect(reopened.prepare("SELECT body FROM future_events").all()).toEqual([{ body: "keep this" }]);
+    expect(reopened.prepare("SELECT name FROM sqlite_schema WHERE name = 'events'").get()).toBeUndefined();
+  } finally {
+    reopened.close();
+  }
+});
+
 it("publishes committed events in stable order and restores the same stream on reopen", async () => {
   log = await openEventLog(directory, legacy);
   const published = log.events;

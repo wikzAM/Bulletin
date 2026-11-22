@@ -7,6 +7,18 @@ Multiple requests can be in flight. Close stdin or call `shutdown` to stop the s
 
 From the repository root, launch it with `pnpm exec tsx apps/sidecar/src/main.ts`.
 
+## Event database upgrades
+
+The sidecar stores events in `events.sqlite` in the app data folder. The
+`schema_version` table records the version. Opening a fresh or unversioned
+database installs schema version 1, preserving existing events and IDs.
+Pending migrations run in order in a single transaction before events are read
+or imported from JSONL.
+
+If the database was written by a newer schema, the sidecar refuses to open it
+and writes “This database requires a newer version of Bulletin.” to stderr.
+Use a compatible Bulletin version to open that database.
+
 ## Desktop flow test
 
 Run `pnpm exec vitest run apps/sidecar/src/desktop-flow.test.ts` to drive the
