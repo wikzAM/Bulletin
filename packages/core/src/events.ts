@@ -5,6 +5,8 @@ export const EVENT_TYPES = [
   "mission.created",
   "mission.interrupted",
   "mission.resumed",
+  "mission.archived",
+  "mission.unarchived",
   "briefing.versioned",
   "plan.proposed",
   "plan.approved",

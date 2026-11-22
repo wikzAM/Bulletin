@@ -7,13 +7,14 @@ import type { MissionEventFeed } from "./mission-event-feed";
 import { registerMissionEventStream } from "./mission-events";
 import { missionLimits, readLedgerCharge, roundCents } from "./mission-ledger";
 import { renderMissionReceipt } from "./mission-receipt";
-import { validateIdParams } from "./request-validation";
+import { emptyBody, validateIdParams } from "./request-validation";
 
 const missionStatus = z.enum(["interview", "planning", "running", "finished", "failed", "interrupted", "paused"]);
 type MissionStatus = z.infer<typeof missionStatus>;
 
 const missionListQuery = z.object({
   status: missionStatus.optional(),
+  archived: z.enum(["0", "1"]).optional(),
   limit: z.string().regex(/^\d+$/).transform(Number).pipe(z.number().int().nonnegative()).optional(),
 });
 
@@ -23,6 +24,7 @@ interface MissionSummary {
   base: string | null;
   created_at: string;
   status: MissionStatus;
+  archived?: true;
 }
 
 interface MissionUnit {
@@ -72,9 +74,11 @@ function listMissions(events: readonly BulletinEvent[]): MissionSummary[] {
         status: "interview",
       });
     }
-    if (type === "briefing.versioned" && payload.reason === "question_answer") continue;
+    if (!mission || (type === "briefing.versioned" && payload.reason === "question_answer")) continue;
+    if (type === "mission.archived") mission.archived = true;
+    if (type === "mission.unarchived") delete mission.archived;
     const status = missionStatuses[type];
-    if (mission && status) {
+    if (status) {
       mission.status = status;
       if (type === "mission.finished" && payload.status === "failed") mission.status = "failed";
       if (type === "mission.finished" && payload.paused === true) mission.status = "paused";
@@ -234,8 +238,10 @@ export function registerMissionRoutes(app: FastifyInstance, log: EventLog, feed?
   app.get("/missions", async (request, reply) => {
     const filters = missionListQuery.safeParse(request.query);
     if (!filters.success) return reply.code(400).send({ error: "Invalid request" });
-    const { status, limit } = filters.data;
-    const missions = listMissions(log.events).filter((mission) => status === undefined || mission.status === status);
+    const { status, limit, archived } = filters.data;
+    const missions = listMissions(log.events).filter((mission) =>
+      (archived === "1" || !mission.archived) && (status === undefined || mission.status === status),
+    );
     return { missions: missions.slice(0, limit) };
   });
 
@@ -246,6 +252,32 @@ export function registerMissionRoutes(app: FastifyInstance, log: EventLog, feed?
     const { units, ledger } = missionProgress(events);
     return { ...mission, units, ledger: { ...ledger, cost_cents: roundCents(ledger.cost_cents) } };
   });
+
+  const archiveWrites = new Map<string, Promise<void>>();
+  for (const [operation, archived] of [["archive", true], ["unarchive", false]] as const) {
+    app.post<{ Params: { id: string } }>(`/missions/:id/${operation}`, { preValidation: validateIdParams }, async (request, reply) => {
+      if (!emptyBody.safeParse(request.body).success) return reply.code(400).send({ error: "Invalid request" });
+      const { id } = request.params;
+      const created = log.events.find((event) => event.mission_id === id && event.type === "mission.created");
+      if (!created) return reply.code(404).send({ error: "Mission not found" });
+
+      const previous = archiveWrites.get(id) ?? Promise.resolve();
+      const write = previous.catch(() => undefined).then(async () => {
+        const latest = log.events.findLast((event) => event.mission_id === id && event.id > created.id &&
+          (event.type === "mission.archived" || event.type === "mission.unarchived"));
+        if ((latest?.type === "mission.archived") !== archived) {
+          await log.emit({ mission_id: id, type: archived ? "mission.archived" : "mission.unarchived" });
+        }
+      });
+      archiveWrites.set(id, write);
+      try {
+        await write;
+        return { mission_id: id, archived };
+      } finally {
+        if (archiveWrites.get(id) === write) archiveWrites.delete(id);
+      }
+    });
+  }
 
   app.get<{ Params: { id: string } }>("/missions/:id/treasury", { preValidation: validateIdParams }, async (request, reply) => {
     const { id } = request.params;
