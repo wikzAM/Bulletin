@@ -5,13 +5,14 @@ import { copy } from "../lib/copy";
 import { formatCents, formatPercent } from "../lib/format";
 import { reportLines, type ReportOutcome } from "../lib/report";
 import { NotFoundPage } from "./NotFoundPage";
-import { PageShell } from "./PageStates";
+import { PageError, PageShell } from "./PageStates";
 
 /** Numbers from GET /missions/:id/report. Missing metrics say they are not available yet. */
 export function ReportPage() {
   const { id: rawId } = useParams<{ id: string }>();
   const missionId = rawId ? decodeURIComponent(rawId) : "";
   const [outcome, setOutcome] = useState<ReportOutcome | "loading" | "error">("loading");
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     if (!missionId) return;
@@ -27,12 +28,13 @@ export function ReportPage() {
     return () => {
       cancel = true;
     };
-  }, [missionId]);
+  }, [missionId, attempt]);
 
   if (!missionId) return <NotFoundPage />;
+  if (outcome === "error") return <PageError onRetry={() => setAttempt((n) => n + 1)} />;
 
   const t = copy.report;
-  const lines = outcome !== "loading" && outcome !== "error" && outcome.kind === "ready"
+  const lines = outcome !== "loading" && outcome.kind === "ready"
     ? reportLines(outcome.report, formatCents, formatPercent)
     : null;
 
@@ -46,7 +48,7 @@ export function ReportPage() {
       </p>
       <h1>{t.title}</h1>
       {outcome === "loading" ? <p className="muted">{t.loading}</p> : null}
-      {outcome === "error" || (outcome !== "loading" && outcome.kind === "not_available") ? (
+      {outcome !== "loading" && outcome.kind === "not_available" ? (
         <p className="muted">{t.unavailable}</p>
       ) : null}
       {lines ? (

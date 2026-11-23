@@ -3,7 +3,7 @@ import models from "../../../../config/models.json";
 import prices from "../../../../config/prices.json";
 import type { BriefingReply } from "./api-adapters";
 import { briefingFromGoal, briefingGoal } from "./interview";
-import type { ApproveResult, CreateMissionResponse, MissionDetail, MissionSummary, Question, ResolveResult, StopResult, TreasuryInfo } from "./types";
+import type { ApproveResult, CreateMissionResponse, MissionDetail, MissionSummary, Question, ResolveResult, ReviseResult, StopResult, TreasuryInfo } from "./types";
 
 const TODO_ID = "m-todo";
 const NOTES_ID = "m-notes";
@@ -55,6 +55,19 @@ export const mockMissions: MissionDetail[] = [
 const MOCK_TASK_ESTIMATE_CENTS = 15;
 
 /** Mirrors POST /missions/:id/approve: refuses when the estimate is over budget, otherwise starts. */
+const mockRevised = new Set<string>();
+
+/** Sample data cannot re-plan: it records the one allowed revision and returns the tasks unchanged. */
+export function mockReviseMission(id: string, comment: string): ReviseResult {
+  void comment;
+  const mission = mockMissions.find((m) => m.id === id);
+  if (!mission) return { ok: false, reason: "not_found" };
+  if (mission.status !== "planning") return { ok: false, reason: "closed" };
+  if (mockRevised.has(id)) return { ok: false, reason: "already" };
+  mockRevised.add(id);
+  return { ok: true, units: mission.units };
+}
+
 export function mockApproveMission(id: string): ApproveResult {
   const mission = mockMissions.find((m) => m.id === id);
   if (!mission) return { ok: false, reason: "not_found" };

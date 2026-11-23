@@ -59,6 +59,12 @@ export type ApproveResult =
   | { ok: false; reason: "over_budget"; budget_cents: number; estimated_cents: number; spent_cents: number; shortfall_cents: number }
   | { ok: false; reason: ApproveRefusal };
 
+/** Why a plan revision was not made (POST /missions/:id/revise, docs/API.md). */
+export type ReviseRefusal = "already" | "no_plan" | "closed" | "busy" | "not_found" | "invalid" | "planning_failed";
+
+/** A revised plan comes back whole, as the tasks the person will approve. */
+export type ReviseResult = { ok: true; units: PlannedUnit[] } | { ok: false; reason: ReviseRefusal };
+
 export interface MissionDetail extends MissionSummary {
   repo: string;
   units: PlannedUnit[];

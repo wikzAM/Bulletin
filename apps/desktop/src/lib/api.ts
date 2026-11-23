@@ -9,6 +9,7 @@ import {
   toQuestion,
   toQuestions,
   toResolveResult,
+  toReviseResult,
   toRulesInfo,
   toStopResult,
   toSettings,
@@ -18,9 +19,9 @@ import {
 import { EVENT_TYPE_LIST, parseEventData } from "./guards";
 import { interpretReport, type ReportOutcome } from "./report";
 import { createDefaultTransport } from "./transport";
-import { mockAnswerBriefing, mockApproveMission, mockCreateMission, mockEvents, mockStartBriefing, mockMissions, mockQuestions, mockResolveDecision, mockRules, mockSettings, mockSpend, mockStopMission, mockSummaries, mockTreasury } from "./mock";
+import { mockAnswerBriefing, mockApproveMission, mockCreateMission, mockEvents, mockStartBriefing, mockMissions, mockQuestions, mockResolveDecision, mockReviseMission, mockRules, mockSettings, mockSpend, mockStopMission, mockSummaries, mockTreasury } from "./mock";
 import type { ProjectSpend } from "./spend";
-import type { ApproveResult, CreateMissionResponse, MissionDetail, MissionSummary, Question, ResolveResult, SettingsInfo, StopResult, TreasuryInfo } from "./types";
+import type { ApproveResult, CreateMissionResponse, MissionDetail, MissionSummary, Question, ResolveResult, ReviseResult, SettingsInfo, StopResult, TreasuryInfo } from "./types";
 
 /**
  * The only module that talks to the API (routes in docs/API.md). With VITE_API_URL unset,
@@ -180,6 +181,13 @@ export async function approveMission(missionId: string): Promise<ApproveResult> 
   if (usingMock) return mockApproveMission(missionId);
   const res = await postJson(`/missions/${encodeURIComponent(missionId)}/approve`, {});
   return toApproveResult(res.status, res.body);
+}
+
+/** Ask the General to change the proposed plan once. Refusals come back as a reason; the new plan comes back whole. */
+export async function reviseMission(missionId: string, comment: string): Promise<ReviseResult> {
+  if (usingMock) return mockReviseMission(missionId, comment);
+  const res = await postJson(`/missions/${encodeURIComponent(missionId)}/revise`, { comment });
+  return toReviseResult(res.status, res.body);
 }
 
 export type ConnectionState = "connecting" | "live" | "reconnecting";
