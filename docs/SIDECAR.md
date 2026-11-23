@@ -131,7 +131,9 @@ Send `method`, a root-relative API `path` with an optional query string, and
 an optional JSON `body`. The result contains the HTTP `status` and the parsed
 `body`. Responses with an empty body return `null`. HTTP errors retain their
 status and body here. API route names and response shapes are shared with the
-headless service. See [API reference](API.md).
+headless service. See [API reference](API.md). The mission's
+`events.ndjson` download comes back as a string in `body`, with the same
+redacted lines as the HTTP response.
 
 ```json
 {"jsonrpc":"2.0","id":2,"method":"request","params":{"method":"GET","path":"/missions"}}

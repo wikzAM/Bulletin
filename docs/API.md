@@ -389,6 +389,38 @@ of the receipt.
 - `409 Conflict` with `{"error":"Mission has not finished"}` while the mission is
   running or interrupted.
 
+## `GET /missions/:id/events.ndjson`
+
+Downloads a snapshot of the mission's stored events, including archived or
+running missions. The response is `200 OK` with
+`Content-Type: application/x-ndjson; charset=utf-8`, attachment filename
+`events.ndjson`, and `Cache-Control: no-store`. It writes one UTF-8 JSON
+object per line in ascending event ID order, then closes. Events appended
+after the snapshot begins are available in the next download. An unknown
+mission returns `404 Not Found` with `{"error":"Mission not found"}`.
+
+Each object keeps the event envelope and a redacted `payload` object. The
+export checks nested objects and arrays and ignores casing and separators in
+field names. It removes the following:
+
+- Credential fields, including keys, tokens, secrets, passwords, passphrases,
+  authorization headers, cookies, credential lists, environment blobs,
+  and database URLs. Usage metrics such as `input_tokens` are retained.
+- File and tool content fields, including content, source code, diffs,
+  patches, stdout, stderr, output, file data and transcripts. It also drops
+  prose fields such as goals, descriptions, Briefing markdown, comments,
+  dispatch bodies and answers, model prompts and responses, evidence,
+  error details and reasons.
+- Keys and string values that contain recognized provider credentials
+  (Anthropic or OpenAI keys, GitHub and Slack tokens, AWS and Google keys),
+  JWTs, PEM private keys, Basic or Bearer credentials, URLs with embedded
+  passwords, or current Bulletin, Anthropic or AWS credentials.
+
+Redacted object fields and array entries are omitted. If a credential pattern
+appears in an envelope's mission or unit ID, that ID is replaced by
+`[redacted]`. Other metadata, including repository paths and filenames, can
+remain. The stored events and the SSE stream retain their original payloads.
+
 ## `GET /missions/:id/events?after=<event id>`
 
 Returns `200 OK` with `Content-Type: text/event-stream; charset=utf-8`.

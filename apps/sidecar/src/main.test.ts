@@ -78,7 +78,7 @@ it("proxies Fastify requests and closes a finished mission replay over stdio", a
     const log = await SqliteEventLog.open(path);
     const finished = await (async () => {
       try {
-        await log.emit({ mission_id: "demo", type: "mission.created" });
+        await log.emit({ mission_id: "demo", type: "mission.created", payload: { api_key: sentinel } });
         return await log.emit({ mission_id: "demo", type: "mission.finished" });
       } finally {
         await log.close();
@@ -203,6 +203,17 @@ it("proxies Fastify requests and closes a finished mission replay over stdio", a
       expect(diskLog).not.toContain("ghp_sentinel_token");
       expect(diskLog).not.toContain(directory);
       expect(diskLog).not.toMatch(/leak@example|org-leak/);
+
+      send(30, "request", { method: "GET", path: "/missions/demo/events.ndjson" });
+      const exported = await receive();
+      expect(exported).toMatchObject({ id: 30, result: { status: 200, body: expect.any(String) } });
+      const { body } = exported.result as { body: string };
+      expect(body.trimEnd().split("\n").map((line) => JSON.parse(line) as unknown)).toEqual([
+        expect.objectContaining({ type: "mission.created", payload: {} }),
+        finished,
+        expect.objectContaining({ type: "dispatch.asked" }),
+        expect.objectContaining({ type: "decision.opened" }),
+      ]);
 
       // No frame carries a secret value or anything from `claude auth status` beyond the login flag.
       const everything = raw.join("|");

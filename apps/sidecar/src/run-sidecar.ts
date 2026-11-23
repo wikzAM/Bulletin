@@ -57,7 +57,8 @@ async function proxy(app: Application["app"], params: Record<string, unknown>) {
 
   let raw = "";
   for await (const chunk of response.stream().setEncoding("utf8")) raw += chunk;
-  return { status: response.statusCode, body: raw === "" ? null : contentType.includes("json") ? JSON.parse(raw) : raw };
+  const json = /^(?:application\/json|[^;]+\+json)(?:;|$)/i.test(contentType);
+  return { status: response.statusCode, body: raw === "" ? null : json ? JSON.parse(raw) : raw };
 }
 
 export async function runSidecar(
