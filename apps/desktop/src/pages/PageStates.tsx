@@ -8,7 +8,7 @@ export function PageLoading() {
 export function PageError({ onRetry }: { onRetry?: () => void }) {
   const t = copy.states.error;
   return (
-    <section aria-labelledby="page-error-title">
+    <section aria-labelledby="page-error-title" role="alert">
       <h1 id="page-error-title">{t.title}</h1>
       <p>{t.body}</p>
       {onRetry && (

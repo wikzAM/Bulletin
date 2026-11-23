@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useReducer, useState } from "react";
+import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { initialRestartNotice, reduceRestartNotice } from "../lib/sidecar-notice";
 import type { BulletinEvent } from "@bulletin/core";
-import { approveMission, listQuestions, stopMission, subscribeEvents, type ConnectionState } from "../lib/api";
+import { approveMission, listQuestions, reviseMission, stopMission, subscribeEvents, type ConnectionState } from "../lib/api";
 import type { Question } from "../lib/types";
 import { InboxDrawer } from "./InboxDrawer";
 import { approveMessage, canApprove, type ApproveMessage } from "../lib/approve";
@@ -25,7 +25,7 @@ import {
 import { PlanFlow } from "./PlanFlow";
 import { PlanReview } from "./PlanReview";
 import { CourierLayer, ReceiptCard } from "./WarExtras";
-import { nextRevisionCount } from "../lib/plan-review";
+import { nextRevisionCount, reviseMessage, revisionSpent, type ReviseMessage } from "../lib/plan-review";
 
 const t = copy.missionPage;
 const tt = copy.treasury;
@@ -151,6 +151,7 @@ export function WarTable({
   const [restart, noteRestart] = useReducer(reduceRestartNotice, initialRestartNotice);
   const heldCount = heldForYou(state, {}).length;
   const [drawerOpen, setDrawerOpen] = useState(heldCount > 0);
+  const [planUnits, setPlanUnits] = useState(units);
   const [revisionsUsed, setRevisionsUsed] = useState(0);
   const [revising, setRevising] = useState(false);
   const [questions, setQuestions] = useState<Question[]>([]);
@@ -193,12 +194,15 @@ export function WarTable({
     if (heldCount > 0 || questions.some((q) => q.status === "open")) setDrawerOpen(true);
   }, [heldCount, questions]);
 
-  const onRevise = async (comment: string) => {
+  const onRevise = async (comment: string): Promise<ReviseMessage> => {
     setRevising(true);
     try {
-      // Revision request is recorded locally until a revise route exists; count enforces the one-revision rule.
-      void comment;
-      setRevisionsUsed((n) => nextRevisionCount(n));
+      const result = await reviseMission(missionId, comment);
+      if (result.ok) setPlanUnits(result.units);
+      if (revisionSpent(result)) setRevisionsUsed((n) => nextRevisionCount(n));
+      return reviseMessage(result);
+    } catch {
+      return { tone: "error", text: copy.planReview.revision.failed };
     } finally {
       setRevising(false);
     }
@@ -213,7 +217,7 @@ export function WarTable({
       ) : null}
       {canApprove(status, state) && (
         <PlanReview
-          units={units}
+          units={planUnits}
           estimateCents={treasury?.budget_cents ?? 500}
           revisionsUsed={revisionsUsed}
           onRevise={onRevise}
@@ -299,6 +303,16 @@ function StopPanel({ missionId }: { missionId: string }) {
   const [asking, setAsking] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
+  const stopButton = useRef<HTMLButtonElement>(null);
+  const keepGoing = useRef<HTMLButtonElement>(null);
+  const wasAsking = useRef(false);
+
+  // Keyboard users: asking moves focus to the safe answer ("No"); closing it puts focus back on the Stop button.
+  useEffect(() => {
+    if (asking) keepGoing.current?.focus();
+    else if (wasAsking.current) stopButton.current?.focus();
+    wasAsking.current = asking;
+  }, [asking]);
 
   const stop = async () => {
     setBusy(true);
@@ -316,18 +330,24 @@ function StopPanel({ missionId }: { missionId: string }) {
   return (
     <div className="stop" aria-busy={busy}>
       {!asking && message?.tone !== "ok" && (
-        <button type="button" className="secondary" onClick={() => setAsking(true)}>
+        <button ref={stopButton} type="button" className="secondary" onClick={() => setAsking(true)}>
           {ts.button}
         </button>
       )}
       {asking && (
-        <div role="group" aria-label={ts.button}>
+        <div
+          role="group"
+          aria-label={ts.button}
+          onKeyDown={(e) => {
+            if (e.key === "Escape" && !busy) setAsking(false);
+          }}
+        >
           <p>{ts.confirm}</p>
           <div className="actions">
             <button type="button" onClick={() => void stop()} disabled={busy}>
               {busy ? ts.stopping : ts.yes}
             </button>
-            <button type="button" className="secondary" onClick={() => setAsking(false)} disabled={busy}>
+            <button ref={keepGoing} type="button" className="secondary" onClick={() => setAsking(false)} disabled={busy}>
               {ts.no}
             </button>
           </div>

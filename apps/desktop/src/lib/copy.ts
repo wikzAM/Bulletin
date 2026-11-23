@@ -33,9 +33,9 @@ export const copy = {
   states: {
     loading: "Loading…",
     error: {
-      title: "Something went wrong",
-      body: "The page could not load. The server may be down or still starting.",
-      retry: "Try again",
+      title: "Bulletin's background service is not running",
+      body: "This page could not load because Bulletin could not reach its background service. It may still be starting, so wait a moment and try again. If it keeps failing, close Bulletin and open it again.",
+      retry: "Retry",
     },
     notFound: { title: "Page not found", body: "There is nothing at this address.", home: "Go to projects" },
   },
@@ -183,6 +183,17 @@ export const copy = {
     commentSend: "Send revision request",
     commentUsed: "A revision was already requested for this plan.",
     commentEmpty: "Write a short note before sending.",
+    revision: {
+      ok: "The plan was changed. Check the new tasks, then approve it.",
+      already: "A revision was already requested for this plan.",
+      noPlan: "There is no plan to change yet.",
+      closed: "This plan was already approved or the project has ended, so it cannot be changed.",
+      busy: "The plan is being updated right now. Try again in a moment.",
+      notFound: "This project no longer exists.",
+      invalid: "The note could not be sent. Check that it is not empty, then try again.",
+      planningFailed: "The plan could not be changed this time. Your first plan is still there, and you can try again.",
+      failed: "The revision request could not be sent. Try again.",
+    },
     lanes: "How each task joins the project",
   },
   setup: {

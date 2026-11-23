@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useRef, type ReactNode } from "react";
 import { formatCents } from "../lib/format";
 import { copy } from "../lib/copy";
 import { activeCouriers, missionReceipt, prefersReducedMotion, type Courier } from "../lib/war-extras";
@@ -60,9 +60,20 @@ export function DecisionDrawer({
   count: number;
 }) {
   const d = copy.drawer;
+  const toggle = useRef<HTMLButtonElement>(null);
   return (
-    <aside className={`decision-drawer${open ? " open" : ""}`} aria-label={copy.held.title}>
-      <button type="button" className="drawer-toggle" onClick={onToggle} aria-expanded={open}>
+    <aside
+      className={`decision-drawer${open ? " open" : ""}`}
+      aria-label={copy.held.title}
+      onKeyDown={(e) => {
+        // Escape closes the drawer and keeps keyboard focus on its button instead of losing it with the content.
+        if (e.key === "Escape" && open) {
+          onToggle();
+          toggle.current?.focus();
+        }
+      }}
+    >
+      <button ref={toggle} type="button" className="drawer-toggle" onClick={onToggle} aria-expanded={open}>
         {open ? d.close : d.open}
         {count > 0 ? ` (${count})` : ""}
       </button>

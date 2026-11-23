@@ -1,6 +1,7 @@
 import { isLane, isRecord, parsePlan } from "./guards";
 import type { InterviewQuestion } from "./interview";
-import type { ApproveRefusal, ApproveResult, CreateMissionResponse, MissionDetail, MissionStatus, MissionSummary, PlannedUnit, Question, ResolveResult, SettingsInfo, StopResult, TreasuryInfo } from "./types";
+import { planBatches } from "./plan";
+import type { ApproveRefusal, ApproveResult, CreateMissionResponse, MissionDetail, MissionStatus, MissionSummary, PlannedUnit, Question, ResolveResult, ReviseRefusal, ReviseResult, SettingsInfo, StopResult, TreasuryInfo } from "./types";
 
 /*
  * Turn API bodies (docs/API.md on codex/warroom-api) into the shapes the pages use. Everything here
@@ -181,6 +182,30 @@ export function toApproveResult(status: number, body: unknown): ApproveResult {
   const reason = error ? APPROVE_REFUSALS[error] : undefined;
   if (reason) return { ok: false, reason };
   throw new Error(error ?? `POST approve failed: ${status}`);
+}
+
+const REVISE_REFUSALS: Record<string, ReviseRefusal> = {
+  "Mission already revised": "already",
+  "Mission has no plan to revise": "no_plan",
+  "Mission is no longer awaiting approval": "closed",
+  "Mission plan update in progress": "busy",
+  "Mission not found": "not_found",
+  "Invalid request": "invalid",
+};
+
+/** 200 carries the replacement plan; the documented refusals become a reason; anything else throws. */
+export function toReviseResult(status: number, body: unknown): ReviseResult {
+  if (status >= 200 && status < 300) {
+    const plan = isRecord(body) ? parsePlan(body.plan) : null;
+    if (!plan) throw new Error("POST revise returned no usable plan");
+    return { ok: true, units: planBatches(plan).waves.flatMap((wave, i) => wave.map((u) => ({ id: u.id, title: u.title, lane: u.lane, wave: i + 1, needs: u.needs.map((n) => n.unit) }))) };
+  }
+  const error = isRecord(body) ? str(body.error) : null;
+  const reason = error ? REVISE_REFUSALS[error] : undefined;
+  if (reason) return { ok: false, reason };
+  if (status === 400) return { ok: false, reason: "invalid" };
+  if (status === 422 || status === 503) return { ok: false, reason: "planning_failed" };
+  throw new Error(error ?? `POST revise failed: ${status}`);
 }
 
 /** 201 carries a plan; 422/503 with an errors list are planning failures; anything else throws. */

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { copy, LANE_LABELS } from "../lib/copy";
 import { formatCents } from "../lib/format";
-import { canRequestRevision, fareRangeCents, formatFareRange } from "../lib/plan-review";
+import { canRequestRevision, fareRangeCents, formatFareRange, type ReviseMessage } from "../lib/plan-review";
 import type { PlannedUnit } from "../lib/types";
 import { PlanFlow } from "./PlanFlow";
 
@@ -15,12 +15,13 @@ export function PlanReview({
   units: PlannedUnit[];
   estimateCents: number;
   revisionsUsed: number;
-  onRevise: (comment: string) => Promise<void>;
+  onRevise: (comment: string) => Promise<ReviseMessage>;
   revising?: boolean;
 }) {
   const t = copy.planReview;
   const [comment, setComment] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [done, setDone] = useState<string | null>(null);
   const range = fareRangeCents(estimateCents);
   const mayRevise = canRequestRevision(revisionsUsed);
 
@@ -30,8 +31,14 @@ export function PlanReview({
       return;
     }
     setError(null);
-    await onRevise(comment.trim());
-    setComment("");
+    setDone(null);
+    const message = await onRevise(comment.trim());
+    if (message.tone === "ok") {
+      setDone(message.text);
+      setComment("");
+    } else {
+      setError(message.text);
+    }
   };
 
   return (
@@ -72,6 +79,11 @@ export function PlanReview({
         </div>
       ) : (
         <p className="muted">{t.commentUsed}</p>
+      )}
+      {done && (
+        <p className="notice" role="status">
+          {done}
+        </p>
       )}
     </section>
   );
