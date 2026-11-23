@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
 import { once } from "node:events";
-import { chmod, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { delimiter, join } from "node:path";
 import { createInterface } from "node:readline";
@@ -180,6 +180,30 @@ it("proxies Fastify requests and closes a finished mission replay over stdio", a
       expect(await receive()).toMatchObject({ id: 25, result: { status: 200, body: {
         limits: { default_budget_cents: 750, unit_allowance_cents: 125 },
       } } });
+      send(26, sentinel, { value: "ghp_sentinel_token" });
+      expect(await receive()).toMatchObject({ id: 26, error: { code: -32601 } });
+      send(27, "logs.tail", { lines: 1 });
+      expect(await receive()).toMatchObject({
+        id: 27,
+        result: { lines: [expect.stringMatching(/^\S+ RPC method not found$/)] },
+      });
+      send(28, "logs.tail", { lines: 500 });
+      expect(await receive()).toMatchObject({
+        id: 28,
+        result: { lines: expect.arrayContaining([
+          expect.stringMatching(/^\S+ Sidecar started$/), expect.stringMatching(/^\S+ RPC parse error$/),
+        ]) },
+      });
+      send(29, "logs.tail", { lines: 501 });
+      expect(await receive()).toMatchObject({ id: 29, error: { code: -32602 } });
+
+      const diskLog = await readFile(join(directory, "logs", "sidecar.log"), "utf8");
+      expect(diskLog).toContain("RPC method not found");
+      expect(diskLog).not.toContain(sentinel);
+      expect(diskLog).not.toContain("ghp_sentinel_token");
+      expect(diskLog).not.toContain(directory);
+      expect(diskLog).not.toMatch(/leak@example|org-leak/);
+
       // No frame carries a secret value or anything from `claude auth status` beyond the login flag.
       const everything = raw.join("|");
       expect(everything).not.toContain(sentinel);
