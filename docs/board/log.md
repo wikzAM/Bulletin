@@ -219,3 +219,4 @@
 2026-11-23 07:24 -05:00 | Codex | Desktop 28. Rotating sidecar diagnostics and logs.tail | codex/warroom-api@ece930d | verify green (1,044 passed, three existing skips)
 2026-11-23 07:30 -05:00 | Codex | Desktop 29. Redacted NDJSON mission event export over HTTP and stdio | codex/warroom-api@a624294 | verify green (1,046 passed, three existing skips)
 2026-11-23 07:30 -05:00 | Codex | Desktop 30. Default verify on the clean tree at the main snapshot | codex/warroom-api@7c69539 | verify green (1,043 passed, three existing skips)
+07:45 | coordinator | tick 53: merged codex/warroom-api tasks 28-30 (rotating sidecar diagnostics log + logs.tail, redacted NDJSON event export, default verify record). Only conflict was append-only docs/board/log.md, kept both sides. lint + typecheck clean; apps+packages 1043 tests pass (3 skipped). Codex queue refilled 31-33.
