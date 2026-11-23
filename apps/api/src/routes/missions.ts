@@ -3,6 +3,7 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import type { EventLog } from "../store/event-log";
 import { endsMissionExecution, isInterrupted, lastMissionExecution } from "../store/mission-state";
+import { registerMissionEventExport } from "./mission-event-export";
 import type { MissionEventFeed } from "./mission-event-feed";
 import { registerMissionEventStream } from "./mission-events";
 import { missionLimits, readLedgerCharge, roundCents } from "./mission-ledger";
@@ -326,5 +327,6 @@ export function registerMissionRoutes(app: FastifyInstance, log: EventLog, feed?
       .send(receipt);
   });
 
+  registerMissionEventExport(app, log);
   registerMissionEventStream(app, log, feed);
 }

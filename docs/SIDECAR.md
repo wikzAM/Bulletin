@@ -7,6 +7,26 @@ Multiple requests can be in flight. Close stdin or call `shutdown` to stop the s
 
 From the repository root, launch it with `pnpm exec tsx apps/sidecar/src/main.ts`.
 
+## `logs.tail`
+
+The sidecar keeps a diagnostic log in the app data folder's `logs/` directory.
+It retains up to three files of 1 MiB each. `sidecar.log` is current,
+`sidecar.log.1` is the previous file, and `sidecar.log.2` is the oldest.
+Each line contains a UTC timestamp and a fixed startup, shutdown, or failure
+message. Raw errors, request parameters and paths, subprocess output,
+credentials, and environment variable values are excluded.
+
+Pass an integer `lines` from 1 through 500. The result has a `lines` array of
+the most recent retained lines in chronological order. If fewer lines exist,
+the result includes all of them. An invalid line count returns `-32602`.
+The desktop can call this method through `invoke("rpc", { method, params })`
+when building the About page's copied diagnostics.
+
+```json
+{"jsonrpc":"2.0","id":1,"method":"logs.tail","params":{"lines":50}}
+{"jsonrpc":"2.0","id":1,"result":{"lines":["2026-11-23T12:00:00.000Z Sidecar started"]}}
+```
+
 ## Event database upgrades
 
 The sidecar stores events in `events.sqlite` in the app data folder. The
@@ -111,7 +131,9 @@ Send `method`, a root-relative API `path` with an optional query string, and
 an optional JSON `body`. The result contains the HTTP `status` and the parsed
 `body`. Responses with an empty body return `null`. HTTP errors retain their
 status and body here. API route names and response shapes are shared with the
-headless service. See [API reference](API.md).
+headless service. See [API reference](API.md). The mission's
+`events.ndjson` download comes back as a string in `body`, with the same
+redacted lines as the HTTP response.
 
 ```json
 {"jsonrpc":"2.0","id":2,"method":"request","params":{"method":"GET","path":"/missions"}}

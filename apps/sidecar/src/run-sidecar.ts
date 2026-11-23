@@ -3,6 +3,7 @@ import type { createApplication } from "../../api/src/application";
 import { EnvKeychain } from "../../api/src/platform/keychain";
 import { appDataDirectory } from "../../api/src/platform/paths";
 import { MissionEventFeed } from "../../api/src/routes/mission-event-feed";
+import { SidecarDiagnostics } from "./diagnostics";
 import { createDesktopMethods } from "./methods";
 import { RpcError } from "./rpc-error";
 
@@ -56,10 +57,15 @@ async function proxy(app: Application["app"], params: Record<string, unknown>) {
 
   let raw = "";
   for await (const chunk of response.stream().setEncoding("utf8")) raw += chunk;
-  return { status: response.statusCode, body: raw === "" ? null : contentType.includes("json") ? JSON.parse(raw) : raw };
+  const json = /^(?:application\/json|[^;]+\+json)(?:;|$)/i.test(contentType);
+  return { status: response.statusCode, body: raw === "" ? null : json ? JSON.parse(raw) : raw };
 }
 
-export async function runSidecar({ app, log, stopMissions }: Application) {
+export async function runSidecar(
+  { app, log, stopMissions }: Application,
+  diagnostics = new SidecarDiagnostics(appDataDirectory()),
+) {
+  diagnostics.write("started");
   const input = createInterface({ input: process.stdin, crlfDelay: Infinity });
   const desktop = createDesktopMethods({ dataDirectory: appDataDirectory(), keychain });
   const feed = new MissionEventFeed(log);
@@ -70,6 +76,7 @@ export async function runSidecar({ app, log, stopMissions }: Application) {
   let shutdownDeadline: NodeJS.Timeout | undefined;
 
   function fail() {
+    diagnostics.write("transportFailed");
     process.exitCode = 1;
     stop();
   }
@@ -92,8 +99,16 @@ export async function runSidecar({ app, log, stopMissions }: Application) {
     switch (method) {
       case "health":
         return (await proxy(app, { method: "GET", path: "/health" })).body;
-      case "request":
-        return proxy(app, params);
+      case "request": {
+        const response = await proxy(app, params);
+        if (response.status >= 500) diagnostics.write("apiFailed");
+        return response;
+      }
+      case "logs.tail": {
+        const { lines } = params;
+        if (!integer(lines, 1) || lines > 500) throw new RpcError(-32602, "Expected an integer from 1 to 500");
+        return { lines: diagnostics.tail(lines) };
+      }
       case "shutdown":
         if (Object.keys(params).length) throw new RpcError(-32602, "Shutdown takes no parameters");
         stop();
@@ -118,7 +133,10 @@ export async function runSidecar({ app, log, stopMissions }: Application) {
       }
       default: {
         const handler = Object.hasOwn(desktop, method) ? desktop[method] : undefined;
-        if (!handler) throw new RpcError(-32601, "Method not found");
+        if (!handler) {
+          diagnostics.write("rpcUnknownMethod");
+          throw new RpcError(-32601, "Method not found");
+        }
         return handler(params);
       }
     }
@@ -129,11 +147,13 @@ export async function runSidecar({ app, log, stopMissions }: Application) {
     try {
       request = JSON.parse(line);
     } catch {
+      diagnostics.write("rpcParseError");
       await send({ id: null, error: { code: -32700, message: "Parse error" } });
       return;
     }
     if (!record(request) || request.jsonrpc !== "2.0" || typeof request.method !== "string" ||
       (Object.hasOwn(request, "id") && !rpcId(request.id))) {
+      diagnostics.write("rpcInvalidRequest");
       await send({ id: null, error: { code: -32600, message: "Invalid request" } });
       return;
     }
@@ -145,6 +165,7 @@ export async function runSidecar({ app, log, stopMissions }: Application) {
       if (id === undefined && method === "subscribe") return;
       outcome = { result: await dispatch(method, params, newSubscriptions) };
     } catch (error) {
+      if (!(error instanceof RpcError)) diagnostics.write("rpcInternalError");
       outcome = { error: error instanceof RpcError ? { code: error.code, message: error.message }
         : { code: -32603, message: "Internal error" } };
     }
@@ -180,6 +201,7 @@ export async function runSidecar({ app, log, stopMissions }: Application) {
       await Promise.all([...pending, feed.close()]);
     } finally {
       await app.close();
+      diagnostics.write("stopped");
       // Let clean shutdown exit immediately. Keep the deadline available if a
       // runner left another handle open.
       shutdownDeadline?.unref();
